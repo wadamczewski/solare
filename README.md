@@ -9,7 +9,7 @@ Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` 
 ## Obsługa
 
 - Przeciągnięcie: obrót; kółko / pinch: zoom do kursora; prawy przycisk / dwa palce: przesunięcie.
-- Kliknięcie ciała: edycja masy, promienia, prędkości, położenia, okresu i nachylenia osi.
+- Kliknięcie ciała: podgląd WebGL obok nazwy oraz edycja masy, promienia, prędkości, położenia, okresu i nachylenia osi.
 - Dwuklik: śledzenie ciała. Wybór ciała możliwy także pod logo.
 - Kliknięcie pustego miejsca: utworzenie komety, czarnej dziury lub planety. Wskazany punkt leży na płaszczyźnie ekliptyki; wysokość można zmienić polem Y.
 - Logo / S: narzędzia czasu i nawigacji, wybór ciał, przełącznik rzeczywistej skali, restart symulacji.
@@ -18,7 +18,7 @@ Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` 
 
 ## Model i granice dokładności
 
-Fizyka pracuje w AU, masach słonecznych i dniach, niezależnie od wizualnego powiększenia planet. Wszystkie 32 domyślne ciała (Słońce, osiem planet, 23 wybrane księżyce) i dodane obiekty wzajemnie oddziałują według grawitacji Newtona. Velocity Verlet z krokiem ograniczanym przez czas dynamiczny i zbliżenia. Kolizje przy rzeczywistych promieniach łączą ciała, zachowując masę i pęd. Początkowy układ jest barycentryczny. Początkowe fazy orbit są skomponowane, nie odpowiadają aktualnej efemerydzie. Parametry planet bazują na tabelach JPL.
+Fizyka pracuje w AU, masach słonecznych i dniach, niezależnie od wizualnego powiększenia planet. Wszystkie 32 domyślne ciała (Słońce, osiem planet, 23 wybrane księżyce) i dodane obiekty wzajemnie oddziałują według grawitacji Newtona. Velocity Verlet z krokiem ograniczanym przez czas dynamiczny i zbliżenia. Kolizje przy rzeczywistych promieniach rozróżniają łączenie, wyrzut odłamków, rozbijające uderzenie, skośne zderzenie i pochłanianie. Masa i pęd liniowy są zachowane. Początkowy układ jest barycentryczny. Początkowe fazy orbit są skomponowane, nie odpowiadają aktualnej efemerydzie. Parametry planet bazują na tabelach JPL.
 
 To nie jest kompletna symulacja wszystkich rzeczywistych warunków. Brak OTW, pływów, ewolucji termicznej, deformacji, momentów sił, pełnej dynamiki osi oraz perturbacji relatywistycznych. Czarna dziura jest masą punktową z promieniem Schwarzschilda jako granicą pochłaniania; pierścień jest ilustracją, nie modelem akrecji ani soczewkowania. Orientacje obrotu mają zadany okres i nachylenie, nie ewoluują od momentów sił. Przy bardzo ekstremalnych masach dokładność jest ograniczona.
 
@@ -36,3 +36,11 @@ Testy obejmują zachowanie pędu i energii, stabilność orbity przez rok, zwią
 
 Parametry: https://ssd.jpl.nasa.gov/planets/phys_par.html oraz https://ssd.jpl.nasa.gov/astro_par.html.
 Tekstury: Solar System Scope / INOVE, CC BY 4.0. Szczegóły i linki w `public/credits.txt`, dostępnym także pod `/credits.txt`.
+
+## Rozszerzony model zderzeń
+
+`src/collisions.js` porównuje energię kinetyczną ruchu względnego z przybliżoną energią wiązania grawitacyjnego oraz uwzględnia kąt i prędkość ucieczki. Jest to autorska heurystyka inspirowana rozróżnieniem reżimów opisanym przez Leinhardt i Stewart, nie implementacja ich skalibrowanych praw: https://arxiv.org/abs/1106.6084.
+
+Powolne zderzenia łączą ciała. Energetyczne uderzenia skalistych ciał tworzą do sześciu masywnych odłamków w symetrycznych parach. Uderzenia skośne mogą rozdzielić ciała, rozpraszając część energii ruchu normalnego. Ciała gazowe przyjmują uproszczony model akrecji; czarna dziura zawsze pozostaje pochłaniającym obiektem, a jej horyzont rośnie wraz z masą. Limit 100 ciał ogranicza liczbę odłamków, zachowując nierozdzieloną masę w pozostałości.
+
+Odłamki uczestniczą w pełnej grawitacji N-body i mogą ponownie zderzać się z innymi ciałami. Błysk i pył są krótkotrwałą wizualizacją WebGL, nie dodatkową masą. Kontrola kolizji następuje przed integracją i po każdym podkroku; tempo zatrzymuje się wraz z pauzą. Model zachowuje masę i pęd liniowy, lecz nie odtwarza hydrodynamiki, kraterów, przemian fazowych, chemii ani pełnego bilansu momentu pędu i energii wewnętrznej. Podgląd obraca obiekt z powolnym tempem prezentacyjnym niezależnym od przyspieszenia czasu i pokazuje jego kształt, teksturę, pierścienie oraz nachylenie osi.
