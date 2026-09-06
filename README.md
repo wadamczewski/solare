@@ -66,3 +66,5 @@ Przełącznik „Rzeczywiste rozmiary i odległości” wyłącza zbliżenia i p
 Prawa pionowa oś pokazuje etapy; każdy odcinek między sąsiednimi planetami jest wypełniany liniowo według przebytej odległości. Odstępy etykiet są równe dla czytelności, więc cała oś jest skalą etapową, nie jednolitą skalą AU. Jasna korona Słońca jest efektem addytywnym WebGL z obsługą logarytmicznego bufora głębokości, a rozmiar poświaty zależy od wybranej skali.
 
 Dolne panele mają tło o kryciu 26%, bez rozmycia sceny. Kamera przelotu jest przesunięta bocznie w płaszczyźnie XZ, dzięki czemu planeta pojawia się od lewej krawędzi na środkowej wysokości kadru, zamiast spod dolnego panelu.
+
+Kliknięcie nazwy planety na prawej osi (lub Enter / Spacja po ustawieniu fokusu) przenosi lot do jej odległości demonstracyjnej. Czas jest przeliczany jako droga / c; odczyty, kamera i postęp są aktualizowane razem. Zachowane zostają przyspieszenie, pauza i tryb skali. Można przeskakiwać w obie strony.
