@@ -1,6 +1,6 @@
 # solare°
 
-Pełnoekranowa piaskownica WebGL z wzajemną grawitacją N-body. Domyślnie wyłącznie logo i reset widoku.
+Pełnoekranowa piaskownica WebGL z wzajemną grawitacją N-body. Stale widoczne logo, pełny reset oraz dolny pasek czasu i lotu światła.
 
 ## Uruchomienie
 
@@ -49,7 +49,7 @@ Odłamki uczestniczą w pełnej grawitacji N-body i mogą ponownie zderzać się
 
 Górny Reset oraz R przywracają cały początkowy układ, usuwają nowe obiekty, odłamki i efekty, zerują czas, zamykają edytor, kończą lot światła i przywracają ustawienia czasu, skali oraz kamery. Przycisk celownika pod logo pozostaje osobnym resetem samego widoku.
 
-Pod logo dostępny jest przycisk „Symulacja prędkości światła”. Kamera rozpoczyna prostoliniowy lot od środka Słońca w kierunku początkowego położenia Ziemi, patrząc wstecz na Słońce. Odległości i rozmiary przechodzą na rzeczywistą skalę. Prędkość wynosi dokładnie 299 792,458 km/s; 1 AU wymaga 499,004783836 s rzeczywistego czasu. Zegar opiera się na monotonicznym czasie przeglądarki, obejmuje przerwy między klatkami i ukrycie karty, a pauza wyklucza wstrzymany czas. Planety w tym trybie ewoluują w tempie jednej sekundy symulacji na sekundę rzeczywistą. Przy długim uśpieniu obliczenia grawitacji nadrabiają zaległość w ograniczonych porcjach, a kamera od razu pokazuje aktualną odległość.
+Na stałym dolnym pasku dostępne są Pauza / Wznów, wybór tempa i przycisk „Lot światła”; narzędzia pod logo zapewniają też dostęp do tych funkcji. Kamera rozpoczyna prostoliniowy lot od środka Słońca w kierunku początkowego położenia Ziemi, patrząc wstecz na Słońce. Odległości i rozmiary przechodzą na rzeczywistą skalę. Prędkość wynosi dokładnie 299 792,458 km/s; 1 AU wymaga 499,004783836 s rzeczywistego czasu. Zegar opiera się na monotonicznym czasie przeglądarki, obejmuje przerwy między klatkami i ukrycie karty, a pauza wyklucza wstrzymany czas. Planety w tym trybie ewoluują w tempie jednej sekundy symulacji na sekundę rzeczywistą. Przy długim uśpieniu obliczenia grawitacji nadrabiają zaległość w ograniczonych porcjach, a kamera od razu pokazuje aktualną odległość.
 
 Kamera przecina odległości orbitalne, a nie kolejno same planety: rzeczywiste planety nie leżą na jednej prostej. Wskaźnik podaje czasy dla nominalnych półosi orbit, nie obiecuje spotkania z poruszającą się planetą. W pierwszych około 2,3 sekundach punkt kamery jest jeszcze wewnątrz promienia Słońca. To geometryczna wizualizacja propagacji w próżni w układzie współrzędnych symulacji, nie fizyczny układ odniesienia fotonu, transport promieniowania we wnętrzu gwiazdy ani obraz uwzględniający opóźnienie światła, aberrację i względność.
 
