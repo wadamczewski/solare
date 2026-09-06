@@ -1,0 +1,6 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {LightFlight,LIGHT_SPEED_AU_S,lightTravelSeconds} from '../src/light-flight.js';
+test('light travels exactly one AU in 499.004783836 seconds',()=>{const time=lightTravelSeconds(1);assert.ok(Math.abs(time-499.004783836)<1e-9);const f=new LightFlight([0,0,0],[1,0,0],0);assert.ok(Math.abs(f.position(time*1000)[0]-1)<1e-12)});
+test('trajectory is straight and frame-rate independent including background gaps',()=>{const f=new LightFlight([3,2,1],[0,0,9],1000);assert.deepEqual(f.position(1000),[3,2,1]);const p=f.position(3601000);assert.equal(p[0],3);assert.equal(p[1],2);assert.equal(p[2],1+3600*LIGHT_SPEED_AU_S)});
+test('pause freezes flight, resume excludes paused wall time',()=>{const f=new LightFlight([0,0,0],[1,0,0],0);f.pause(2000);assert.equal(f.seconds(10000),2);f.pause(4000);f.resume(12000);assert.equal(f.seconds(15000),5);f.resume(16000);assert.equal(f.seconds(16000),6)});
+test('new flight always starts from zero even after another flight',()=>{const a=new LightFlight([0,0,0],[1,0,0],0);a.pause(30000);const b=new LightFlight([0,0,0],[1,0,0],50000);assert.equal(b.seconds(50000),0)});

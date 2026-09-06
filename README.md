@@ -13,7 +13,7 @@ Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` 
 - Dwuklik: śledzenie ciała. Wybór ciała możliwy także pod logo.
 - Kliknięcie pustego miejsca: utworzenie komety, czarnej dziury lub planety. Wskazany punkt leży na płaszczyźnie ekliptyki; wysokość można zmienić polem Y.
 - Logo / S: narzędzia czasu i nawigacji, wybór ciał, przełącznik rzeczywistej skali, restart symulacji.
-- Spacja: pauza; A: dodawanie; R / Reset: wyłącznie reset kamery; Escape: zamknięcie panelu.
+- Spacja: pauza; A: dodawanie; R / Reset: pełne przywrócenie początkowego układu, ustawień i kamery; Escape: zamknięcie panelu.
 - „Zamień orbitę” przenosi także księżyce wraz z pozycją i prędkością ich planety.
 
 ## Model i granice dokładności
@@ -44,3 +44,13 @@ Tekstury: Solar System Scope / INOVE, CC BY 4.0. Szczegóły i linki w `public/c
 Powolne zderzenia łączą ciała. Energetyczne uderzenia skalistych ciał tworzą do sześciu masywnych odłamków w symetrycznych parach. Uderzenia skośne mogą rozdzielić ciała, rozpraszając część energii ruchu normalnego. Ciała gazowe przyjmują uproszczony model akrecji; czarna dziura zawsze pozostaje pochłaniającym obiektem, a jej horyzont rośnie wraz z masą. Limit 100 ciał ogranicza liczbę odłamków, zachowując nierozdzieloną masę w pozostałości.
 
 Odłamki uczestniczą w pełnej grawitacji N-body i mogą ponownie zderzać się z innymi ciałami. Błysk i pył są krótkotrwałą wizualizacją WebGL, nie dodatkową masą. Kontrola kolizji następuje przed integracją i po każdym podkroku; tempo zatrzymuje się wraz z pauzą. Model zachowuje masę i pęd liniowy, lecz nie odtwarza hydrodynamiki, kraterów, przemian fazowych, chemii ani pełnego bilansu momentu pędu i energii wewnętrznej. Podgląd obraca obiekt z powolnym tempem prezentacyjnym niezależnym od przyspieszenia czasu i pokazuje jego kształt, teksturę, pierścienie oraz nachylenie osi.
+
+## Reset i prędkość światła
+
+Górny Reset oraz R przywracają cały początkowy układ, usuwają nowe obiekty, odłamki i efekty, zerują czas, zamykają edytor, kończą lot światła i przywracają ustawienia czasu, skali oraz kamery. Przycisk celownika pod logo pozostaje osobnym resetem samego widoku.
+
+Pod logo dostępny jest przycisk „Symulacja prędkości światła”. Kamera rozpoczyna prostoliniowy lot od środka Słońca w kierunku początkowego położenia Ziemi, patrząc wstecz na Słońce. Odległości i rozmiary przechodzą na rzeczywistą skalę. Prędkość wynosi dokładnie 299 792,458 km/s; 1 AU wymaga 499,004783836 s rzeczywistego czasu. Zegar opiera się na monotonicznym czasie przeglądarki, obejmuje przerwy między klatkami i ukrycie karty, a pauza wyklucza wstrzymany czas. Planety w tym trybie ewoluują w tempie jednej sekundy symulacji na sekundę rzeczywistą. Przy długim uśpieniu obliczenia grawitacji nadrabiają zaległość w ograniczonych porcjach, a kamera od razu pokazuje aktualną odległość.
+
+Kamera przecina odległości orbitalne, a nie kolejno same planety: rzeczywiste planety nie leżą na jednej prostej. Wskaźnik podaje czasy dla nominalnych półosi orbit, nie obiecuje spotkania z poruszającą się planetą. W pierwszych około 2,3 sekundach punkt kamery jest jeszcze wewnątrz promienia Słońca. To geometryczna wizualizacja propagacji w próżni w układzie współrzędnych symulacji, nie fizyczny układ odniesienia fotonu, transport promieniowania we wnętrzu gwiazdy ani obraz uwzględniający opóźnienie światła, aberrację i względność.
+
+Pauza oraz zakończenie lotu są dostępne na dolnym pasku; Escape kończy lot. Zakończenie przywraca wcześniejsze tempo, skalę i położenie kamery, zachowując rozwinięty stan ciał. Reset przywraca wszystko do początku. Stałe: https://ssd.jpl.nasa.gov/astro_par.html.
