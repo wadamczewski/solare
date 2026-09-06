@@ -24,7 +24,7 @@ To nie jest kompletna symulacja wszystkich rzeczywistych warunków. Brak OTW, p�
 
 Nie obejmuje wszystkich znanych księżyców. Mapy planet i ziemskiego Księżyca są astronomicznymi mapami powierzchni / atmosfery; pozostałe księżyce mają przybliżone, barwione tekstury Księżyca, a nieregularne satelity przybliżoną geometrię. Pas planetoid i ogony komet są dekoracyjnymi cząstkami bez wzajemnej grawitacji. Ogon komety wskazuje od Słońca, ale nie modeluje fizyki gazu.
 
-Widok „Czytelny” powiększa promienie i nieliniowo skraca odległości. „Rzeczywista skala” przywraca proporcje przestrzeni i promieni (mikroskopijne ciała mają minimalny promień renderowania). Cienkie orbity to chwilowe oskulacyjne rozwiązania dwuciałowe, aktualizowane z bieżących stanów; ślady pokazują faktyczny przebieg symulacji. Przy bardzo bliskich spotkaniach i szybkim tempie limit pracy klatki spowalnia upływ symulacji, zamiast zwiększać krok i destabilizować układ.
+Widok „Czytelny” powiększa promienie i nieliniowo skraca odległości. „Rzeczywista skala” przywraca proporcje przestrzeni i promieni. Cienkie orbity to chwilowe oskulacyjne rozwiązania dwuciałowe, aktualizowane z bieżących stanów; ślady pokazują faktyczny przebieg symulacji. Przy bardzo bliskich spotkaniach i szybkim tempie limit pracy klatki spowalnia upływ symulacji, zamiast zwiększać krok i destabilizować układ.
 
 WebGL używa high-performance, dynamicznych buforów pozycji, wielkości, koloru, jasności i parametrów punktów, limitu DPR 2 i lokalnych tekstur. Maksymalnie 100 ciał. Brak Canvas 2D, zdalnych zapytań podczas działania i serwera danych.
 
