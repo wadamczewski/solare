@@ -56,3 +56,11 @@ Na czas demonstracji widoczne planety są ustawione na jednej linii na nominalny
 Panel podaje przebytą drogę w AU i milionach kilometrów, czas podróży, następne ciało, pozostałą odległość, czas lotu oraz czas oglądania przy bieżącym przyspieszeniu. Pasek etapów wyróżnia minięte planety i kolejną. Podpisy przy widocznych najbliższych planetach pomagają zorientować się w scenie.
 
 Zakończenie lotu, Escape, rozpoczęcie edycji lub dodawania przywracają poprzedni widok i układ. Reset dodatkowo odtwarza cały stan początkowy. To demonstracja propagacji w próżni, bez modelowania relatywistycznego obrazu obserwatora. Stałe: https://ssd.jpl.nasa.gov/astro_par.html.
+
+## Kadrowanie i skala przelotu
+
+Domyślny lot używa płynnego zbliżenia kamery do każdej planety. W pobliżu minięcia odległość kamery wynosi około 6,4 promienia renderowanego ciała, przy polu widzenia 75°, co daje tarczę zbliżoną do 1/5 wysokości kadru. Kierunek patrzenia płynnie obejmuje Słońce i planetę, eksponując jej oświetlony fragment. To ruch kamery demonstracyjnej; licznik nadal opisuje propagację światła wzdłuż trasy, a nie długość odchylonej ścieżki kamery.
+
+Przełącznik „Rzeczywiste rozmiary i odległości” wyłącza zbliżenia i powiększenia ciał: promienie są przeliczane z kilometrów do tej samej skali AU co pozycje, także dla Słońca i księżyców. Odległości planet w obu trybach bazują na nominalnych półosiach orbit. Wyrównanie planet pozostaje demonstracyjne; wyjście z lotu przywraca właściwy układ. Przy rzeczywistej skali planety nie mają wymuszonego rozmiaru 1/5 ekranu.
+
+Prawa pionowa oś pokazuje etapy; każdy odcinek między sąsiednimi planetami jest wypełniany liniowo według przebytej odległości. Odstępy etykiet są równe dla czytelności, więc cała oś jest skalą etapową, nie jednolitą skalą AU. Jasna korona Słońca jest efektem addytywnym WebGL z obsługą logarytmicznego bufora głębokości, a rozmiar poświaty zależy od wybranej skali.
