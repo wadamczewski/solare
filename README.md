@@ -64,3 +64,5 @@ Domyślny lot używa płynnego zbliżenia kamery do każdej planety. W pobliżu 
 Przełącznik „Rzeczywiste rozmiary i odległości” wyłącza zbliżenia i powiększenia ciał: promienie są przeliczane z kilometrów do tej samej skali AU co pozycje, także dla Słońca i księżyców. Odległości planet w obu trybach bazują na nominalnych półosiach orbit. Wyrównanie planet pozostaje demonstracyjne; wyjście z lotu przywraca właściwy układ. Przy rzeczywistej skali planety nie mają wymuszonego rozmiaru 1/5 ekranu.
 
 Prawa pionowa oś pokazuje etapy; każdy odcinek między sąsiednimi planetami jest wypełniany liniowo według przebytej odległości. Odstępy etykiet są równe dla czytelności, więc cała oś jest skalą etapową, nie jednolitą skalą AU. Jasna korona Słońca jest efektem addytywnym WebGL z obsługą logarytmicznego bufora głębokości, a rozmiar poświaty zależy od wybranej skali.
+
+Dolne panele mają tło o kryciu 26%, bez rozmycia sceny. Kamera przelotu jest przesunięta bocznie w płaszczyźnie XZ, dzięki czemu planeta pojawia się od lewej krawędzi na środkowej wysokości kadru, zamiast spod dolnego panelu.
