@@ -1,0 +1,17 @@
+solare° — asset attribution
+
+Planetary and Moon texture maps: Solar System Scope / INOVE.
+Source: https://www.solarsystemscope.com/textures/
+License: Creative Commons Attribution 4.0 International
+https://creativecommons.org/licenses/by/4.0/
+Files: textures/earth.jpg, jupiter.jpg, mars.jpg, mercury.jpg, moon.jpg,
+neptune.jpg, saturn.jpg, sun.jpg, uranus.jpg, venus.jpg.
+Original 2K maps are rendered with lighting, exposure and, for satellite
+approximations, color tints. Venus uses the atmosphere map.
+No external website code or copy was incorporated.
+
+Reference physical parameters:
+https://ssd.jpl.nasa.gov/planets/phys_par.html
+https://ssd.jpl.nasa.gov/astro_par.html
+
+Third-party software: Three.js (MIT), Vite (MIT).
