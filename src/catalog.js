@@ -7,6 +7,7 @@ const exoplanet = (id, name, mass, radius, textureKey, color, note, gas=false) =
 export const catalog = [
  {id:'comet',key:'comet',name:'Kometa',group:'Obiekty ogólne',mass:1.1e-16,radius:4,spin:12,tilt:35,color:'#a1d6df',note:'Przykładowe jądro komety. Masę i promień możesz zmieniać niezależnie.'},
  {...blackHole('blackhole','Supermasywna czarna dziura',1e6),group:'Obiekty ogólne'},
+ {...blackHole('custom-blackhole','Własna czarna dziura',10),group:'Obiekty ogólne',note:'Ustaw własną masę w kg lub masach Słońca, położenie i wektor ruchu. Horyzont wynika z masy. Model nierotującej czarnej dziury; bez efektów relatywistycznych.'},
  ...planets.map(p=>({id:p[1],name:p[0],key:p[1],group:'Układ Słoneczny',mass:p[5],radius:p[6],spin:p[7],tilt:p[8],color:p[9],note:'Przybliżona masa i średni promień planety. Nowa kopia powstaje we wskazanym miejscu.'})),
  blackHole('sagittarius-a','Sagittarius A*',4e6,'https://science.nasa.gov/universe/black-holes/'),
  blackHole('m87','M87*',6.5e9,'https://www.jpl.nasa.gov/edu/resources/teachable-moment/how-scientists-captured-the-first-image-of-a-black-hole/'),
