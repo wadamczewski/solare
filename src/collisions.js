@@ -24,17 +24,20 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],color:primary.color};
   touched.add(a.id);touched.add(b.id);
   // Grazing rocky impact: dissipate normal kinetic energy, retain tangential motion.
-  if(!contactTest&&!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
-   const incoming=dot(rel,normal);if(incoming<0){const impulse=-(1+.25)*incoming/(1/a.mass+1/b.mass);for(let k=0;k<3;k++){a.v[k]-=impulse*normal[k]/a.mass;b.v[k]+=impulse*normal[k]/b.mass}}
-   const separation=contact*1.002-distance;for(let k=0;k<3;k++){a.p[k]-=normal[k]*separation*b.mass/m;b.p[k]+=normal[k]*separation*a.mass/m}
-   event.kind='graze';events.push(event);continue;
+  if(!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
+   const incoming=dot(rel,normal);if(incoming>=0&&a.lastGraze===b.id&&b.lastGraze===a.id)continue;if(incoming<0){const impulse=-(1+.25)*incoming/(1/a.mass+1/b.mass);for(let k=0;k<3;k++){a.v[k]-=impulse*normal[k]/a.mass;b.v[k]+=impulse*normal[k]/b.mass}}
+   a.lastGraze=b.id;b.lastGraze=a.id;
+   const separation=contactTest?0:contact*1.002-distance;for(let k=0;k<3;k++){a.p[k]-=normal[k]*separation*b.mass/m;b.p[k]+=normal[k]*separation*a.mass/m}
+   a.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal};b.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal.map(x=>-x)};event.kind='graze';events.push(event);continue;
   }
   let fraction=blackhole||gas||a.key==='fragment'||b.key==='fragment'||severity<.15?0:Math.min(.65,severity*.22);
   const slots=Math.max(0,maxBodies-(bodies.length-1));const fragments=fraction>0?Math.min(6,Math.floor(slots/2)*2):0;
   if(!fragments)fraction=0;
   const remnantMass=m*(1-fraction),fragmentMass=m*fraction/Math.max(1,fragments);
   const remnantRadius=volumeRadius*Math.cbrt(1-fraction),fragmentRadius=volumeRadius*Math.cbrt(fraction/Math.max(1,fragments));
+  const hitDirection=primary===a?normal:normal.map(x=>-x);
   primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
+  if(!blackhole)primary.damage={kind:gas?'accrete':fraction>.25?'disrupt':'crater',strength:Math.min(.85,.12+severity*.25),direction:hitDirection};
   primary.radius=blackhole?collisionRadius(primary)*AU:remnantRadius;
   if(primary.parent===secondary.id)delete primary.parent;
   for(const child of bodies)if(child.parent===secondary.id)child.parent=primary.id;
@@ -44,7 +47,9 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const launch=fraction?Math.sqrt(.4*specificEnergy/fraction):0;
   for(let k=0;k<fragments;k++){
    const pair=Math.floor(k/2),sign=k%2?1:-1,t=pair*2.399+.4;
-   const direction=[Math.cos(t)*.866,.5,Math.sin(t)*.866].map(x=>x*sign);
+   const tangent=Math.abs(normal[1])<.9?[normal[2],0,-normal[0]]:[0,-normal[2],normal[1]],length=norm(tangent);
+   const side=tangent.map(x=>x/length),cross=[normal[1]*side[2]-normal[2]*side[1],normal[2]*side[0]-normal[0]*side[2],normal[0]*side[1]-normal[1]*side[0]];
+   const direction=normal.map((x,i)=>sign*(.8*x+.6*(Math.cos(t)*side[i]+Math.sin(t)*cross[i])));
    const offset=(remnantRadius+fragmentRadius)*2.5/AU;
    const fragment=body({name:`Odłamek · ${primary.name}`,key:'fragment',irregular:true,mass:fragmentMass,radius:fragmentRadius,spin:primary.spin,tilt:primary.tilt,color:primary.color,p:center.map((x,k)=>x+direction[k]*offset),v:velocity.map((x,k)=>x+direction[k]*launch)});
    bodies.push(fragment);touched.add(fragment.id);event.added.push(fragment.id);

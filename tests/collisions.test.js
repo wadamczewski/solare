@@ -18,3 +18,11 @@ test('fragment impacts do not recursively multiply debris',()=>{
  const a=body({key:'fragment',mass:1e-10,radius:100,p:[0,0,0],v:[1,0,0]}),b=body({key:'fragment',mass:1e-10,radius:100,p:[0,0,0],v:[-1,0,0]});
  const bs=[a,b],events=resolveCollisions(bs);assert.equal(events[0].added.length,0);assert.equal(bs.length,1);assert.equal(bs[0].mass,2e-10);
 });
+test('visual grazing changes both trajectories, conserves momentum and does not repeat while separating',()=>{
+ const bs=pair(.009,true),old=structuredClone(bs);const events=resolveCollisions(bs,{contactTest:()=>true});
+ assert.equal(events[0].kind,'graze');conserved(old,bs);assert.notEqual(bs[0].v[0],old[0].v[0]);assert.notEqual(bs[1].v[0],old[1].v[0]);assert.equal(bs[0].damage.kind,'graze');assert.equal(resolveCollisions(bs,{contactTest:()=>true}).length,0);
+});
+test('merged trajectory follows mass weighted incoming momentum and retains damage',()=>{
+ const bs=pair(.0001);bs[0].v=[.0001,.0002,0];bs[1].v=[0,0,.0001];bs[0].mass*=2;const old=structuredClone(bs);resolveCollisions(bs);conserved(old,bs);
+ assert.ok(Math.abs(bs[0].v[0]-.0002/3)<1e-12);assert.ok(bs[0].damage.strength>0);
+});
