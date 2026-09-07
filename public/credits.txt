@@ -15,3 +15,10 @@ https://ssd.jpl.nasa.gov/planets/phys_par.html
 https://ssd.jpl.nasa.gov/astro_par.html
 
 Third-party software: Three.js (MIT), Vite (MIT).
+
+2026-09-07 visible-light appearance audit:
+Original illustration maps remain unchanged on disk. Sun map is no longer
+rendered; white photosphere replaces its false-color appearance. Venus,
+Uranus and Neptune use documented approximate visible-light display profiles;
+Mars saturation is reduced. These are not spectrally calibrated products.
+Sources and limitations: COLOR-AUDIT.md in the source repository.

@@ -22,7 +22,7 @@ export const moons=[
 let nextId=0;
 export function body(o){return {id:++nextId,p:[0,0,0],v:[0,0,0],mass:1,radius:1,spin:24,tilt:0,color:'#bab9b4',...o};}
 export function initialSystem(){
- const result=[body({name:'Słońce',key:'sun',mass:1,radius:695700,spin:609.12,tilt:7.25,color:'#ffc475'})];
+ const result=[body({name:'Słońce',key:'sun',mass:1,radius:695700,spin:609.12,tilt:7.25,color:'#ffffff'})];
  for(const [name,key,a,e,inc,mass,radius,spin,tilt,color,theta] of planets){
   const r=a*(1-e*e)/(1+e*Math.cos(theta)),h=Math.sqrt(G*a*(1-e*e)),rad=inc*Math.PI/180;
   result.push(body({name,key,a,e,mass,radius,spin,tilt,color,p:[r*Math.cos(theta),r*Math.sin(theta)*Math.sin(rad),r*Math.sin(theta)*Math.cos(rad)],v:[-G/h*Math.sin(theta),G/h*(e+Math.cos(theta))*Math.sin(rad),G/h*(e+Math.cos(theta))*Math.cos(rad)]}));
