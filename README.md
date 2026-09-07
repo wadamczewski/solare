@@ -80,3 +80,22 @@ Usunięto obcinanie kolejki do 0,5 dnia i stały limit 180 mikrokroków na klatk
 Szybki integrator rozdziela dominujący ruch związanych księżyców (analityczny krok Keplera) od pozostałych przyspieszeń N-body (numeryczne kroki prędkości). Wszystkie ciała uczestniczą w obliczaniu sił, a pływowe różnice przyspieszeń ograniczają krok. Maksimum to 0,25 dnia. Bliskie kontakty, przeloty przecinające obszar kolizji oraz niezwiązane lub silnie ekscentryczne księżyce używają bezpośredniego integratora z mniejszym krokiem. To przybliżony integrator hierarchiczny, nie pełny model efemeryd. Zachowanie masy i pędu w samym rozwiązywaniu kolizji pozostaje bez zmian.
 
 Test 60 kolejnych porcji czasu po 1/60 s przy 365 dni/s odtwarza 365 dni, około 0,998 obiegu Ziemi i zachowuje związanie wszystkich uwzględnionych księżyców. Osobny test porównuje położenie Ziemi z bezpośrednim integratorem. Przy przeciążeniu urządzenia lub ekstremalnych zderzeniach renderowanie może chwilowo pozostawać za zadanym czasem; opóźnienie jest zachowywane i nadrabiane, a nie potajemnie odrzucane.
+
+## Katalog ciał i tworzenie
+
+Formularz „Dodaj ciało” wypełnia masę w kg i promień w km na podstawie wybranego wzorca. Obie wartości trafiają do fizyki: masa steruje przyciąganiem, promień kontaktem i rozmiarem w rzeczywistej skali. Średnica i masa względem Słońca aktualizują się na bieżąco. W widoku czytelnym rozmiary nadal są celowo przeskalowane. Ciężar zależy od lokalnego pola grawitacyjnego, dlatego parametrem ciała jest masa.
+
+Katalog obejmuje planety Układu Słonecznego, przykładową kometę, domyślną supermasywną czarną dziurę (milion mas Słońca), Sagittarius A*, M87*, Cygnus X-1, Proxima Centauri b, TRAPPIST-1 e, 51 Pegasi b i 55 Cancri e. Ciała są kopiami wstawianymi do lokalnej symulacji; ich macierzyste gwiazdy i rzeczywiste położenia w Galaktyce nie są importowane.
+
+Promień czarnej dziury jest wyprowadzany z masy jako promień Schwarzschilda, także przy edycji i pochłanianiu. Nie jest niezależnym polem. To model nierotującej czarnej dziury; silnik pozostaje newtonowski i nie symuluje pełnej ogólnej teorii względności. Cygnus X-1 jest czarną dziurą o masie gwiazdowej, nie supermasywną.
+
+Dane katalogowe sprawdzono 7 września 2026. Źródła i uwagi są też dostępne bezpośrednio w formularzu i `src/catalog.js`:
+- [Sagittarius A*, NASA](https://science.nasa.gov/universe/black-holes/): około 4 mln mas Słońca.
+- [M87*, NASA/JPL](https://www.jpl.nasa.gov/edu/resources/teachable-moment/how-scientists-captured-the-first-image-of-a-black-hole/): około 6,5 mld mas Słońca.
+- [Cygnus X-1, NASA](https://www.nasa.gov/universe/nasas-ixpe-reveals-shape-orientation-of-hot-matter-around-black-hole/): około 21 mas Słońca.
+- [Proxima Centauri b](https://science.nasa.gov/exoplanet-catalog/proxima-centauri-b/): 1,055 mas Ziemi; szacowany promień 1,02 promienia Ziemi.
+- [TRAPPIST-1 e](https://science.nasa.gov/exoplanet-catalog/trappist-1-e/): 0,692 masy i 0,92 promienia Ziemi.
+- [51 Pegasi b](https://science.nasa.gov/exoplanet-catalog/51-pegasi-b/): 0,61 masy Jowisza; szacowany promień 1,26 promienia Jowisza.
+- [55 Cancri e](https://science.nasa.gov/exoplanet-catalog/55-cancri-e/): 7,99 mas Ziemi i 1,875 promienia Ziemi.
+
+Wartości są przybliżone, bez przedziałów niepewności; używamy tabel parametrów NASA. Przeliczenia stosują średnie promienie Ziemi/Jowisza używane w aplikacji. Tekstury egzoplanet są umownymi, zabarwionymi teksturami analogicznych ciał, nie mapami ich powierzchni. Nieznane okresy obrotu i osie otrzymują jawne założenia 24 h / 0°. Ustawienia można potem edytować.

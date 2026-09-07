@@ -1,8 +1,9 @@
-import {AU,G,body} from './physics.js';
+import {horizonRadius} from './catalog.js';
+import {AU,G,SOLAR_MASS,body} from './physics.js';
 const dot=(a,b)=>a.reduce((s,x,k)=>s+x*b[k],0);
 const sub=(a,b)=>a.map((x,k)=>x-b[k]);
 const norm=a=>Math.hypot(...a);
-export const collisionRadius=b=>b.key==='blackhole'?2*G*b.mass/173.1446**2:b.radius/AU;
+export const collisionRadius=b=>b.key==='blackhole'?horizonRadius(b.mass*SOLAR_MASS)/AU:b.radius/AU;
 
 // Reduced-order gravity-regime model, not hydrodynamics or fitted SPH scaling laws.
 export function resolveCollisions(bodies,{maxBodies=100}={}){
@@ -18,7 +19,7 @@ export function resolveCollisions(bodies,{maxBodies=100}={}){
   const specificEnergy=.5*mu*speed**2/m,binding=.6*G*m/(volumeRadius/AU),severity=specificEnergy/Math.max(binding,1e-30);
   const grazing=speed>0?Math.sqrt(Math.max(0,1-(dot(rel,normal)/speed)**2)):0;
   const blackhole=a.key==='blackhole'||b.key==='blackhole';
-  const gas=['sun','jupiter','saturn','uranus','neptune'].includes(a.key)||['sun','jupiter','saturn','uranus','neptune'].includes(b.key);
+  const gas=a.gas||b.gas||['sun','jupiter','saturn','uranus','neptune'].includes(a.key)||['sun','jupiter','saturn','uranus','neptune'].includes(b.key);
   const primary=blackhole?(a.key==='blackhole'?a:b):(a.mass>=b.mass?a:b),secondary=primary===a?b:a;
   const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],color:primary.color};
   touched.add(a.id);touched.add(b.id);
