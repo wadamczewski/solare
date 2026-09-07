@@ -6,12 +6,12 @@ const norm=a=>Math.hypot(...a);
 export const collisionRadius=b=>b.key==='blackhole'?horizonRadius(b.mass*SOLAR_MASS)/AU:b.radius/AU;
 
 // Reduced-order gravity-regime model, not hydrodynamics or fitted SPH scaling laws.
-export function resolveCollisions(bodies,{maxBodies=100}={}){
+export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
  const events=[],touched=new Set();
  for(let i=0;i<bodies.length;i++)for(let j=bodies.length-1;j>i;j--){
   const a=bodies[i],b=bodies[j];if(touched.has(a.id)||touched.has(b.id))continue;
   const delta=sub(b.p,a.p),distance=norm(delta),contact=collisionRadius(a)+collisionRadius(b);
-  if(distance>contact)continue;
+  if(contactTest?!contactTest(a,b):distance>contact)continue;
   const m=a.mass+b.mass,rel=sub(b.v,a.v),speed=norm(rel),mu=a.mass*b.mass/m;
   const normal=distance>1e-20?delta.map(x=>x/distance):speed>0?rel.map(x=>-x/speed):[1,0,0];
   const center=a.p.map((x,k)=>(x*a.mass+b.p[k]*b.mass)/m),velocity=a.v.map((x,k)=>(x*a.mass+b.v[k]*b.mass)/m);
@@ -24,7 +24,7 @@ export function resolveCollisions(bodies,{maxBodies=100}={}){
   const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],color:primary.color};
   touched.add(a.id);touched.add(b.id);
   // Grazing rocky impact: dissipate normal kinetic energy, retain tangential motion.
-  if(!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
+  if(!contactTest&&!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
    const incoming=dot(rel,normal);if(incoming<0){const impulse=-(1+.25)*incoming/(1/a.mass+1/b.mass);for(let k=0;k<3;k++){a.v[k]-=impulse*normal[k]/a.mass;b.v[k]+=impulse*normal[k]/b.mass}}
    const separation=contact*1.002-distance;for(let k=0;k<3;k++){a.p[k]-=normal[k]*separation*b.mass/m;b.p[k]+=normal[k]*separation*a.mass/m}
    event.kind='graze';events.push(event);continue;

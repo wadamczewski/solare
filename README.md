@@ -99,3 +99,5 @@ Dane katalogowe sprawdzono 7 września 2026. Źródła i uwagi są też dostępn
 - [55 Cancri e](https://science.nasa.gov/exoplanet-catalog/55-cancri-e/): 7,99 mas Ziemi i 1,875 promienia Ziemi.
 
 Wartości są przybliżone, bez przedziałów niepewności; używamy tabel parametrów NASA. Przeliczenia stosują średnie promienie Ziemi/Jowisza używane w aplikacji. Tekstury egzoplanet są umownymi, zabarwionymi teksturami analogicznych ciał, nie mapami ich powierzchni. Nieznane okresy obrotu i osie otrzymują jawne założenia 24 h / 0°. Ustawienia można potem edytować.
+
+Kolizje zależą od skali widoku: rzeczywista skala używa fizycznych powierzchni, a widok czytelny używa widocznych sfer (z uwzględnieniem osobnego mapowania księżyców). Test odcinka między kolejnymi krokami ogranicza przenikanie szybkich obiektów. Kamera i zoom nie zmieniają granicy kolizji; poświaty oraz pierścienie nie są powierzchniami zderzeń. W widoku czytelnym pomijamy model otarcia, którego fizyczne odsunięcie nie rozdzielałoby powiększonych brył. Masa, pęd i grawitacja pozostają w jednostkach fizycznych; kolizje w tym trybie są świadomym uproszczeniem wizualnym.
