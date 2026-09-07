@@ -59,7 +59,7 @@ Zakończenie lotu, Escape, rozpoczęcie edycji lub dodawania przywracają poprze
 
 ## Kadrowanie i skala przelotu
 
-Domyślny lot używa płynnego zbliżenia kamery do każdej planety. W pobliżu minięcia odległość kamery wynosi około 6,4 promienia renderowanego ciała, przy polu widzenia 75°, co daje tarczę zbliżoną do 1/5 wysokości kadru. Kierunek patrzenia płynnie obejmuje Słońce i planetę, eksponując jej oświetlony fragment. To ruch kamery demonstracyjnej; licznik nadal opisuje propagację światła wzdłuż trasy, a nie długość odchylonej ścieżki kamery.
+Domyślny lot używa płynnego zbliżenia kamery do każdej planety. W pobliżu minięcia odległość kamery wynosi około 3 promieni renderowanego ciała, przy polu widzenia 75°, co daje tarczę zajmującą około 45–50% wysokości kadru po jego lewej stronie. Kierunek patrzenia płynnie obejmuje Słońce i planetę, eksponując jej oświetlony fragment. To ruch kamery demonstracyjnej; licznik nadal opisuje propagację światła wzdłuż trasy, a nie długość odchylonej ścieżki kamery.
 
 Przełącznik „Rzeczywiste rozmiary i odległości” wyłącza zbliżenia i powiększenia ciał: promienie są przeliczane z kilometrów do tej samej skali AU co pozycje, także dla Słońca i księżyców. Odległości planet w obu trybach bazują na nominalnych półosiach orbit. Wyrównanie planet pozostaje demonstracyjne; wyjście z lotu przywraca właściwy układ. Przy rzeczywistej skali planety nie mają wymuszonego rozmiaru 1/5 ekranu.
 

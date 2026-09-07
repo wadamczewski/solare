@@ -113,7 +113,7 @@ function updateLightFlight(now){
  const base=mapped(flight.position(now)).add(new THREE.Vector3(0,0,flightTrueScale?-.002:-.35));camera.position.copy(base);
  let look=target.clone();camera.fov=flightTrueScale?43:75;
  if(nearest&&!flightTrueScale){const planet=bs.find(b=>b.id===nearest.id),r=radius(planet),pos=displayed(planet),windowAU=Math.max(.12,nearest.distance*.08),gap=distance-nearest.distance,weight=Math.exp(-Math.pow(gap/windowAU,4));
- const close=pos.clone().add(new THREE.Vector3(r*(4+2*Math.tanh(gap/windowAU)),0,-r*5));camera.position.lerp(close,weight);
+ const close=pos.clone().add(new THREE.Vector3(r*(2+.6*Math.tanh(gap/windowAU)),0,-r*2.2));camera.position.lerp(close,weight);
  const sunDirection=target.clone().sub(camera.position).normalize(),planetDirection=pos.clone().sub(camera.position).normalize();const framed=sunDirection.clone().add(planetDirection).normalize();look=camera.position.clone().add(sunDirection.lerp(framed,weight).normalize());}
  camera.updateProjectionMatrix();camera.lookAt(look);controls.target.copy(target);camera.updateMatrixWorld();
  document.querySelector('#flight-distance').textContent=`${distance.toFixed(3)} AU · ${(distance*AU/1e6).toFixed(2)} mln km`;
