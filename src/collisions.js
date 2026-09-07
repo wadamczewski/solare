@@ -1,3 +1,4 @@
+import {surfaceImpact} from './surface-impact.js';
 import {horizonRadius} from './catalog.js';
 import {AU,G,SOLAR_MASS,body} from './physics.js';
 const dot=(a,b)=>a.reduce((s,x,k)=>s+x*b[k],0);
@@ -35,9 +36,9 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   if(!fragments)fraction=0;
   const remnantMass=m*(1-fraction),fragmentMass=m*fraction/Math.max(1,fragments);
   const remnantRadius=volumeRadius*Math.cbrt(1-fraction),fragmentRadius=volumeRadius*Math.cbrt(fraction/Math.max(1,fragments));
-  const hitDirection=primary===a?normal:normal.map(x=>-x);
+  const surface=surfaceImpact(a,b,speed);const hitDirection=primary===a?normal:normal.map(x=>-x);
   primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
-  if(!blackhole)primary.damage={kind:gas?'accrete':fraction>.25?'disrupt':'crater',strength:Math.min(.85,.12+severity*.25),direction:hitDirection};
+  if(!blackhole)primary.damage={kind:gas?'accrete':fraction>.25?'disrupt':'crater',strength:Math.min(.85,.12+Math.max(severity*.25,surface.globalHeat*.6)),surface,direction:hitDirection};
   primary.radius=blackhole?collisionRadius(primary)*AU:remnantRadius;
   if(primary.parent===secondary.id)delete primary.parent;
   for(const child of bodies)if(child.parent===secondary.id)child.parent=primary.id;

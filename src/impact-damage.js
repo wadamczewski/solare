@@ -1,3 +1,4 @@
+import {attachSurfaceImpact} from './surface-impact.js';
 import {Vector3,Color,Float32BufferAttribute} from 'three';
 // Persistent reduced-order surface scar; no claim of crust/fluid simulation.
 export function applyImpactDamage(view,b){
@@ -5,7 +6,7 @@ export function applyImpactDamage(view,b){
  view.damage=b.damage;const {strength,kind}=b.damage,mesh=view.mesh;
  mesh.updateWorldMatrix(true,false);
  const axis=new Vector3(...b.damage.direction).normalize().applyQuaternion(mesh.getWorldQuaternion(mesh.quaternion.clone()).invert());
- view.lastImpactAxis=axis.clone();
+ view.lastImpactAxis=axis.clone();attachSurfaceImpact(view,b,axis);
  if(!view.undamagedGeometry)view.undamagedGeometry=mesh.geometry.clone();
  const oldGeometry=mesh.geometry,geometry=oldGeometry.clone(),positions=geometry.attributes.position,previousColors=geometry.attributes.color,colors=new Float32Array(positions.count*3);
  const n=new Vector3(),color=new Color(),dark=new Color('#211713'),rimColor=new Color('#bd8360');
@@ -23,6 +24,6 @@ export function applyImpactDamage(view,b){
  geometry.setAttribute('color',new Float32BufferAttribute(colors,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();mesh.geometry=geometry;
  if(view.hasDamageGeometry)oldGeometry.dispose();view.hasDamageGeometry=true;
  mesh.material.vertexColors=true;mesh.material.needsUpdate=true;
- if(mesh.material.emissive){mesh.material.emissive.set('#742009');mesh.material.emissiveIntensity=strength*.25;}
+ if(mesh.material.emissive){mesh.material.emissive.set('#000000');mesh.material.emissiveIntensity=1;}
  for(const child of mesh.children)if(child.material?.transparent)child.material.opacity*=1-strength*.6;
 }
