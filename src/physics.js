@@ -34,6 +34,7 @@ export function initialSystem(){
  });
  const total=result.reduce((s,b)=>s+b.mass,0),com=[0,0,0],mom=[0,0,0];result.forEach(b=>b.p.forEach((x,k)=>{com[k]+=x*b.mass/total;mom[k]+=b.v[k]*b.mass/total}));result.forEach(b=>b.p.forEach((_,k)=>{b.p[k]-=com[k];b.v[k]-=mom[k]}));return result;
 }
-export function accelerations(bs){const acc=bs.map(()=>[0,0,0]);for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){const d=bs[j].p.map((x,k)=>x-bs[i].p[k]),r2=d.reduce((s,x)=>s+x*x,0)+1e-20,f=G/(r2*Math.sqrt(r2));for(let k=0;k<3;k++){acc[i][k]+=d[k]*f*bs[j].mass;acc[j][k]-=d[k]*f*bs[i].mass}}return acc}
+export function accelerations(bs){const acc=bs.map(()=>[0,0,0]);for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){const a=bs[i],b=bs[j],dx=b.p[0]-a.p[0],dy=b.p[1]-a.p[1],dz=b.p[2]-a.p[2],r2=dx*dx+dy*dy+dz*dz+1e-20,f=G/(r2*Math.sqrt(r2)),fa=f*b.mass,fb=f*a.mass;acc[i][0]+=dx*fa;acc[i][1]+=dy*fa;acc[i][2]+=dz*fa;acc[j][0]-=dx*fb;acc[j][1]-=dy*fb;acc[j][2]-=dz*fb}return acc}
+
 export function step(bs,dt){const a=accelerations(bs);for(let i=0;i<bs.length;i++)for(let k=0;k<3;k++){bs[i].v[k]+=.5*dt*a[i][k];bs[i].p[k]+=dt*bs[i].v[k]}const a2=accelerations(bs);for(let i=0;i<bs.length;i++)for(let k=0;k<3;k++)bs[i].v[k]+=.5*dt*a2[i][k];}
 export function stableStep(bs){let dt=.02;for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){const r=Math.hypot(...bs[i].p.map((x,k)=>x-bs[j].p[k]));dt=Math.min(dt,.035*Math.sqrt(r*r*r/(G*(bs[i].mass+bs[j].mass))),.035*r/(Math.hypot(...bs[i].v.map((x,k)=>x-bs[j].v[k]))+1e-12))}return Math.max(1e-9,dt)}
