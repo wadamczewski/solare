@@ -13,3 +13,8 @@ test('body limit retains unresolved ejecta mass in remnant',()=>{const bs=pair(.
 test('a swallowed parent transfers its satellites without a cycle',()=>{const bs=pair();bs[0].mass=1e-6;const child=body({mass:1e-15,radius:1,p:[1,0,0],parent:bs[0].id});bs.push(child);const e=resolveCollisions(bs);assert.equal(child.parent,e[0].survivor);assert.notEqual(bs[0].parent,bs[0].id)});
 test('fast approach is detected during adaptive integration',()=>{const bs=pair(.1);bs[0].p[0]*=3;bs[1].p[0]*=3;let found=false;for(let i=0;i<1000;i++){const events=resolveCollisions(bs);if(events.length){found=true;break}step(bs,stableStep(bs))}assert.ok(found)});
 test('coincident spawn resolves before singular gravitational integration',()=>{const bs=pair(.03);bs[1].p=[...bs[0].p];resolveCollisions(bs);step(bs,stableStep(bs));assert.ok(bs.every(b=>[...b.p,...b.v].every(Number.isFinite)))});
+
+test('fragment impacts do not recursively multiply debris',()=>{
+ const a=body({key:'fragment',mass:1e-10,radius:100,p:[0,0,0],v:[1,0,0]}),b=body({key:'fragment',mass:1e-10,radius:100,p:[0,0,0],v:[-1,0,0]});
+ const bs=[a,b],events=resolveCollisions(bs);assert.equal(events[0].added.length,0);assert.equal(bs.length,1);assert.equal(bs[0].mass,2e-10);
+});

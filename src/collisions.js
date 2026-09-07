@@ -29,7 +29,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
    const separation=contact*1.002-distance;for(let k=0;k<3;k++){a.p[k]-=normal[k]*separation*b.mass/m;b.p[k]+=normal[k]*separation*a.mass/m}
    event.kind='graze';events.push(event);continue;
   }
-  let fraction=blackhole||gas||severity<.15?0:Math.min(.65,severity*.22);
+  let fraction=blackhole||gas||a.key==='fragment'||b.key==='fragment'||severity<.15?0:Math.min(.65,severity*.22);
   const slots=Math.max(0,maxBodies-(bodies.length-1));const fragments=fraction>0?Math.min(6,Math.floor(slots/2)*2):0;
   if(!fragments)fraction=0;
   const remnantMass=m*(1-fraction),fragmentMass=m*fraction/Math.max(1,fragments);
