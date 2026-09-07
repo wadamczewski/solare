@@ -68,3 +68,5 @@ Prawa pionowa oś pokazuje etapy; każdy odcinek między sąsiednimi planetami j
 Dolne panele mają tło o kryciu 26%, bez rozmycia sceny. Kamera przelotu jest przesunięta bocznie w płaszczyźnie XZ, dzięki czemu planeta pojawia się od lewej krawędzi na środkowej wysokości kadru, zamiast spod dolnego panelu.
 
 Kliknięcie nazwy planety na prawej osi (lub Enter / Spacja po ustawieniu fokusu) przenosi lot do jej odległości demonstracyjnej. Czas jest przeliczany jako droga / c; odczyty, kamera i postęp są aktualizowane razem. Zachowane zostają przyspieszenie, pauza i tryb skali. Można przeskakiwać w obie strony.
+
+Lot domyślnie używa rzeczywistych promieni i odległości. Bliskie kadrowanie działa w obu trybach skali. Bazowy dystans kamery jest skalibrowany dla Ziemi (około 30% wysokości obrazu); dla dużych planet minimalny bezpieczny dystans rośnie z ich promieniem, zachowując większą tarczę w kadrze. Zmienia się pozycja kamery, nie rozmiary obiektów. Z tego względu kadry nie stanowią porównania wszystkich planet przy identycznej odległości obserwatora.
