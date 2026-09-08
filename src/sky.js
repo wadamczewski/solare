@@ -191,6 +191,42 @@ function buildPoints(count, fill, fragment, dpr) {
  return points;
 }
 
+export function starIndicesForMagnitude(stars, maximumMagnitude=Infinity) {
+ const indices=[];
+ for(let index=0;index<stars.count;index++)if(stars.mag[index]/100<=maximumMagnitude)indices.push(index);
+ return indices;
+}
+
+function buildStarLayer(stars, dpr, indices=starIndicesForMagnitude(stars)) {
+ return buildPoints(indices.length, ({position, size, intensity, tint}) => {
+  indices.forEach((source,index) => {
+   placeStar(stars, source, position, size, intensity, tint, index);
+  });
+ }, STAR_FRAGMENT, dpr);
+}
+
+function placeStar(stars, source, position, size, intensity, tint, index) {
+ const [x,y,z]=skyDirection(unpackRA(stars.ra[source]),unpackDec(stars.dec[source]));
+ position[index*3]=x*RADIUS;position[index*3+1]=y*RADIUS;position[index*3+2]=z*RADIUS;
+ const flux=magnitudeFlux(stars.mag[source]/100);
+ size[index]=Math.min(7,1.05+1.35*Math.pow(flux,.29));
+ intensity[index]=Math.min(26,.34+2.6*Math.pow(flux,.52));
+ const [r,g,b]=colourIndexToRGB(stars.bv[source]/50);
+ tint[index*3]=r;tint[index*3+1]=g;tint[index*3+2]=b;
+}
+
+function releaseLayer(layer) {
+ layer?.geometry?.dispose();
+ layer?.material?.dispose();
+}
+
+function waitForIdle() {
+ return new Promise(resolve => {
+  if(typeof requestIdleCallback==='function')requestIdleCallback(resolve,{timeout:900});
+  else setTimeout(resolve,120);
+ });
+}
+
 // Deep-sky objects are drawn as resolved fuzzy patches sized by their real
 // angular extent, which is why the Magellanic Clouds and M31 read as smudges
 // rather than stars.
@@ -205,6 +241,8 @@ export function createSky(dpr) {
  group.matrixAutoUpdate = false;
  const layers = {};
  let loaded = false;
+ let constellationVisible = false;
+ let skyScale = 1;
  let activeConstellation = null;
  const constellationRay = new THREE.Raycaster();
  constellationRay.params.Line.threshold = 2.4;
@@ -222,56 +260,16 @@ export function createSky(dpr) {
    if (!response.ok) throw new Error(`${path}: ${response.status}`);
    return type === 'json' ? response.json() : response.arrayBuffer();
   };
-  const [starBuffer, glowBuffer, lineBuffer, deepSky, names] = await Promise.all([
-   grab('/sky/stars.bin'), grab('/sky/milkyway.bin'), grab('/sky/constellations.bin'),
+  // Paint the naked-eye catalogue first. The remaining catalogue and the
+  // diffuse Milky Way are refined after the first usable frame, avoiding a
+  // long main-thread buffer build before the scene appears.
+  const [starBuffer, lineBuffer, deepSky, names] = await Promise.all([
+   grab('/sky/stars.bin'), grab('/sky/constellations.bin'),
    grab('/sky/deepsky.json', 'json'), grab('/sky/starnames.json', 'json')
   ]);
 
   const stars = decodeStars(starBuffer);
-  layers.stars = buildPoints(stars.count, ({position, size, intensity, tint}) => {
-   for (let i = 0; i < stars.count; i++) {
-    place(unpackRA(stars.ra[i]), unpackDec(stars.dec[i]), position, i);
-    const mag = stars.mag[i] / 100;
-    const flux = magnitudeFlux(mag);
-    // Apparent size grows only slowly with flux; brightness carries the rest and
-    // lets the bloom pass flare Sirius, Canopus and the like.
-    size[i] = Math.min(7, 1.05 + 1.35 * Math.pow(flux, 0.29));
-    intensity[i] = Math.min(26, 0.34 + 2.6 * Math.pow(flux, 0.52));
-    const [r, g, b] = colourIndexToRGB(stars.bv[i] / 50);
-    tint[i * 3] = r; tint[i * 3 + 1] = g; tint[i * 3 + 2] = b;
-   }
-  }, STAR_FRAGMENT, dpr);
-
-  const bandTexture = await new Promise((resolve, reject) =>
-   new THREE.TextureLoader().load('/sky/milkyway.png', resolve, undefined, () => reject(new Error('milkyway.png'))));
-  bandTexture.flipY = false;                       // row 0 of the map is Dec +90
-  bandTexture.wrapS = THREE.RepeatWrapping;        // RA wraps at the seam
-  bandTexture.minFilter = THREE.LinearFilter;
-  bandTexture.magFilter = THREE.LinearFilter;
-  bandTexture.generateMipmaps = false;
-  bandTexture.colorSpace = THREE.NoColorSpace;     // this is luminance, not colour
-  layers.band = new THREE.Mesh(
-   new THREE.SphereGeometry(RADIUS, 64, 32),
-   new THREE.ShaderMaterial({
-    uniforms: {map: {value: bandTexture}, strength: {value: 0.34}, tint: {value: new THREE.Color(1, 0.965, 0.92)}},
-    vertexShader: BAND_VERTEX, fragmentShader: BAND_FRAGMENT,
-    side: THREE.BackSide, transparent: true, ...skyLayerDepthState,
-    blending: THREE.AdditiveBlending
-   })
-  );
-  layers.band.frustumCulled = false;
-
-  const glow = decodeGlow(glowBuffer);
-  layers.milkyway = buildPoints(glow.count, ({position, size, intensity, tint}) => {
-   for (let i = 0; i < glow.count; i++) {
-    place(unpackRA(glow.ra[i]), unpackDec(glow.dec[i]), position, i);
-    const value = glow.brightness[i] / 255;
-    size[i] = 1 + value * 0.9;
-    intensity[i] = 0.02 + value * 0.075;
-    // Unresolved starlight averages slightly warm; the survey carries no colour.
-    tint[i * 3] = 1; tint[i * 3 + 1] = 0.96; tint[i * 3 + 2] = 0.9;
-   }
-  }, GLOW_FRAGMENT, dpr);
+  layers.stars = buildStarLayer(stars,dpr,starIndicesForMagnitude(stars,5.6));
 
   // 'pos' marks a coordinate of interest (the galactic centre), not a body to draw.
   const objects = deepSky.filter(o => o.type !== 'pos');
@@ -303,12 +301,26 @@ export function createSky(dpr) {
    layers.constellations.add(line);
   }
   layers.constellations.frustumCulled = false;
-  layers.constellations.visible = false;
+  layers.constellations.visible = constellationVisible;
 
   for (const layer of Object.values(layers)) { layer.renderOrder = -1; group.add(layer); }
-  layers.band.renderOrder = -2; // diffuse glow sits behind every point layer
   loaded = true;
-  return {stars: stars.count, glow: glow.count, deepSky: objects.length, names};
+  void refineSky(stars,grab).catch(error=>console.warn('Nie udało się uzupełnić mapy nieba:',error.message));
+  return {stars: stars.count, glow: 0, deepSky: objects.length, names};
+ }
+
+ async function refineSky(stars,grab) {
+  await waitForIdle();
+  const [glowBuffer,bandTexture]=await Promise.all([
+   grab('/sky/milkyway.bin'),
+   new Promise((resolve,reject)=>new THREE.TextureLoader().load('/sky/milkyway.png',resolve,undefined,()=>reject(new Error('milkyway.png'))))
+  ]);
+  bandTexture.flipY=false;bandTexture.wrapS=THREE.RepeatWrapping;bandTexture.minFilter=THREE.LinearFilter;bandTexture.magFilter=THREE.LinearFilter;bandTexture.generateMipmaps=false;bandTexture.colorSpace=THREE.NoColorSpace;
+  layers.band=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,64,32),new THREE.ShaderMaterial({uniforms:{map:{value:bandTexture},strength:{value:.34},tint:{value:new THREE.Color(1,.965,.92)}},vertexShader:BAND_VERTEX,fragmentShader:BAND_FRAGMENT,side:THREE.BackSide,transparent:true,...skyLayerDepthState,blending:THREE.AdditiveBlending}));layers.band.frustumCulled=false;layers.band.renderOrder=-2;group.add(layers.band);
+  const glow=decodeGlow(glowBuffer);
+  layers.milkyway=buildPoints(glow.count,({position,size,intensity,tint})=>{for(let i=0;i<glow.count;i++){place(unpackRA(glow.ra[i]),unpackDec(glow.dec[i]),position,i);const value=glow.brightness[i]/255;size[i]=1+value*.9;intensity[i]=.02+value*.075;tint[i*3]=1;tint[i*3+1]=.96;tint[i*3+2]=.9;}},GLOW_FRAGMENT,dpr);layers.milkyway.material.uniforms.scale.value=skyScale;layers.milkyway.renderOrder=-1;group.add(layers.milkyway);
+  await waitForIdle();
+  const detailed=buildStarLayer(stars,dpr);detailed.material.uniforms.scale.value=skyScale;detailed.renderOrder=-1;group.remove(layers.stars);releaseLayer(layers.stars);layers.stars=detailed;group.add(detailed);
  }
 
  return {
@@ -323,6 +335,7 @@ export function createSky(dpr) {
    group.matrixWorldNeedsUpdate = true;
   },
   setConstellations(visible) {
+   constellationVisible=visible;
    if (layers.constellations) layers.constellations.visible = visible;
    if (!visible) this.clearConstellationHighlight();
   },
@@ -349,6 +362,7 @@ export function createSky(dpr) {
   // Star sizes are in device pixels, so a real-scale flyby needs no change, but
   // the caller can dim the field when a bright foreground would wash it out.
   setScale(value) {
+   skyScale=value;
    for (const layer of [layers.stars, layers.milkyway, layers.deepSky])
     if (layer) layer.material.uniforms.scale.value = value;
   }
