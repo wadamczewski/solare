@@ -18,4 +18,5 @@ test('orbit ribbon keeps a readable camera-facing width', () => {
  const positions=ribbon.geometry.attributes.position;
  assert.ok(positions.getY(0)!==positions.getY(1)||positions.getZ(0)!==positions.getZ(1));
  assert.ok(orbitRibbonHalfWidth(50,43,900)>orbitRibbonHalfWidth(5,43,900));
+ assert.ok(orbitRibbonHalfWidth(50,43,900,{realScale:true})<orbitRibbonHalfWidth(50,43,900)*.1);
 });

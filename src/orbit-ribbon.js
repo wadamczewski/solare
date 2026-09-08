@@ -16,13 +16,13 @@ export function createOrbitRibbon({segments=256,color='#7f9ec5',opacity=.28}={})
  return ribbon;
 }
 
-export function orbitRibbonHalfWidth(distance,fovDegrees,viewportHeight) {
- const pixels=1.5;
+export function orbitRibbonHalfWidth(distance,fovDegrees,viewportHeight,{realScale=false}={}) {
+ const pixels=realScale?.24:1.5;
  const worldPerPixel=2*distance*Math.tan(fovDegrees*Math.PI/360)/Math.max(1,viewportHeight);
- return THREE.MathUtils.clamp(worldPerPixel*pixels,.0025,.055);
+ return THREE.MathUtils.clamp(worldPerPixel*pixels,realScale?.000025:.0025,realScale?.0035:.055);
 }
 
-export function updateOrbitRibbon(ribbon,points,camera,viewportHeight) {
+export function updateOrbitRibbon(ribbon,points,camera,viewportHeight,{realScale=false}={}) {
  const positions=ribbon.geometry.attributes.position;
  const tangent=new THREE.Vector3(),viewDirection=new THREE.Vector3(),side=new THREE.Vector3();
  const fallback=new THREE.Vector3(0,1,0);
@@ -33,7 +33,7 @@ export function updateOrbitRibbon(ribbon,points,camera,viewportHeight) {
   side.crossVectors(tangent,viewDirection);
   if(side.lengthSq()<1e-8)side.crossVectors(tangent,fallback);
   if(side.lengthSq()<1e-8)side.set(1,0,0);else side.normalize();
-  const halfWidth=orbitRibbonHalfWidth(camera.position.distanceTo(point),camera.fov,viewportHeight);
+  const halfWidth=orbitRibbonHalfWidth(camera.position.distanceTo(point),camera.fov,viewportHeight,{realScale});
   const vertex=index*2;
   positions.setXYZ(vertex,point.x+side.x*halfWidth,point.y+side.y*halfWidth,point.z+side.z*halfWidth);
   positions.setXYZ(vertex+1,point.x-side.x*halfWidth,point.y-side.y*halfWidth,point.z-side.z*halfWidth);
