@@ -1,7 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {skyDirection, colourIndexToRGB, magnitudeFlux, decodeStars, decodeGlow, decodeLines, unpackRA, unpackDec} from '../src/sky.js';
+import {skyDirection, colourIndexToRGB, magnitudeFlux, decodeStars, decodeGlow, decodeLines, unpackRA, unpackDec, skyLayerDepthState} from '../src/sky.js';
+
+test('sky layers participate in depth testing so solid bodies occlude them',()=>{
+ assert.deepEqual(skyLayerDepthState, {depthWrite: false, depthTest: true});
+ const source = readFileSync(new URL('../src/sky.js', import.meta.url), 'utf8');
+ assert.doesNotMatch(source, /depthTest:\s*false/);
+});
 
 const load = name => {
  const file = readFileSync(new URL('../public/sky/' + name, import.meta.url));

@@ -11,6 +11,14 @@
 // while the points restore the grain of the stars that do resolve.
 import * as THREE from 'three';
 
+// The sky remains transparent, but must still participate in depth testing.
+// Otherwise Three.js renders it after opaque bodies and its stars shine through
+// planets, moons and the Sun.
+export const skyLayerDepthState = Object.freeze({
+ depthWrite: false,
+ depthTest: true
+});
+
 const DEG = Math.PI / 180;
 const OBLIQUITY = 23.4392911 * DEG;          // mean obliquity at J2000
 const COS_E = Math.cos(OBLIQUITY), SIN_E = Math.sin(OBLIQUITY);
@@ -128,7 +136,7 @@ function pointsMaterial(fragment, dpr) {
  return new THREE.ShaderMaterial({
   uniforms: {dpr: {value: dpr}, scale: {value: 1}},
   vertexShader: STAR_VERTEX, fragmentShader: fragment,
-  transparent: true, depthWrite: false, depthTest: false,
+  transparent: true, ...skyLayerDepthState,
   blending: THREE.AdditiveBlending
  });
 }
@@ -208,7 +216,7 @@ export function createSky(dpr) {
    new THREE.ShaderMaterial({
     uniforms: {map: {value: bandTexture}, strength: {value: 0.34}, tint: {value: new THREE.Color(1, 0.965, 0.92)}},
     vertexShader: BAND_VERTEX, fragmentShader: BAND_FRAGMENT,
-    side: THREE.BackSide, transparent: true, depthWrite: false, depthTest: false,
+    side: THREE.BackSide, transparent: true, ...skyLayerDepthState,
     blending: THREE.AdditiveBlending
    })
   );
@@ -247,7 +255,7 @@ export function createSky(dpr) {
   const lineGeometry = new THREE.BufferGeometry();
   lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
   layers.constellations = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({
-   color: '#5f7fa8', transparent: true, opacity: .34, depthWrite: false, depthTest: false
+   color: '#5f7fa8', transparent: true, opacity: .34, ...skyLayerDepthState
   }));
   layers.constellations.frustumCulled = false;
   layers.constellations.visible = false;
