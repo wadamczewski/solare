@@ -1,0 +1,18 @@
+{
+  "proxima-centauri-b": {
+    "reference": "https://www.hq.eso.org/public/images/eso1629e/",
+    "description": "Local equirectangular scientific visualization informed by ESO's Proxima Centauri b artist impression; it is not a direct surface image."
+  },
+  "trappist-1-e": {
+    "reference": "https://science.nasa.gov/asset/webb/trappist-1-e-artists-concept/",
+    "description": "Local equirectangular scientific visualization informed by NASA's TRAPPIST-1 e artist concept; it is not a direct surface image."
+  },
+  "51-pegasi-b": {
+    "reference": "https://www.esa.int/ESA_Multimedia/Images/2023/03/Artist_s_impression_of_exoplanet_51_Pegasi_b",
+    "description": "Local equirectangular scientific visualization informed by ESA's 51 Pegasi b artist impression; it is not a direct atmospheric image."
+  },
+  "55-cancri-e": {
+    "reference": "https://science.nasa.gov/asset/webb/super-earth-exoplanet-55-cancri-e-artists-concept/",
+    "description": "Local equirectangular scientific visualization informed by NASA's Webb 55 Cancri e concept; it is not a direct surface image."
+  }
+}
