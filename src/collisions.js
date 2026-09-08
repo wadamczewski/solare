@@ -1,6 +1,7 @@
 import {surfaceImpact} from './surface-impact.js';
 import {horizonRadius} from './catalog.js';
 import {AU,G,SOLAR_MASS,body} from './physics.js';
+import {accretionStateFor} from './black-hole.js';
 const dot=(a,b)=>a.reduce((s,x,k)=>s+x*b[k],0);
 const sub=(a,b)=>a.map((x,k)=>x-b[k]);
 const norm=a=>Math.hypot(...a);
@@ -38,6 +39,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const remnantRadius=volumeRadius*Math.cbrt(1-fraction),fragmentRadius=volumeRadius*Math.cbrt(fraction/Math.max(1,fragments));
   const surface=surfaceImpact(a,b,speed);const hitDirection=primary===a?normal:normal.map(x=>-x);
   primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
+  if(blackhole){primary.accretion=accretionStateFor(primary,secondary);event.accretion=primary.accretion;}
   if(!blackhole)primary.damage={kind:gas?'accrete':fraction>.25?'disrupt':'crater',strength:Math.min(.85,.12+Math.max(severity*.25,surface.globalHeat*.6)),surface,direction:hitDirection};
   primary.radius=blackhole?collisionRadius(primary)*AU:remnantRadius;
   if(primary.parent===secondary.id)delete primary.parent;
