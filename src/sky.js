@@ -74,6 +74,31 @@ export const decodeLines = buffer =>
 export const unpackRA = raw => raw * 360 / 65536;
 export const unpackDec = raw => raw / 180;
 
+// The packed line file preserves the source ordering but not its GeoJSON
+// feature properties. These figures restore that lightweight metadata without
+// adding a runtime network dependency. The source has two Serpens features.
+export const constellationFigures = Object.freeze([
+ ['And','Andromeda'],['Ant','Antlia'],['Aps','Apus'],['Aqr','Aquarius'],['Aql','Aquila'],['Ara','Ara'],['Ari','Aries'],['Aur','Auriga'],['Boo','Boötes'],['Cae','Caelum'],['Cam','Camelopardalis'],['Cnc','Cancer'],['CVn','Canes Venatici'],['CMa','Canis Major'],['CMi','Canis Minor'],['Cap','Capricornus'],['Car','Carina'],['Cas','Cassiopeia'],['Cen','Centaurus'],['Cep','Cepheus'],['Cet','Cetus'],['Cha','Chamaeleon'],['Cir','Circinus'],['Col','Columba'],['Com','Coma Berenices'],['CrA','Corona Australis'],['CrB','Corona Borealis'],['Crv','Corvus'],['Crt','Crater'],['Cru','Crux'],['Cyg','Cygnus'],['Del','Delphinus'],['Dor','Dorado'],['Dra','Draco'],['Equ','Equuleus'],['Eri','Eridanus'],['For','Fornax'],['Gem','Gemini'],['Gru','Grus'],['Her','Hercules'],['Hor','Horologium'],['Hya','Hydra'],['Hyi','Hydrus'],['Ind','Indus'],['Lac','Lacerta'],['Leo','Leo'],['LMi','Leo Minor'],['Lep','Lepus'],['Lib','Libra'],['Lup','Lupus'],['Lyn','Lynx'],['Lyr','Lyra'],['Men','Mensa'],['Mic','Microscopium'],['Mon','Monoceros'],['Mus','Musca'],['Nor','Norma'],['Oct','Octans'],['Oph','Ophiuchus'],['Ori','Orion'],['Pav','Pavo'],['Peg','Pegasus'],['Per','Perseus'],['Phe','Phoenix'],['Pic','Pictor'],['Psc','Pisces'],['PsA','Piscis Austrinus'],['Pup','Puppis'],['Pyx','Pyxis'],['Ret','Reticulum'],['Sge','Sagitta'],['Sgr','Sagittarius'],['Sco','Scorpius'],['Scl','Sculptor'],['Sct','Scutum'],['Ser','Serpens Caput'],['Ser','Serpens Cauda'],['Sex','Sextans'],['Tau','Taurus'],['Tel','Telescopium'],['Tri','Triangulum'],['TrA','Triangulum Australe'],['Tuc','Tucana'],['UMa','Ursa Major'],['UMi','Ursa Minor'],['Vel','Vela'],['Vir','Virgo'],['Vol','Volans'],['Vul','Vulpecula']
+]);
+
+// Segment totals are retained from the d3-celestial GeoJSON features when the
+// compact binary file is built. They preserve exact figure boundaries, even
+// where one constellation contains detached strokes (notably Serpens).
+const constellationSegmentCounts = Object.freeze([
+ 16,2,3,14,9,6,3,10,13,3,7,4,1,11,1,10,18,4,15,11,15,5,2,4,2,7,6,5,9,2,8,5,7,15,2,26,2,11,8,17,5,18,5,5,10,9,5,10,6,12,6,7,3,5,8,6,4,3,17,24,10,14,23,7,2,23,9,11,3,4,3,29,13,3,4,8,5,3,11,2,3,3,6,21,7,7,12,6,4
+]);
+
+export function splitConstellationFigures(lines) {
+ const segments = lines.count / 2;
+ if (!Number.isInteger(segments) || constellationSegmentCounts.reduce((sum, count) => sum + count, 0) !== segments) throw new Error('Unexpected constellation line data.');
+ let start = 0;
+ return constellationSegmentCounts.map((count, index) => {
+  const figure = {start, count, id: constellationFigures[index][0], name: constellationFigures[index][1]};
+  start += count;
+  return figure;
+ });
+}
+
 const RADIUS = 900; // well inside the camera far plane; the group tracks the camera
 
 // The band is painted from an equirectangular luminance map. Rather than rely on
@@ -169,6 +194,9 @@ export function createSky(dpr) {
  group.matrixAutoUpdate = false;
  const layers = {};
  let loaded = false;
+ let activeConstellation = null;
+ const constellationRay = new THREE.Raycaster();
+ constellationRay.params.Line.threshold = 2.4;
 
  const place = (ra, dec, target, index) => {
   const [x, y, z] = skyDirection(ra, dec);
@@ -252,11 +280,17 @@ export function createSky(dpr) {
   const linePositions = new Float32Array(lines.count * 3);
   for (let i = 0; i < lines.count; i++)
    place(unpackRA(lines.ra[i]), unpackDec(lines.dec[i]), linePositions, i);
-  const lineGeometry = new THREE.BufferGeometry();
-  lineGeometry.setAttribute('position', new THREE.BufferAttribute(linePositions, 3));
-  layers.constellations = new THREE.LineSegments(lineGeometry, new THREE.LineBasicMaterial({
-   color: '#5f7fa8', transparent: true, opacity: .34, ...skyLayerDepthState
-  }));
+  layers.constellations = new THREE.Group();
+  for (const figure of splitConstellationFigures(lines)) {
+   const geometry = new THREE.BufferGeometry();
+   const start = figure.start * 6, end = (figure.start + figure.count) * 6;
+   geometry.setAttribute('position', new THREE.BufferAttribute(linePositions.slice(start, end), 3));
+   const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color: '#5f7fa8', transparent: true, opacity: .34, ...skyLayerDepthState}));
+   line.userData.constellation = figure;
+   line.frustumCulled = false;
+   line.renderOrder = -1;
+   layers.constellations.add(line);
+  }
   layers.constellations.frustumCulled = false;
   layers.constellations.visible = false;
 
@@ -277,7 +311,30 @@ export function createSky(dpr) {
    group.matrix.makeTranslation(camera.position.x, camera.position.y, camera.position.z);
    group.matrixWorldNeedsUpdate = true;
   },
-  setConstellations(visible) { if (layers.constellations) layers.constellations.visible = visible; },
+  setConstellations(visible) {
+   if (layers.constellations) layers.constellations.visible = visible;
+   if (!visible) this.clearConstellationHighlight();
+  },
+  clearConstellationHighlight() {
+   if (!activeConstellation) return;
+   activeConstellation.material.color.set('#5f7fa8');
+   activeConstellation.material.opacity = .34;
+   activeConstellation = null;
+  },
+  pickConstellation(event, camera, element) {
+   if (!layers.constellations?.visible) return null;
+   const rect = element.getBoundingClientRect();
+   constellationRay.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -((event.clientY - rect.top) / rect.height * 2 - 1)), camera);
+   group.updateMatrixWorld(true);
+   const line = constellationRay.intersectObjects(layers.constellations.children, false)[0]?.object || null;
+   if (line === activeConstellation) return line?.userData.constellation || null;
+   this.clearConstellationHighlight();
+   if (!line) return null;
+   activeConstellation = line;
+   line.material.color.set('#d8edff');
+   line.material.opacity = .96;
+   return line.userData.constellation;
+  },
   // Star sizes are in device pixels, so a real-scale flyby needs no change, but
   // the caller can dim the field when a bright foreground would wash it out.
   setScale(value) {
