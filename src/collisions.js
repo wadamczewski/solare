@@ -2,6 +2,7 @@ import {surfaceImpact} from './surface-impact.js';
 import {horizonRadius} from './catalog.js';
 import {AU,G,SOLAR_MASS,body} from './physics.js';
 import {accretionStateFor} from './black-hole.js';
+import {collisionSpinState} from './collision-dynamics.js';
 const dot=(a,b)=>a.reduce((s,x,k)=>s+x*b[k],0);
 const sub=(a,b)=>a.map((x,k)=>x-b[k]);
 const norm=a=>Math.hypot(...a);
@@ -28,6 +29,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   // Grazing rocky impact: dissipate normal kinetic energy, retain tangential motion.
   if(!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
    const incoming=dot(rel,normal);if(incoming>=0&&a.lastGraze===b.id&&b.lastGraze===a.id)continue;if(incoming<0){const impulse=-(1+.25)*incoming/(1/a.mass+1/b.mass);for(let k=0;k<3;k++){a.v[k]-=impulse*normal[k]/a.mass;b.v[k]+=impulse*normal[k]/b.mass}}
+   const aSpin=collisionSpinState(a,delta,rel,escape,severity),bSpin=collisionSpinState(b,delta.map(x=>-x),rel.map(x=>-x),escape,severity);a.spin=aSpin.period;a.tilt=aSpin.tilt;b.spin=bSpin.period;b.tilt=bSpin.tilt;
    a.lastGraze=b.id;b.lastGraze=a.id;
    const separation=contactTest?0:contact*1.002-distance;for(let k=0;k<3;k++){a.p[k]-=normal[k]*separation*b.mass/m;b.p[k]+=normal[k]*separation*a.mass/m}
    a.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal};b.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal.map(x=>-x)};event.kind='graze';events.push(event);continue;
@@ -38,6 +40,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const remnantMass=m*(1-fraction),fragmentMass=m*fraction/Math.max(1,fragments);
   const remnantRadius=volumeRadius*Math.cbrt(1-fraction),fragmentRadius=volumeRadius*Math.cbrt(fraction/Math.max(1,fragments));
   const surface=surfaceImpact(a,b,speed);const hitDirection=primary===a?normal:normal.map(x=>-x);
+  const primaryDelta=primary===a?delta:delta.map(x=>-x),primaryVelocity=primary===a?rel:rel.map(x=>-x),spinState=collisionSpinState(primary,primaryDelta,primaryVelocity,escape,severity);primary.spin=spinState.period;primary.tilt=spinState.tilt;
   primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
   if(blackhole){primary.accretion=accretionStateFor(primary,secondary);event.accretion=primary.accretion;}
   if(!blackhole)primary.damage={kind:gas?'accrete':fraction>.25?'disrupt':'crater',strength:Math.min(.85,.12+Math.max(severity*.25,surface.globalHeat*.6)),surface,direction:hitDirection};
