@@ -23,6 +23,8 @@ export const moons=[
 ];
 let nextId=0;
 export function body(o){return {id:++nextId,p:[0,0,0],v:[0,0,0],mass:1,radius:1,spin:24,tilt:0,color:'#bab9b4',...o};}
+export const relativeVelocity=(body,reference)=>body.v.map((value,index)=>value-reference.v[index]);
+export const velocityKmPerSecond=velocity=>Math.hypot(...velocity)*AU/86400;
 // Planets are placed at their true heliocentric state for `date`; moons keep
 // composed phases (see moons table) because no satellite theory is modelled.
 export function initialSystem(date=new Date()){
