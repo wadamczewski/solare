@@ -20,7 +20,7 @@ import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {G,AU,SOLAR_MASS,planets,initialSystem,body,step,stableStep} from './physics.js';
 import './style.css';
-import {LightFlight,lightTravelSeconds} from './light-flight.js';
+import {LightFlight,lightTravelSeconds,flightRouteProgress,flightRouteStopPosition} from './light-flight.js';
 import {resolveCollisions} from './collisions.js';
 import {createBodyPreview} from './preview.js';
 import {createImpactEffects} from './impact-effects.js';
@@ -188,31 +188,13 @@ function startLightFlight(){
  document.querySelector('#flight-scale-toggle').onchange=e=>{flightTrueScale=e.target.checked;document.querySelector('#flight-scale-note').textContent=flightTrueScale?'Rzeczywista skala · bliski przelot kamery':'Bliski przelot · rozmiary powiększone';};
  updateLightFlight(performance.now());
 }
-// Stops sit at their true heliocentric distance, so the rail reads as distance
-// rather than as a count of planets. The inner four then crowd into the top few
-// percent, so labels are pushed apart to stay legible while each tick mark stays
-// at its real position, joined to its label by a short leader.
-const railSpan=()=>flightStops.length?Math.max(...flightStops.map(s=>s.distance)):1;
+const railProgress=distance=>flightRouteProgress(distance,flightStops.map(s=>s.distance));
 function layoutRail(){
  if(flightRail.hidden||!flightStops.length)return;
- const track=flightRail.querySelector('.rail-track');
- if(!track)return;
- const height=track.getBoundingClientRect().height;
- if(!height)return;
- const span=railSpan();
- const minGap=Math.min(24,Math.max(9,17/height*100));
- const stops=flightStops.map(s=>({id:s.id,at:Math.max(0,Math.min(100,s.distance/span*100))}));
- let previous=-Infinity;
- for(const stop of stops){stop.label=Math.max(stop.at,previous+minGap);previous=stop.label}
- let limit=100;
- for(let i=stops.length-1;i>=0;i--){stops[i].label=Math.min(stops[i].label,limit);limit=stops[i].label-minGap}
- for(const stop of stops){
+ for(const [index,stop] of flightStops.entries()){
   const button=flightRail.querySelector(`[data-stop="${stop.id}"]`);
   if(!button)continue;
-  const offset=(stop.at-stop.label)/100*height;
-  button.style.top=stop.label+'%';
-  button.style.setProperty('--offset',offset.toFixed(2)+'px');
-  button.style.setProperty('--link',Math.abs(offset).toFixed(2)+'px');
+  button.style.top=flightRouteStopPosition(index,flightStops.length)+'%';
  }
 }
 function stopLightFlight(){if(!lightFlight)return;lightFlight=null;flightStops=[];flightTrueScale=false;flightRail.hidden=true;flightLabels.replaceChildren();flightHud.hidden=true;flightRail.hidden=true;camera.fov=43;camera.updateProjectionMatrix();controls.enabled=true;const previous=flightPrevious;flightPrevious=null;speed=previous.speed;compressed=previous.compressed;paused=previous.paused;lag=0;last=performance.now();controls.enableDamping=false;camera.position.copy(previous.camera);controls.target.copy(previous.target);controls.update();controls.enableDamping=true;clearTrails();updateOrbits();if(!panel.hidden)showTools()}
@@ -235,7 +217,7 @@ function updateLightFlight(now){
  const remaining=next?Math.max(0,lightTravelSeconds(next.distance)-t):0;
  document.querySelector('#flight-next').textContent=next?`${formatNumber(next.distance-distance,3)} AU · ${durationLabel(remaining/flight.rate)} oglądania${paused?' (pauza)':''} · ${durationLabel(remaining)} lotu`:'Wszystkie planety za Tobą';
  for(const s of flightStops){const chip=flightRail.querySelector(`[data-stop="${s.id}"]`);chip.classList.toggle('passed',distance+1e-10>=s.distance);chip.classList.toggle('upcoming',next?.id===s.id);}
- const progress=Math.max(0,Math.min(1,distance/railSpan()));flightRail.style.setProperty('--progress',String(progress));flightRail.setAttribute('aria-label',`Postęp lotu ${Math.round(progress*100)} procent drogi do Neptuna`);
+ const progress=railProgress(distance)/100;flightRail.style.setProperty('--progress',String(progress));flightRail.setAttribute('aria-label',`Postęp lotu ${Math.round(progress*100)} procent drogi do Neptuna`);
  const currentStop=flightStops.filter(s=>s.distance<=distance+1e-10).at(-1)||flightStops[0];
  for(const s of flightStops){const label=flightLabels.querySelector(`[data-body="${s.id}"]`),body=bs.find(b=>b.id===s.id),pos=displayed(body).project(camera);const visible=s===currentStop&&pos.z>-1&&pos.z<1&&Math.abs(pos.x)<.9&&Math.abs(pos.y)<.75;label.hidden=!visible;if(visible){label.style.left=((pos.x+1)*innerWidth/2)+'px';label.style.top=((-pos.y+1)*innerHeight/2+22)+'px'}}
 }

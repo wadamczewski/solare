@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {LightFlight,LIGHT_SPEED_AU_S,lightTravelSeconds} from '../src/light-flight.js';
+import {LightFlight,LIGHT_SPEED_AU_S,lightTravelSeconds,flightRouteProgress,flightRouteStopPosition} from '../src/light-flight.js';
 test('light travels exactly one AU in 499.004783836 seconds',()=>{const time=lightTravelSeconds(1);assert.ok(Math.abs(time-499.004783836)<1e-9);const f=new LightFlight([0,0,0],[1,0,0],0);assert.ok(Math.abs(f.position(time*1000)[0]-1)<1e-12)});
 test('trajectory is straight and frame-rate independent including background gaps',()=>{const f=new LightFlight([3,2,1],[0,0,9],1000);assert.deepEqual(f.position(1000),[3,2,1]);const p=f.position(3601000);assert.equal(p[0],3);assert.equal(p[1],2);assert.equal(p[2],1+3600*LIGHT_SPEED_AU_S)});
 test('pause freezes flight, resume excludes paused wall time',()=>{const f=new LightFlight([0,0,0],[1,0,0],0);f.pause(2000);assert.equal(f.seconds(10000),2);f.pause(4000);f.resume(12000);assert.equal(f.seconds(15000),5);f.resume(16000);assert.equal(f.seconds(16000),6)});
@@ -9,3 +9,14 @@ test('acceleration during pause does not advance the flight',()=>{const f=new Li
 test('seeking to Earth updates physical distance and time and preserves acceleration',()=>{const f=new LightFlight([3,0,0],[1,0,0],0);f.setRate(60,1000);f.seekDistance(1,2000);assert.ok(Math.abs(f.distance(2000)-1)<1e-12);assert.ok(Math.abs(f.seconds(2000)-499.004783836)<1e-9);assert.equal(f.rate,60);assert.ok(Math.abs(f.position(2000)[0]-4)<1e-12);assert.ok(Math.abs(f.seconds(3000)-lightTravelSeconds(1)-60)<1e-10)});
 test('seeking backward while paused preserves pause until resume',()=>{const f=new LightFlight([0,0,0],[1,0,0],0);f.setRate(300,0);f.seekDistance(30,1000);f.pause(1000);f.seekDistance(.3871,2000);assert.ok(Math.abs(f.distance(10000)-.3871)<1e-12);f.resume(10000);assert.ok(Math.abs(f.seconds(11000)-lightTravelSeconds(.3871)-300)<1e-9)});
 test('invalid seek leaves the existing flight untouched',()=>{const f=new LightFlight([0,0,0],[1,0,0],0);for(const d of [-1,NaN,Infinity])assert.throws(()=>f.seekDistance(d,1000));assert.equal(f.seconds(2000),2)});
+test('route labels and markers share evenly spaced positions while travel remains continuous',()=>{
+ const stops=[.39,.72,1,1.52,5.2,9.58,19.2,30.05];
+ assert.equal(flightRouteStopPosition(0,stops.length),10);
+ assert.equal(flightRouteStopPosition(stops.length-1,stops.length),100);
+ assert.equal(flightRouteProgress(0,stops),0);
+ assert.equal(flightRouteProgress(stops[0],stops),10);
+ assert.equal(flightRouteProgress(stops[2],stops),flightRouteStopPosition(2,stops.length));
+ const middle=flightRouteProgress((stops[2]+stops[3])/2,stops);
+ assert.equal(middle,(flightRouteStopPosition(2,stops.length)+flightRouteStopPosition(3,stops.length))/2);
+ assert.equal(flightRouteProgress(99,stops),100);
+});
