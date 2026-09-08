@@ -1,6 +1,6 @@
 import {moonAppearance,loadMoonMaps,applyMoonAppearance} from './moon-appearance.js';
 import {createSolarInterior,solarInteriorState} from './solar-interior.js';
-import {installLanguageUI,getLocale,translate,formatNumber} from './i18n.js';
+import {installLanguageUI,getLanguage,getLocale,translate,formatNumber} from './i18n.js';
 import {makeOpaqueSurface} from './opaque-surface.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
 import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
@@ -13,7 +13,7 @@ import {createNavigation} from './navigation.js';
 import {captureCollisionView,viewContact} from './collision-view.js';
 import {catalog,createCatalogBody,horizonRadius,validDimensions} from './catalog.js';
 import {searchBodies,bodyKind} from './body-search.js';
-import {createSky} from './sky.js';
+import {constellationLabel,createSky} from './sky.js';
 import {cometNucleusGeometry,createCometTails} from './comet.js';
 import {fastStepSize,splitStep} from './fast-step.js';
 import * as THREE from 'three';
@@ -109,13 +109,14 @@ const pointMaterial=new THREE.ShaderMaterial({uniforms:{time:{value:0},dpr:{valu
 const selection=new THREE.Mesh(new THREE.RingGeometry(1.25,1.263,100),new THREE.MeshBasicMaterial({color:'#c7d9ef',transparent:true,opacity:.65,side:THREE.DoubleSide,depthTest:false}));selection.visible=false;scene.add(selection);
 function updateOrbits(){if(lightFlight){for(const v of views.values()){v.orbit.visible=false;v.trail.visible=false}return}for(const b of bs){const view=views.get(b.id),host=bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun');if(!host||host===b){view.orbit.visible=false;continue}const r=vector(b.p).sub(vector(host.p)),v=vector(b.v).sub(vector(host.v)),mu=G*(host.mass+b.mass),h=r.clone().cross(v),ev=v.clone().cross(h).divideScalar(mu).sub(r.clone().normalize()),e=ev.length(),p=h.lengthSq()/mu;if(!Number.isFinite(p)||p<1e-12){view.orbit.visible=false;continue}const x=e>.00001?ev.normalize():r.clone().normalize(),y=h.normalize().cross(x).normalize();const max=e<1?Math.PI:Math.acos(-1/e)*.96,arr=view.orbit.geometry.attributes.position;for(let i=0;i<257;i++){const t=-max+i/256*max*2,rr=Math.min(200,p/(1+e*Math.cos(t))),pos=x.clone().multiplyScalar(rr*Math.cos(t)).addScaledVector(y,rr*Math.sin(t)).add(vector(host.p));let out;if(b.parent&&compressed){out=displayed(host).add(pos.sub(vector(host.p)).normalize().multiplyScalar(radius(host)*1.8+Math.pow(rr*AU/200000,.55)*.8))}else out=mapped(pos.toArray());arr.setXYZ(i,out.x,out.y,out.z)}arr.needsUpdate=true;view.orbit.visible=true;}}
 updateOrbits();
-const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);let down=null,lastTouchTimer;
+const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);let down=null,lastTouchTimer,hoveredConstellation=null;
 function pointRay(e){pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);ray.setFromCamera(pointer,camera)}
 function hit(e){pointRay(e);const hits=ray.intersectObjects([...views.values()].map(v=>v.mesh),false);return hits[0]?.object.userData.id||null}
 function location(e){pointRay(e);const pos=new THREE.Vector3();if(!ray.ray.intersectPlane(plane,pos))pos.copy(controls.target);const r=pos.length();return compressed?pos.multiplyScalar(r?Math.pow(r/3.6,1/.57)/r:1):pos.divideScalar(6)}
 renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};if(e.pointerType==='touch')lastTouchTimer=setTimeout(()=>{spawnAt.copy(location(e));showSpawner()},650)});
-renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>6)clearTimeout(lastTouchTimer);if(e.buttons){sky.clearConstellationHighlight();tip.hidden=true;return}const id=hit(e),constellation=id?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;if(id||!constellation)sky.clearConstellationHighlight();renderer.domElement.style.cursor=id||constellation?'pointer':'grab';tip.hidden=!id&&!constellation;if(id||constellation){tip.textContent=id?bs.find(b=>b.id===id)?.name:constellation.name;tip.style.left=Math.min(innerWidth-180,e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px'}});
-renderer.domElement.addEventListener('pointerleave',()=>{sky.clearConstellationHighlight();tip.hidden=true});
+renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>6)clearTimeout(lastTouchTimer);if(e.buttons){hoveredConstellation=null;sky.clearConstellationHighlight();tip.hidden=true;return}const id=hit(e),constellation=id?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;hoveredConstellation=constellation;if(id||!constellation)sky.clearConstellationHighlight();renderer.domElement.style.cursor=id||constellation?'pointer':'grab';tip.hidden=!id&&!constellation;if(id||constellation){tip.textContent=id?bs.find(b=>b.id===id)?.name:constellationLabel(constellation,getLanguage());tip.style.left=Math.min(innerWidth-180,e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px'}});
+renderer.domElement.addEventListener('pointerleave',()=>{hoveredConstellation=null;sky.clearConstellationHighlight();tip.hidden=true});
+document.addEventListener('languagechange',()=>{if(hoveredConstellation&&!tip.hidden)tip.textContent=constellationLabel(hoveredConstellation,getLanguage())});
 renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const id=hit(e);if(id){selected=id;showBody()}else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
 renderer.domElement.addEventListener('dblclick',e=>{const id=hit(e);if(id)focusBody(id)});
 function shell(title,content){preview.clear();restoreFocus=document.activeElement;panel.innerHTML=`<div class="panel-head"><h2>${title}</h2><button class="close" aria-label="Zamknij">×</button></div>${content}`;panel.hidden=false;panel.querySelector('.close').onclick=closePanel}
