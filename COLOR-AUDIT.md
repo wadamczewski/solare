@@ -18,4 +18,24 @@ Cel: obraz w świetle widzialnym z neutralnym balansem bieli, bez efektów ziems
 
 Oryginalne mapy Solar System Scope pozostają materiałem ilustracyjnym, nie skalibrowanymi produktami naukowymi. Profile Wenus, Urana i Neptuna są jawnymi przybliżeniami wyglądu na ekranie na podstawie źródeł, a wartości RGB w `src/natural-color.js` nie pochodzą z opublikowanej tabeli pomiarowej. Nie należy nazywać tej wersji „dokładnymi prawdziwymi barwami”. Ścisła rekonstrukcja wymagałaby danych radiometrycznych/spektralnych, modelu obserwatora i kalibracji wyświetlacza.
 
-Scena i podgląd korzystają z białego światła, przestrzeni sRGB i NeutralToneMapping. Pozostawiono niewielkie neutralne doświetlenie oraz brak fizycznego spadku światła z odległością w przeskalowanej scenie, aby umożliwić oglądanie całego układu. Są to kompromisy ekspozycji, nie dodatkowe kolorowe filtry. Kolory orbit i interfejsu pozostają oznaczeniami, nie pomiarem barwy powierzchni. Barwy egzoplanet i większości księżyców nadal są umowne; brak wiarygodnych map nie uprawnia do przedstawiania ich jako rzeczywistych.
+Scena i podgląd korzystają z białego światła, przestrzeni sRGB i NeutralToneMapping. Pozostawiono niewielkie neutralne doświetlenie oraz brak fizycznego spadku światła z odległością w przeskalowanej scenie, aby umożliwić oglądanie całego układu. Są to kompromisy ekspozycji, nie dodatkowe kolorowe filtry. Kolory orbit i interfejsu pozostają oznaczeniami, nie pomiarem barwy powierzchni. Rozszerzenie o 23 księżyce i 14 własnych map misji opisuje [MOON-APPEARANCE.md](MOON-APPEARANCE.md). Barwy egzoplanet nadal są umowne; usunięto z nich rozpoznawalne mapy innych planet i oznaczono przybliżenie w edytorze.
+
+## Dodatkowe sprawdzenie planet — 8 września 2026
+
+Każdą planetę porównano z drugim materiałem, oprócz źródła w tabeli powyżej. Nie ma podstaw do dalszego zwiększania nasycenia. Te źródła nie zamieniają map ilustracyjnych w skalibrowane produkty naukowe.
+
+| Ciało | Druga referencja i wniosek |
+|---|---|
+| Słońce | [NASA: struktura i temperatura fotosfery](https://solarscience.msfc.nasa.gov/interior.shtml). Zachowana biała emisja HDR; sam monitor nie odtwarza jej fizycznej luminancji. |
+| Merkury | [NASA: mapa MESSENGER w false color](https://science.nasa.gov/resource/mercury-false-color-rotation-movie/) wyraźnie rozróżnia wzmocnienie spektralne od obrazu widzialnego. Pozostaje mało nasycony szary. |
+| Wenus | [NASA/JPL: Mariner 10](https://science.nasa.gov/photojournal/venus-from-mariner-10/) opisuje przede wszystkim białe cząstki chmur. Sam obraz jest kompozycją UV/orange z syntetyczną zielenią — nie kopiujemy jego kontrastu ani koloru jako true color. |
+| Ziemia | [NASA: natural i enhanced z DSCOVR/EPIC](https://www.nasa.gov/centers-and-facilities/goddard/nasa-makes-an-epic-update-to-website-for-daily-earth-pics/) pokazuje wpływ przetwarzania na lądy i atmosferę. Mapa pozostaje ilustracyjna, bez bieżących chmur; nie zwiększono kontrastu. |
+| Mars | [NASA: porównanie widzialnego i podczerwieni](https://science.nasa.gov/missions/hubble/martian-colors-provide-clues-about-martian-water/). Brązowo-rdzawe tony zamiast intensywnego pomarańczu. To towarzyszący opis tego samego zestawu Hubble, nie niezależna obserwacja. |
+| Jowisz | [JPL: Voyager 1, trzy filtry](https://www.jpl.nasa.gov/images/pia01353-jupiter/). Zgodne z przygaszonymi kremowo-brązowymi pasami Cassini; brak dodatkowego tintu. |
+| Saturn | [NASA: Cassini, barwy atmosfery](https://apod.nasa.gov/apod/ap240623.html). Bladozłote chmury, możliwe niebieskawe obszary wskutek rozpraszania; model nie odtwarza zmian sezonowych. |
+| Uran | [ESA/Hubble: model atmosferyczny Irwina](https://esahubble.org/news/heic2209/) wspiera różnice wynikające z mgły. Do barwy wyświetlanej stosujemy nowszą rekonstrukcję Oxford 2024, nie starsze silnie nasycone obrazy porównawcze. |
+| Neptun | [ESA/Hubble: ten sam model obu planet](https://esahubble.org/news/heic2209/), porównany z Oxford 2024. Pozostaje nieznacznie bardziej niebieski od Urana. |
+
+Jądro komety otrzymało bardzo ciemny, matowy szary materiał i straciło pożyczone kratery Księżyca. Referencje: [ESA/OSIRIS: RGB komety 67P](https://blogs.esa.int/rosetta/2014/12/12/comet-67pc-g-in-living-colour/) oraz [ESA: szarość i jasność NAVCAM](https://blogs.esa.int/rosetta/2014/10/17/navcams-shades-of-grey/). Proceduralny kształt jest reprezentatywny, nie dokładną rekonstrukcją 67P.
+
+Dla Proxima Centauri b, TRAPPIST-1 e, 51 Pegasi b i 55 Cancri e katalogi NASA podają ograniczenia parametrów, ale nie dostarczają rozdzielonych map naturalnego koloru. Materiały są neutralnymi placeholderami, a nie domniemanymi zdjęciami. Podobnie dyski wokół Sagittarius A*, M87* i Cygnus X-1 pozostają ilustracją: obrazy radiowe i rentgenowskie nie definiują widzialnego RGB. Brak danych nie pozwala uczciwie potwierdzić ich wyglądu na podstawie kilku fotografii.

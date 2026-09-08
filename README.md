@@ -31,7 +31,7 @@ Księżyce nie mają teorii ruchu: ich fazy początkowe pozostają skomponowane,
 
 To nie jest kompletna symulacja wszystkich rzeczywistych warunków. Brak OTW, pływów, ewolucji termicznej, deformacji, momentów sił, pełnej dynamiki osi oraz perturbacji relatywistycznych. Czarna dziura jest masą punktową z promieniem Schwarzschilda jako granicą pochłaniania; pierścień jest ilustracją, nie modelem akrecji ani soczewkowania. Orientacje obrotu mają zadany okres i nachylenie, nie ewoluują od momentów sił. Przy bardzo ekstremalnych masach dokładność jest ograniczona.
 
-Nie obejmuje wszystkich znanych księżyców. Mapy planet i ziemskiego Księżyca są astronomicznymi mapami powierzchni / atmosfery; pozostałe księżyce mają przybliżone, barwione tekstury Księżyca, a nieregularne satelity przybliżoną geometrię. Pas planetoid i ogony komet są dekoracyjnymi cząstkami bez wzajemnej grawitacji. Ogon komety wskazuje od Słońca, ale nie modeluje fizyki gazu.
+Nie obejmuje wszystkich znanych księżyców. Mapy planet i ziemskiego Księżyca są astronomicznymi mapami powierzchni / atmosfery; 14 pozostałych księżyców ma własne mozaiki misji USGS i przybliżone profile barwne, a nieregularne satelity przybliżoną geometrię. Tytan ma model nieprzezroczystej atmosfery. Niezaimplementowane mapy pozostałych satelitów są jawnie oznaczone. Pas planetoid i ogony komet są dekoracyjnymi cząstkami bez wzajemnej grawitacji. Ogon komety wskazuje od Słońca, ale nie modeluje fizyki gazu.
 
 Widok „Czytelny” powiększa promienie i nieliniowo skraca odległości. „Rzeczywista skala” przywraca proporcje przestrzeni i promieni. Cienkie orbity to chwilowe oskulacyjne rozwiązania dwuciałowe, aktualizowane z bieżących stanów; ślady pokazują faktyczny przebieg symulacji. Przy bardzo bliskich spotkaniach i szybkim tempie limit pracy klatki spowalnia upływ symulacji, zamiast zwiększać krok i destabilizować układ.
 
@@ -164,3 +164,19 @@ Ogon nie jest już jednym strumieniem pyłu. Kometa dostaje dwa, skierowane gdzi
 Tory ziaren liczy klasyczna konstrukcja syndyn: ziarno uwolnione przed czasem tau startuje stamtąd, gdzie jądro było wtedy, i zostaje odepchnięte od Słońca o 1/2 · beta · g_Słońca · tau². Ponieważ wiek i beta zmieniają się niezależnie, ziarna wypełniają wachlarz, a nie linię. Wokół jądra świeci koma. Aktywność zależy od odległości od Słońca: lód wodny sublimuje na dobre wewnątrz około 3 AU, więc dalej kometa jest praktycznie martwa i ogona nie ma.
 
 Granice: kierunki są fizyczne, ale długości ogonów są stylizowane, aby pozostały czytelne w widoku „czytelnym”, który i tak nieliniowo ściska odległości. Nie modelujemy tempa produkcji gazu, rozkładu rozmiarów ziaren, fotodysocjacji, struktury pola magnetycznego wiatru słonecznego ani odrzutu zmieniającego orbitę komety. Ziarna ogona nie mają masy i nie uczestniczą w grawitacji.
+
+## Języki i wygląd — 8 września 2026
+
+Przełącznik z flagą obok Reset: polski, angielski, niemiecki i hiszpański. Pierwszy obsługiwany język z `navigator.languages` wybierany jest automatycznie; brak dopasowania oznacza angielski. Ręczny wybór zapisuje się lokalnie jako `solare-language` i ma pierwszeństwo. Reset układu nie zmienia języka. Tłumaczenie obejmuje kontrolki, etykiety ciał, wyszukiwanie, błędy, opisy katalogowe, datę i dane lotu. Zmiana nie odtwarza formularzy ani stanu fizyki.
+
+[Audyt 23 księżyców](MOON-APPEARANCE.md) zawiera referencje i ograniczenia każdego obiektu. [Audyt planet](COLOR-AUDIT.md) odróżnia obraz w świetle widzialnym od map enhanced/false color. Nie obiecujemy kalibracji radiometrycznej ani dokładnego obrazu nieznanych powierzchni. Egzoplanety i niezaimplementowane mapy satelitów nie dziedziczą cudzych kraterów.
+
+### Początek lotu wewnątrz Słońca
+
+W odległości poniżej fizycznego promienia Słońca scena kosmosu nie jest renderowana. Osobny nieprzezroczysty shader przedstawia jasne lokalne pole promieniowania. Delikatne zmiany jasności są schematem edukacyjnym, nie zdjęciem plazmy ani symulacją hydrodynamiczną. Etykieta pokazuje jądro (0–0,25 R), strefę promienistą (0,25–0,7 R), konwekcyjną (0,7–1 R) i cienką fotosferę. Temperatura to jawnie przybliżona interpolacja od 15 mln K przez 7 mln i 2 mln do 5772 K; nie rozwiązujemy struktury gwiazdy. Zmiana promienia Słońca zmienia granicę wnętrza; profil termiczny pozostaje słonecznym modelem referencyjnym.
+
+Przelot prostą od środka do powierzchni zajmuje w demonstracji około 2,32 s przy 1×. **Nie jest to czas ucieczki energii ze Słońca**: w rzeczywistości promieniowanie rozprasza się w nieprzezroczystej plazmie i dyfunduje, a konwekcja przenosi energię w zewnętrznych warstwach. Opis jest widoczny podczas przelotu przez wnętrze. Po wyjściu kontynuowany jest dotychczasowy zegar próżniowy, 1 AU / c = 499,0048 s od środka; bliskie kadrowanie planet pozostaje ruchem kamery demonstracyjnej.
+
+Źródła: [NASA/Marshall, Solar Interior](https://solarscience.msfc.nasa.gov/interior.shtml), [ESA, Anatomy of the Sun](https://www.esa.int/ESA_Multimedia/Images/2020/01/Anatomy_of_the_Sun). Nie przypisujemy jednej dokładnej liczby lat propagacji: źródła podają różne przybliżenia zależne od modelu transportu.
+
+Testy Node obejmują kompletność czterech słowników, zmianę języka i dynamiczne komunikaty w izolowanym DOM, zachowanie wartości oraz handlerów formularzy, lokalizowane wyszukiwanie, granice wnętrza i pauzę/przewijanie, indywidualność map księżyców i kolejność materiałów względem śladów kolizji. Nie stanowią wizualnego testu GPU ani walidacji kolorymetrycznej monitora.

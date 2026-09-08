@@ -56,3 +56,18 @@ rendered; white photosphere replaces its false-color appearance. Venus,
 Uranus and Neptune use documented approximate visible-light display profiles;
 Mars saturation is reduced. These are not spectrally calibrated products.
 Sources and limitations: COLOR-AUDIT.md in the source repository.
+
+2026-09-08 satellite appearance audit:
+14 mission mosaics in textures/moons/*.jpg: USGS Astrogeology, from NASA
+Viking, Voyager, Galileo and Cassini imaging; Phobos control by DLR.
+Exact download URLs and WMS layers: textures/moons/sources.json.
+Monochrome or enhanced mosaics provide structure, not calibrated visible RGB.
+Display approximations and two references for each included moon:
+MOON-APPEARANCE.md in the source repository.
+Titan displays an opaque atmospheric approximation, not a radar surface map.
+Unmapped moons and exoplanets do not reuse Earth's Moon craters.
+
+Solar interior: educational opaque radiation-field schematic, not imagery
+or radiative-transfer simulation. Structure and approximate temperatures:
+https://solarscience.msfc.nasa.gov/interior.shtml
+https://www.esa.int/ESA_Multimedia/Images/2020/01/Anatomy_of_the_Sun

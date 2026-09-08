@@ -1,0 +1,100 @@
+[
+  {
+    "body": "deimos",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fmars%2Fdeimos_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=VIKING&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "VIKING",
+    "valid": true,
+    "bytes": 137100
+  },
+  {
+    "body": "io",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fjupiter%2Fio_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=SSI_VGR_color&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "SSI_VGR_color",
+    "valid": true,
+    "bytes": 268066
+  },
+  {
+    "body": "europa",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fjupiter%2Feuropa_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=GALILEO_VOYAGER&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "GALILEO_VOYAGER",
+    "valid": true,
+    "bytes": 337962
+  },
+  {
+    "body": "ganymede",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fjupiter%2Fganymede_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=GALILEO_VOYAGER&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "GALILEO_VOYAGER",
+    "valid": true,
+    "bytes": 242547
+  },
+  {
+    "body": "callisto",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fjupiter%2Fcallisto_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=GALILEO_VOYAGER&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "GALILEO_VOYAGER",
+    "valid": true,
+    "bytes": 247129
+  },
+  {
+    "body": "mimas",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fsaturn%2Fmimas_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=CASSINI_MIMAS_MOSAIC&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "CASSINI_MIMAS_MOSAIC",
+    "valid": true,
+    "bytes": 388957
+  },
+  {
+    "body": "enceladus",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fsaturn%2Fenceladus_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=CASSINI&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "CASSINI",
+    "valid": true,
+    "bytes": 615435
+  },
+  {
+    "body": "tethys",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fsaturn%2Ftethys_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=CASSINI&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "CASSINI",
+    "valid": true,
+    "bytes": 549982
+  },
+  {
+    "body": "dione",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fsaturn%2Fdione_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=CASSINI_VOYAGER&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "CASSINI_VOYAGER",
+    "valid": true,
+    "bytes": 607707
+  },
+  {
+    "body": "rhea",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fsaturn%2Frhea_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=CASSINI_VOYAGER&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "CASSINI_VOYAGER",
+    "valid": true,
+    "bytes": 397056
+  },
+  {
+    "body": "iapetus",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fsaturn%2Fiapetus_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=CASSINI_VOYAGER&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "CASSINI_VOYAGER",
+    "valid": true,
+    "bytes": 455311
+  },
+  {
+    "body": "hyperion",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fsaturn%2Fhyperion_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=VOYAGER2&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "VOYAGER2",
+    "valid": true,
+    "bytes": 128342
+  },
+  {
+    "body": "triton",
+    "url": "https://planetarymaps.usgs.gov/cgi-bin/mapserv?map=%2Fmaps%2Fneptune%2Ftriton_simp_cyl.map&SERVICE=WMS&VERSION=1.1.1&REQUEST=GetMap&LAYERS=TRITON_VOYAGER2&STYLES=&SRS=EPSG%3A4326&BBOX=-180%2C-90%2C180%2C90&WIDTH=2048&HEIGHT=1024&FORMAT=image%2Fjpeg&BGCOLOR=0x888888",
+    "layer": "TRITON_VOYAGER2",
+    "valid": true,
+    "bytes": 151036
+  },
+  {
+    "body": "phobos",
+    "url": "https://astrogeology.usgs.gov/ckan/dataset/85290c2c-7524-44ba-9251-61ea69fcd9dd/resource/876ae3aa-ac7b-434c-86f4-a2e50cc9826d/download/phobos_viking_mosaic_dlrcontrol_1024.jpg",
+    "layer": "Viking Orbiter / DLR-controlled USGS photographic mosaic",
+    "valid": true,
+    "bytes": 161960
+  }
+]
