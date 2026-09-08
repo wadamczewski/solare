@@ -1,14 +1,16 @@
 // AU, solar masses, days. G = Gaussian gravitational constant squared.
+import {planetState,toSceneFrame} from './ephemeris.js';
 export const G=0.0002959122082855911, AU=149597870.7, SOLAR_MASS=1.98847e30;
+// name, key, semi-major axis AU, eccentricity, inclination deg, mass M☉, radius km, rotation h, axial tilt deg, colour
 export const planets=[
- ['Merkury','mercury',.3871,.2056,7.005,1.6601e-7,2439.7,1407.6,.034,'#a79a87',.3],
- ['Wenus','venus',.7233,.0068,3.395,2.4478e-6,6051.8,5832.5,177.36,'#d6b777',2.8],
- ['Ziemia','earth',1,.0167,0,3.0035e-6,6371,23.934,23.44,'#629ed1',5.55],
- ['Mars','mars',1.5237,.0934,1.85,3.227e-7,3389.5,24.623,25.19,'#c47953',3.85],
- ['Jowisz','jupiter',5.2029,.0484,1.303,.00095479,69911,9.925,3.13,'#d2b99a',.5],
- ['Saturn','saturn',9.537,.0542,2.489,.00028589,58232,10.656,26.73,'#d9c69c',3.35],
- ['Uran','uranus',19.191,.0472,.773,.00004366,25362,17.24,97.77,'#91d4d9',2.3],
- ['Neptun','neptune',30.07,.0086,1.77,.00005151,24622,16.11,28.32,'#4c73c9',5.65]
+ ['Merkury','mercury',.3871,.2056,7.005,1.6601e-7,2439.7,1407.6,.034,'#a79a87'],
+ ['Wenus','venus',.7233,.0068,3.395,2.4478e-6,6051.8,5832.5,177.36,'#d6b777'],
+ ['Ziemia','earth',1,.0167,0,3.0035e-6,6371,23.934,23.44,'#629ed1'],
+ ['Mars','mars',1.5237,.0934,1.85,3.227e-7,3389.5,24.623,25.19,'#c47953'],
+ ['Jowisz','jupiter',5.2029,.0484,1.303,.00095479,69911,9.925,3.13,'#d2b99a'],
+ ['Saturn','saturn',9.537,.0542,2.489,.00028589,58232,10.656,26.73,'#d9c69c'],
+ ['Uran','uranus',19.191,.0472,.773,.00004366,25362,17.24,97.77,'#91d4d9'],
+ ['Neptun','neptune',30.07,.0086,1.77,.00005151,24622,16.11,28.32,'#4c73c9']
 ];
 // name, parent, orbital radius km, mass kg, radius km, period days, irregular
 export const moons=[
@@ -21,11 +23,13 @@ export const moons=[
 ];
 let nextId=0;
 export function body(o){return {id:++nextId,p:[0,0,0],v:[0,0,0],mass:1,radius:1,spin:24,tilt:0,color:'#bab9b4',...o};}
-export function initialSystem(){
+// Planets are placed at their true heliocentric state for `date`; moons keep
+// composed phases (see moons table) because no satellite theory is modelled.
+export function initialSystem(date=new Date()){
  const result=[body({name:'Słońce',key:'sun',mass:1,radius:695700,spin:609.12,tilt:7.25,color:'#ffffff'})];
- for(const [name,key,a,e,inc,mass,radius,spin,tilt,color,theta] of planets){
-  const r=a*(1-e*e)/(1+e*Math.cos(theta)),h=Math.sqrt(G*a*(1-e*e)),rad=inc*Math.PI/180;
-  result.push(body({name,key,a,e,mass,radius,spin,tilt,color,p:[r*Math.cos(theta),r*Math.sin(theta)*Math.sin(rad),r*Math.sin(theta)*Math.cos(rad)],v:[-G/h*Math.sin(theta),G/h*(e+Math.cos(theta))*Math.sin(rad),G/h*(e+Math.cos(theta))*Math.cos(rad)]}));
+ for(const [name,key,a,e,inc,mass,radius,spin,tilt,color] of planets){
+  const state=planetState(key,date);
+  result.push(body({name,key,a,e,mass,radius,spin,tilt,color,p:toSceneFrame(state.p),v:toSceneFrame(state.v)}));
  }
  moons.forEach(([name,parent,dist,kg,radius,days,irregular],i)=>{
   const host=result.find(b=>b.key===parent),r=dist/AU,t=i*2.399,speed=Math.sqrt(G*host.mass/r)*Math.sign(days),incl=parent==='uranus'?1.706:parent==='neptune'?-0.41:.08;

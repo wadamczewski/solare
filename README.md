@@ -13,12 +13,21 @@ Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` 
 - Dwuklik: śledzenie ciała. Wybór ciała możliwy także pod logo.
 - Kliknięcie pustego miejsca: utworzenie komety, czarnej dziury lub planety. Wskazany punkt leży na płaszczyźnie ekliptyki; wysokość można zmienić polem Y.
 - Logo / S: narzędzia czasu i nawigacji, wyszukiwanie i wybór ciał (filtrowanie po nazwie, bez rozróżniania wielkości liter i polskich znaków diakrytycznych), przełącznik rzeczywistej skali, restart symulacji.
+- Nad dolnym paskiem widnieje data i godzina symulacji (UTC) w formacie „Data - Czas”; zegar rusza od momentu wczytania i biegnie razem z upływem czasu symulacji.
 - Spacja: pauza; A: dodawanie; R / Reset: pełne przywrócenie początkowego układu, ustawień i kamery; Escape: zamknięcie panelu.
 - „Zamień orbitę” przenosi także księżyce wraz z pozycją i prędkością ich planety.
 
 ## Model i granice dokładności
 
-Fizyka pracuje w AU, masach słonecznych i dniach, niezależnie od wizualnego powiększenia planet. Wszystkie 32 domyślne ciała (Słońce, osiem planet, 23 wybrane księżyce) i dodane obiekty wzajemnie oddziałują według grawitacji Newtona. Velocity Verlet z krokiem ograniczanym przez czas dynamiczny i zbliżenia. Kolizje przy rzeczywistych promieniach rozróżniają łączenie, wyrzut odłamków, rozbijające uderzenie, skośne zderzenie i pochłanianie. Masa i pęd liniowy są zachowane. Początkowy układ jest barycentryczny. Początkowe fazy orbit są skomponowane, nie odpowiadają aktualnej efemerydzie. Parametry planet bazują na tabelach JPL.
+Fizyka pracuje w AU, masach słonecznych i dniach, niezależnie od wizualnego powiększenia planet. Wszystkie 32 domyślne ciała (Słońce, osiem planet, 23 wybrane księżyce) i dodane obiekty wzajemnie oddziałują według grawitacji Newtona. Velocity Verlet z krokiem ograniczanym przez czas dynamiczny i zbliżenia. Kolizje przy rzeczywistych promieniach rozróżniają łączenie, wyrzut odłamków, rozbijające uderzenie, skośne zderzenie i pochłanianie. Masa i pęd liniowy są zachowane. Początkowy układ jest barycentryczny. Parametry planet bazują na tabelach JPL.
+
+## Położenia planet na bieżącą chwilę
+
+Po wczytaniu (oraz po Reset) planety stoją tam, gdzie faktycznie są w tym momencie. `src/ephemeris.js` liczy je z tabeli elementów keplerowskich i ich wiekowych tempo zmian, [JPL Solar System Dynamics](https://ssd.jpl.nasa.gov/planets/approx_pos.html), dopasowanie na lata 1800-2050. Rozwiązujemy równanie Keplera Newtonem, a prędkość bierzemy z ruchu średniego wynikającego z tabelarycznego tempa długości średniej, więc położenie i prędkość są wzajemnie spójne.
+
+Porównanie z niezależną biblioteką opartą na VSOP87 daje dla tej samej chwili różnice rzędu kilku do kilkudziesięciu sekund łuku dla planet wewnętrznych i do około 9 minut łuku dla Saturna - czyli dokładnie tyle, ile JPL deklaruje dla tego dopasowania. To nie jest pełna efemeryda pokroju DE440. Poza zakresem 1800-2050 elementy tracą ważność. Ziemia jest stawiana w barycentrum układu Ziemia-Księżyc (rozbieżność około 4700 km). Czas traktujemy jako UTC, bez poprawki TT (około 69 s).
+
+Księżyce nie mają teorii ruchu: ich fazy początkowe pozostają skomponowane, a jedynie towarzyszą planetom na ich prawdziwych pozycjach. Zegar nad dolnym paskiem pokazuje moment symulacji; podczas lotu światła jest ukryty, bo całkowanie grawitacji jest wtedy wstrzymane.
 
 To nie jest kompletna symulacja wszystkich rzeczywistych warunków. Brak OTW, pływów, ewolucji termicznej, deformacji, momentów sił, pełnej dynamiki osi oraz perturbacji relatywistycznych. Czarna dziura jest masą punktową z promieniem Schwarzschilda jako granicą pochłaniania; pierścień jest ilustracją, nie modelem akrecji ani soczewkowania. Orientacje obrotu mają zadany okres i nachylenie, nie ewoluują od momentów sił. Przy bardzo ekstremalnych masach dokładność jest ograniczona.
 
@@ -30,7 +39,7 @@ WebGL używa high-performance, dynamicznych buforów pozycji, wielkości, koloru
 
 ## Walidacja
 
-Testy obejmują zachowanie pędu i energii, stabilność orbity przez rok, związanie księżyców, reakcję na ruch Słońca, niezmienniczość Galileusza, kolizje i adaptację kroku. Kompilacja produkcyjna jest sprawdzana. Nie przeprowadzono testów przeglądarkowych. Opcjonalne WebMCP (odczyt i pauza) wykrywa wsparcie przeglądarki; brak dostępnego kontekstu do walidacji WebMCP.
+Testy obejmują zachowanie pędu i energii, stabilność orbity przez rok, związanie księżyców, reakcję na ruch Słońca, niezmienniczość Galileusza, kolizje i adaptację kroku. Efemerydy mają własny zestaw: okresy orbitalne odtworzone z tabelarycznych temp, odwracalność równania Keplera, zgodność prędkości z różnicą skończoną położeń, kierunek obiegu i prędkość względem wzoru vis-viva oraz długość ekliptyczna Słońca dla znanej daty. Mapa nieba jest sprawdzana na poziomie danych: punkt równonocy i bieguny, jednostkowość wektorów kierunku, zakres jasności katalogu od Syriusza do 8 mag, skupienie Drogi Mlecznej wokół centrum Galaktyki oraz obecność i położenie kluczowych obiektów głębokiego nieba. Testy komet pilnują gęstości siatki jądra, dwupłatowości kształtu, powtarzalności dla danego ziarna i monotoniczności aktywności z odległością. Testy scenariuszowe używają ustalonej epoki, żeby prawdziwe położenia planet nie uzależniły wyniku od dnia uruchomienia. Kompilacja produkcyjna jest sprawdzana. Nie przeprowadzono automatycznych testów przeglądarkowych w zestawie `npm test`. Opcjonalne WebMCP (odczyt i pauza) wykrywa wsparcie przeglądarki; brak dostępnego kontekstu do walidacji WebMCP.
 
 ## Źródła
 
@@ -119,3 +128,39 @@ Ekstremalne uderzenia w Ziemię mają osobny model skutków powierzchniowych. En
 Przykład: kula o średnicy 8 km, gęstości przyjętej 500 kg/m³ i prędkości względnej 0,1c ma masę 1,34e14 kg i energię około 6,07e28 J. Jest to około 0,027% przybliżonej energii wiązania grawitacyjnego Ziemi, więc globalna katastrofa powierzchniowa nie oznacza rozerwania globu. Przy 8 km promienia masa i energia są osiem razy większe. Formularz używa promienia i niezależnej masy: dla tego przykładu ustaw promień 4 km oraz masę 1,34e14 kg. Źródła kontekstu skutków: https://nas.nasa.gov/areas/atap.html i https://ntrs.nasa.gov/citations/19900035038 . Skale 0,1c wykraczają poza kalibrację typowych modeli uderzeń asteroid.
 
 Jasność Słońca: scena jest renderowana do bufora HDR, następnie bloom rozprowadza światło wyłącznie z widocznych jasnych pikseli. Fotosfera ma luminancję renderowania znacznie wyższą niż oświetlone planety; końcowe mapowanie tonów daje białą prześwietloną tarczę i blask. Usunięto płaski billboard z pozorną koroną, który nie był modelem ekspozycji. Przesłonięcie tarczy w buforze głębokości ogranicza źródło blasku. Parametry HDR/bloom są przybliżeniem ekspozycji i rozproszenia w optyce, nie wartością luminancji w cd/m² ani modelem atmosfery Słońca. Monitor nie może odtworzyć rzeczywistej jasności. Źródło: https://science.nasa.gov/sun/facts/ — korona jest zbyt słaba w porównaniu z fotosferą, aby normalnie widzieć ją bez przesłonięcia tarczy.
+
+## Mapa nieba
+
+Tło nie jest już losowym rozsypem punktów. `src/sky.js` renderuje sferę niebieską z prawdziwych katalogów przygotowanych offline przez `tools/build-sky.mjs`:
+
+- 41 411 gwiazd do jasności 8 mag, z rektascensją, deklinacją, jasnością i wskaźnikiem barwy B-V. Barwa gwiazdy wynika z B-V przez wzór Ballesterosa (2012) na temperaturę i przybliżenie ciała doskonale czarnego. Rozmiar rośnie z jasnością powoli, resztę niesie luminancja HDR, dzięki czemu najjaśniejsze gwiazdy rozkwitają w bloomie.
+- Droga Mleczna dwiema warstwami: gładka mapa luminancji zrasteryzowana z pięciu poziomów izofot survey'u oraz rzadka chmura 110 000 punktów na wierzchu. Pas fizycznie jest światłem nierozdzielonych gwiazd, więc mapa niesie poświatę, a punkty przywracają ziarno tych gwiazd, które się rozdzielają.
+- 31 jasnych obiektów głębokiego nieba: Galaktyka Andromedy, Galaktyka Trójkąta, oba Obłoki Magellana, Mgławica Oriona, Plejady, Omega Centauri, 47 Tucanae i inne, w skali odpowiadającej ich rzeczywistej rozciągłości kątowej i z jasnością powierzchniową malejącą wraz z rozmiarem.
+- Linie 89 gwiazdozbiorów, domyślnie wyłączone (przełącznik „Gwiazdozbiory” w panelu Symulacja). To nakładka orientacyjna wymyślona przez ludzi, nie obiekt fizyczny, dlatego nie jest włączona sama z siebie.
+
+Współrzędne są równikowe J2000 i obracane do układu ekliptycznego sceny nachyleniem 23,4392911°. Sfera jest zakotwiczona w kamerze, więc niebo nie wykazuje paralaksy przy przelotach - słusznie, bo najbliższa gwiazda leży około 268 000 AU stąd.
+
+Granice: katalog urywa się na 8 mag, więc gwiazd jest około 41 tysięcy, a nie miliardy - to i tak znacznie więcej niż około 9 tysięcy widocznych gołym okiem z Ziemi. Pozycje są kwantowane do około 20 sekund łuku. Ruchy własne, paralaksa i gwiazdy zmienne nie są modelowane, więc mapa jest statyczna na epokę J2000. Obiekty głębokiego nieba są rysowane jako miękkie plamy o właściwym rozmiarze, nie jako obrazy. Barwy gwiazd nie uwzględniają poczerwienienia międzygwiazdowego, grawitacji powierzchniowej ani metaliczności. Dane pochodzą z d3-celestial (BSD-3-Clause, Olaf Frohn), który pakuje astrometrię Hipparcosa/Tycho i izofoty przeglądu nieba Mellingera; pełna atrybucja w `public/credits.txt`.
+
+## Barwa tła
+
+Tło sceny jest czarne. Wcześniejszy ciemnogranatowy odcień odpowiadał raczej rozpraszaniu w atmosferze Ziemi niż temu, co widać z pokładu statku: próżnia nie świeci, a poświata tła nieba jest o rzędy wielkości poniżej progu wyświetlacza. Zmiana obejmuje kolor czyszczenia bufora WebGL, tło CSS i `theme-color`.
+
+## Skala paska trasy lotu
+
+Punkty na prawej osi stoją teraz na swoich rzeczywistych odległościach heliocentrycznych, a nie w równych odstępach: Uran ląduje na 63,8% osi (19,19 / 30,07 AU), Neptun na 100%. Wypełnienie i główka paska śledzą ten sam ułamek przebytej drogi, więc postęp odpowiada odległości między ciałami, a nie liczbie minionych planet.
+
+Cztery planety wewnętrzne mieszczą się w pierwszych 5% osi, więc same znaczniki zostają na prawdziwych pozycjach, a rozsuwane są wyłącznie etykiety, połączone ze swoim znacznikiem cienką kreską. Pasek jest ograniczony przez `clamp()` w pionie i przeliczany przy zmianie rozmiaru okna, więc mieści się na ekranie także na niskich i wąskich oknach.
+
+## Komety
+
+Jądro powstaje z dwóch zlanych płatów z wielooktawowym szumem i kilkoma misami uderzeniowymi, przy 3380 ścianach zamiast dawnych 180 - facetki przestały być widoczne. Kształt wzorowany jest na tym, co sondy zobaczyły z bliska: 67P/Czuriumow-Gierasimienko i 19P/Borrelly to ciała dwupłatowe, a 1P/Halleya to wydłużona bryła około 15 x 8 km.
+
+Ogon nie jest już jednym strumieniem pyłu. Kometa dostaje dwa, skierowane gdzie indziej, bo tak jest naprawdę:
+
+- Ogon jonowy to gaz zjonizowany promieniowaniem UV i porwany przez wiatr słoneczny. Biegnie niemal dokładnie od Słońca, jest wąski i włóknisty, z wędrującymi załamaniami, a jego błękit to emisja CO+ w okolicy 420 nm.
+- Ogon pyłowy to ziarna wypychane ciśnieniem promieniowania, które zachowują pęd orbitalny z chwili uwolnienia. Dlatego odgina się od linii przeciwsłonecznej i rozwiera w wachlarz, a jego ciepła biel to po prostu odbite światło Słońca.
+
+Tory ziaren liczy klasyczna konstrukcja syndyn: ziarno uwolnione przed czasem tau startuje stamtąd, gdzie jądro było wtedy, i zostaje odepchnięte od Słońca o 1/2 · beta · g_Słońca · tau². Ponieważ wiek i beta zmieniają się niezależnie, ziarna wypełniają wachlarz, a nie linię. Wokół jądra świeci koma. Aktywność zależy od odległości od Słońca: lód wodny sublimuje na dobre wewnątrz około 3 AU, więc dalej kometa jest praktycznie martwa i ogona nie ma.
+
+Granice: kierunki są fizyczne, ale długości ogonów są stylizowane, aby pozostały czytelne w widoku „czytelnym”, który i tak nieliniowo ściska odległości. Nie modelujemy tempa produkcji gazu, rozkładu rozmiarów ziaren, fotodysocjacji, struktury pola magnetycznego wiatru słonecznego ani odrzutu zmieniającego orbitę komety. Ziarna ogona nie mają masy i nie uczestniczą w grawitacji.

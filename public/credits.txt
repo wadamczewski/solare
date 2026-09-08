@@ -14,6 +14,40 @@ Reference physical parameters:
 https://ssd.jpl.nasa.gov/planets/phys_par.html
 https://ssd.jpl.nasa.gov/astro_par.html
 
+Celestial sphere data (sky/stars.bin, sky/milkyway.bin, sky/milkyway.png,
+sky/deepsky.json, sky/constellations.bin, sky/starnames.json):
+derived from the d3-celestial data set.
+Copyright (c) 2015, Olaf Frohn. All rights reserved.
+Source: https://github.com/ofrohn/d3-celestial
+License: BSD 3-Clause.
+  Redistribution and use in source and binary forms, with or without
+  modification, are permitted provided that the following conditions are met:
+  1. Redistributions of source code must retain the above copyright notice,
+     this list of conditions and the following disclaimer.
+  2. Redistributions in binary form must reproduce the above copyright notice,
+     this list of conditions and the following disclaimer in the documentation
+     and/or other materials provided with the distribution.
+  3. Neither the name of the copyright holder nor the names of its
+     contributors may be used to endorse or promote products derived from this
+     software without specific prior written permission.
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+  AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+  IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+  ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+  LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+  CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+  SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+  INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+  CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+  ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+  POSSIBILITY OF SUCH DAMAGE.
+That data set in turn packages Hipparcos/Tycho astrometry and Axel Mellinger's
+all-sky survey isophotes. Conversion script: tools/build-sky.mjs.
+
+Planetary ephemeris: JPL Solar System Dynamics, "Keplerian Elements for
+Approximate Positions of the Major Planets" (1800-2050 fit).
+https://ssd.jpl.nasa.gov/planets/approx_pos.html
+
 Third-party software: Three.js (MIT), Vite (MIT).
 
 2026-09-07 visible-light appearance audit:
