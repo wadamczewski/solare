@@ -1,5 +1,6 @@
 import {moonAppearance,loadMoonMaps,applyMoonAppearance} from './moon-appearance.js';
 import {createSolarInterior,solarInteriorState} from './solar-interior.js';
+import {applySolarSurface,setSunspotVisibility} from './solar-surface.js';
 import {installLanguageUI,getLanguage,getLocale,translate,formatNumber} from './i18n.js';
 import {makeOpaqueSurface} from './opaque-surface.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
@@ -52,7 +53,7 @@ function applySolarBrightness(){
  sunlight.intensity=SOLAR_LIGHT_INTENSITY*scale;
  solarBloom.strength=SOLAR_BLOOM_STRENGTH*(.08+.92*Math.sqrt(scale));
  const sun=bs.find(body=>body.key==='sun'),sunView=sun&&views.get(sun.id);
- if(sunView?.mesh.material?.color)sunView.mesh.material.color.setRGB(24*scale,24*scale,24*scale);
+ if(sunView?.mesh.material?.color){sunView.mesh.material.color.setRGB(24*scale,24*scale,24*scale);setSunspotVisibility(sunView.mesh.material,solarBrightness)}
  solarBrightnessInput.value=String(solarBrightness);solarBrightnessValue.value=`${solarBrightness}%`;solarBrightnessValue.textContent=`${solarBrightness}%`;
  updateTemperatureReadout();
 }
@@ -92,7 +93,7 @@ function displayed(b){if(lightFlight){const stop=flightStops.find(s=>s.id===b.id
 function radius(b){if(lightFlight){if(flightTrueScale)return b.radius/AU*6;if(b.key==='sun')return .12;if(b.parent)return .008;return .018+.095*Math.pow(b.radius/69911,.6)}if(!compressed)return b.radius/AU*6;if(b.key==='sun')return 1.02;if(b.key==='blackhole')return .5*Math.pow(b.mass,.15);if(b.parent)return b.irregular?.029:Math.max(.035,b.radius/22000);if(b.key==='comet')return .055;if(b.key==='fragment')return .035+.16*Math.pow(b.radius/69911,.5);return .10+.57*Math.pow(b.radius/69911,.62)}
 const sphere=new THREE.SphereGeometry(1,56,40);
 function addView(b){const group=new THREE.Group();scene.add(group);let geo=sphere;if(b.key==='comet'||b.key==='fragment'&&b.irregular)geo=cometNucleusGeometry(b.id,12);else if(b.irregular){geo=new THREE.IcosahedronGeometry(1,3);const a=geo.attributes.position;for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i),f=1+.12*Math.sin(x*18+y*13+z*8)+.05*Math.sin(x*37+y*29+z*23);a.setXYZ(i,x*f*1.3,y*f*.78,z*f)}geo.computeVertexNormals()}
- const surfaceMap=textures[b.textureKey||b.key];const mat=b.key==='sun'?new THREE.MeshBasicMaterial({color:new THREE.Color('#ffffff').multiplyScalar(24),toneMapped:true}):new THREE.MeshStandardMaterial({map:surfaceMap||textures.moon,color:surfaceMap?'#ffffff':b.key==='moon'?b.color:b.key==='blackhole'?'#000000':'#ffffff',roughness:1,metalness:0});if(b.key==='blackhole')mat.map=null;if(b.key==='comet'){mat.map=null;mat.color.set('#45413d')}if(b.textureKey&&!surfaceMap){mat.map=null;mat.color.set(b.gas?'#b0aaa0':'#77736c')}naturalColorMaterial(mat,b.key);applyMoonAppearance(mat,b,moonMaps);makeOpaqueSurface(mat);
+ const surfaceMap=textures[b.textureKey||b.key];const mat=b.key==='sun'?new THREE.MeshBasicMaterial({map:surfaceMap,color:new THREE.Color('#ffffff').multiplyScalar(24),toneMapped:true}):new THREE.MeshStandardMaterial({map:surfaceMap||textures.moon,color:surfaceMap?'#ffffff':b.key==='moon'?b.color:b.key==='blackhole'?'#000000':'#ffffff',roughness:1,metalness:0});if(b.key==='blackhole')mat.map=null;if(b.key==='comet'){mat.map=null;mat.color.set('#45413d')}if(b.textureKey&&!surfaceMap){mat.map=null;mat.color.set(b.gas?'#b0aaa0':'#77736c')}naturalColorMaterial(mat,b.key);applyMoonAppearance(mat,b,moonMaps);if(b.key==='sun')applySolarSurface(mat);makeOpaqueSurface(mat);
  const axis=new THREE.Group();axis.rotation.z=THREE.MathUtils.degToRad(b.tilt);group.add(axis);const mesh=new THREE.Mesh(geo,mat);axis.add(mesh);mesh.userData.id=b.id;
  let halo=null; // Solar glare is generated from visible HDR pixels, not an unoccluded billboard.
  if(b.key==='earth'){const atmo=new THREE.Mesh(sphere,new THREE.ShaderMaterial({vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',fragmentShader:'varying vec3 n;varying vec3 v;void main(){float a=pow(1.-max(dot(n,v),0.),4.);gl_FragColor=vec4(.18,.46,.9,a*.38);}',transparent:true,depthWrite:false}));atmo.scale.setScalar(1.035);mesh.add(atmo)}
