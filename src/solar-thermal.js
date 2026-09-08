@@ -1,10 +1,13 @@
 const CMB_K=2.725;
 
-// Representative surface temperatures in kelvin under present solar output.
+// Representative global surface temperatures in kelvin under present solar output.
+// Earth's day/night pair uses the AIRS global mean skin-temperature climatology:
+// 290.72 K at 13:30 and 286.08 K at 01:30 local solar time. The model is a
+// global mean, not a claim that every point on the night hemisphere is this warm.
 // They are intentionally separate for day and night so a slider can show the
 // thermal contrast instead of treating a whole body as one uniform surface.
 const profiles={
- mercury:[440,100],venus:[735,735],earth:[292,205],mars:[253,160],
+ mercury:[440,100],venus:[735,735],earth:[290.72,286.08],mars:[253,160],
  jupiter:[165,110],saturn:[134,85],uranus:[76,50],neptune:[72,45],
  moon:[260,100],comet:[230,85],fragment:[230,85]
 };

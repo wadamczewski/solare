@@ -4,10 +4,10 @@ import {surfaceTemperatures} from '../src/solar-thermal.js';
 
 const sun={id:1,key:'sun',p:[0,0,0]},earth={id:2,key:'earth',a:1,p:[1,0,0]};
 
-test('surface temperatures use distinct lit and dark profiles at nominal solar output',()=>{
+test('Earth day and night profiles use the observed global skin-temperature climatology',()=>{
  const temperature=surfaceTemperatures(earth,[sun,earth],100);
- assert.ok(temperature.litC>0);
- assert.ok(temperature.darkC<0);
+ assert.ok(Math.abs(temperature.litC-17.57)<.01);
+ assert.ok(Math.abs(temperature.darkC-12.93)<.01);
  assert.ok(temperature.litC>temperature.darkC);
 });
 
