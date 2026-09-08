@@ -3,6 +3,11 @@ export function captureCollisionView(bodies, position, radius){
  return new Map(bodies.map(b=>[b.id,{p:position(b).toArray(),r:radius(b)}]));
 }
 export function viewContact(a,b,current,previous){
+ // In the illustrative scale, satellites are deliberately pulled close to
+ // their hosts. They must not strike an unrelated planet merely because two
+ // compressed orbital diagrams overlap on screen.
+ const relatedSatellite=a.parent===b.id||b.parent===a.id||(a.parent&&a.parent===b.parent);
+ if((a.parent||b.parent)&&!relatedSatellite)return false;
  const x=current.get(a.id),y=current.get(b.id);if(!x||!y)return false;
  const end=y.p.map((n,k)=>n-x.p[k]),limit=x.r+y.r;
  if(Math.hypot(...end)<=limit)return true;

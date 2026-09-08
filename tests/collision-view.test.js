@@ -15,3 +15,8 @@ test('swept test rejects near miss and ignores bodies absent from previous sampl
  const [a,b]=pair(),before=snapshot(a,b,-3),after=snapshot(a,b,3);before.get(b.id).p[1]=2;after.get(b.id).p[1]=2;
  assert.equal(viewContact(a,b,after,before),false);assert.equal(viewContact(a,b,after,new Map()),false);
 });
+test('a compressed satellite cannot falsely strike an unrelated planet',()=>{
+ const [planet,moon]=pair();moon.parent=planet.id;const intruder=body({p:[4,0,0],mass:1e-6,radius:100});
+ const current=new Map([[moon.id,{p:[0,0,0],r:.6}],[intruder.id,{p:[1,0,0],r:.6}]]);
+ assert.equal(viewContact(moon,intruder,current),false);
+});
