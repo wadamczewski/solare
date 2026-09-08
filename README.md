@@ -12,7 +12,7 @@ Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` 
 - Kliknięcie ciała: podgląd WebGL obok nazwy oraz edycja masy, promienia, prędkości, położenia, okresu i nachylenia osi.
 - Dwuklik: śledzenie ciała. Wybór ciała możliwy także pod logo.
 - Kliknięcie pustego miejsca: utworzenie komety, czarnej dziury lub planety. Wskazany punkt leży na płaszczyźnie ekliptyki; wysokość można zmienić polem Y.
-- Logo / S: narzędzia czasu i nawigacji, wybór ciał, przełącznik rzeczywistej skali, restart symulacji.
+- Logo / S: narzędzia czasu i nawigacji, wyszukiwanie i wybór ciał (filtrowanie po nazwie, bez rozróżniania wielkości liter i polskich znaków diakrytycznych), przełącznik rzeczywistej skali, restart symulacji.
 - Spacja: pauza; A: dodawanie; R / Reset: pełne przywrócenie początkowego układu, ustawień i kamery; Escape: zamknięcie panelu.
 - „Zamień orbitę” przenosi także księżyce wraz z pozycją i prędkością ich planety.
 
