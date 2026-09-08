@@ -18,6 +18,14 @@ test('black hole horizon scales with mass and matches collision boundary',()=>{
  const b=spawn('m87',6.5e9*SOLAR_MASS,1);assert.ok(b.radius>1e10);assert.equal(b.radius,collisionRadius(b)*AU);
  const small=spawn('comet',1e10,1);small.p=[b.radius/AU*.9,0,0];const bodies=[b,small];assert.equal(resolveCollisions(bodies)[0].kind,'absorb');assert.equal(bodies.length,1);
 });
+test('neutron-star presets retain compact observed or modelled physical properties',()=>{
+ const pulsar=spawn('psr-j0740',2.08*SOLAR_MASS,13.7),magnetar=spawn('sgr-1806-20',1.4*SOLAR_MASS,12);
+ assert.equal(pulsar.key,'neutron-star');
+ assert.equal(pulsar.magneticField,1.6e4);
+ assert.ok(pulsar.spin>0&&pulsar.spin<1e-5);
+ assert.equal(magnetar.magneticField,2e10);
+ assert.ok(magnetar.spin>pulsar.spin);
+});
 test('invalid physical dimensions are rejected',()=>{
  for(const [m,r] of [[0,1],[-1,1],[Infinity,1],[1,NaN],[1,0],[1,1e15]])assert.throws(()=>spawn('earth',m,r));
 });

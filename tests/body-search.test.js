@@ -23,6 +23,7 @@ test('body kind labels distinguish stars, planets, moons with host, comets, blac
  assert.equal(bodyKind(moon,bs),'Księżyc · Ziemia');
  assert.equal(bodyKind({key:'comet',name:'Kometa'},bs),'Kometa');
  assert.equal(bodyKind({key:'blackhole',name:'Czarna dziura'},bs),'Czarna dziura');
+ assert.equal(bodyKind({key:'neutron-star',name:'Pulsar Kraba'},bs),'Gwiazda neutronowa');
  assert.equal(bodyKind({key:'fragment',name:'Odłamek · Ziemia'},bs),'Odłamek');
  assert.equal(bodyKind({key:'proxima-centauri-b',name:'Proxima Centauri b'},bs),'Egzoplaneta');
 });

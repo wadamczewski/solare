@@ -16,7 +16,7 @@ const profileFor=body=>profiles[body.key]||profiles.moon;
 const vectorDistance=(a,b)=>Math.hypot(...a.map((value,index)=>value-b[index]));
 
 export function surfaceTemperatures(body,bodies,brightness=100){
- if(!body||body.key==='sun'||body.key==='blackhole'||!Number.isFinite(brightness))return null;
+ if(!body||body.key==='sun'||body.key==='blackhole'||body.key==='neutron-star'||!Number.isFinite(brightness))return null;
  const sun=bodies.find(candidate=>candidate.key==='sun');
  if(!sun)return null;
  const distance=Math.max(1e-9,vectorDistance(body.p,sun.p));
