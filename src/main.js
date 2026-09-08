@@ -1,5 +1,6 @@
 import {moonAppearance,loadMoonMaps,applyMoonAppearance} from './moon-appearance.js';
 import {createSolarInterior,solarInteriorState} from './solar-interior.js';
+import {createSolarSpots,setSolarSpotBrightness} from './solar-spots.js';
 import {installLanguageUI,getLanguage,getLocale,translate,formatNumber} from './i18n.js';
 import {makeOpaqueSurface} from './opaque-surface.js';
 import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
@@ -52,7 +53,7 @@ function applySolarBrightness(){
  sunlight.intensity=SOLAR_LIGHT_INTENSITY*scale;
  solarBloom.strength=SOLAR_BLOOM_STRENGTH*(.08+.92*Math.sqrt(scale));
  const sun=bs.find(body=>body.key==='sun'),sunView=sun&&views.get(sun.id);
- if(sunView?.mesh.material?.color)sunView.mesh.material.color.setRGB(24*scale,24*scale,24*scale);
+ if(sunView?.mesh.material?.color){sunView.mesh.material.color.setRGB(24*scale,24*scale,24*scale);setSolarSpotBrightness(sunView.spots,solarBrightness)}
  solarBrightnessInput.value=String(solarBrightness);solarBrightnessValue.value=`${solarBrightness}%`;solarBrightnessValue.textContent=`${solarBrightness}%`;
  updateTemperatureReadout();
 }
@@ -93,12 +94,12 @@ function radius(b){if(lightFlight){if(flightTrueScale)return b.radius/AU*6;if(b.
 const sphere=new THREE.SphereGeometry(1,56,40);
 function addView(b){const group=new THREE.Group();scene.add(group);let geo=sphere;if(b.key==='comet'||b.key==='fragment'&&b.irregular)geo=cometNucleusGeometry(b.id,12);else if(b.irregular){geo=new THREE.IcosahedronGeometry(1,3);const a=geo.attributes.position;for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i),f=1+.12*Math.sin(x*18+y*13+z*8)+.05*Math.sin(x*37+y*29+z*23);a.setXYZ(i,x*f*1.3,y*f*.78,z*f)}geo.computeVertexNormals()}
  const surfaceMap=textures[b.textureKey||b.key];const mat=b.key==='sun'?new THREE.MeshBasicMaterial({color:new THREE.Color('#ffffff').multiplyScalar(24),toneMapped:true}):new THREE.MeshStandardMaterial({map:surfaceMap||textures.moon,color:surfaceMap?'#ffffff':b.key==='moon'?b.color:b.key==='blackhole'?'#000000':'#ffffff',roughness:1,metalness:0});if(b.key==='blackhole')mat.map=null;if(b.key==='comet'){mat.map=null;mat.color.set('#45413d')}if(b.textureKey&&!surfaceMap){mat.map=null;mat.color.set(b.gas?'#b0aaa0':'#77736c')}naturalColorMaterial(mat,b.key);applyMoonAppearance(mat,b,moonMaps);makeOpaqueSurface(mat);
- const axis=new THREE.Group();axis.rotation.z=THREE.MathUtils.degToRad(b.tilt);group.add(axis);const mesh=new THREE.Mesh(geo,mat);axis.add(mesh);mesh.userData.id=b.id;
+ const axis=new THREE.Group();axis.rotation.z=THREE.MathUtils.degToRad(b.tilt);group.add(axis);const mesh=new THREE.Mesh(geo,mat);axis.add(mesh);mesh.userData.id=b.id;const spots=b.key==='sun'?createSolarSpots():null;if(spots)mesh.add(spots);
  let halo=null; // Solar glare is generated from visible HDR pixels, not an unoccluded billboard.
  if(b.key==='earth'){const atmo=new THREE.Mesh(sphere,new THREE.ShaderMaterial({vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',fragmentShader:'varying vec3 n;varying vec3 v;void main(){float a=pow(1.-max(dot(n,v),0.),4.);gl_FragColor=vec4(.18,.46,.9,a*.38);}',transparent:true,depthWrite:false}));atmo.scale.setScalar(1.035);mesh.add(atmo)}
  if(['saturn','uranus','blackhole'].includes(b.key)){const ringGeo=new THREE.RingGeometry(b.key==='blackhole'?1.25:1.35,b.key==='uranus'?1.9:2.35,160,6);const arr=ringGeo.attributes.position,colors=[];for(let i=0;i<arr.count;i++){const r=Math.hypot(arr.getX(i),arr.getY(i)),f=.55+.28*Math.sin(r*100)+.13*Math.sin(r*270);const c=new THREE.Color(b.key==='blackhole'?'#ffaa53':b.key==='uranus'?'#555555':'#bcb5a5').multiplyScalar(f);colors.push(c.r,c.g,c.b)}ringGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));const ring=new THREE.Mesh(ringGeo,new (b.key==='blackhole'?THREE.MeshBasicMaterial:THREE.MeshStandardMaterial)({vertexColors:true,side:THREE.DoubleSide,transparent:true,opacity:b.key==='uranus'?.25:.65}));ring.rotation.x=Math.PI/2;mesh.add(ring)}
  const orbitGeo=new THREE.BufferGeometry();orbitGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(257*3),3).setUsage(THREE.DynamicDrawUsage));const orbit=new THREE.Line(orbitGeo,new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:b.parent?.10:.19,depthWrite:false}));orbit.frustumCulled=false;scene.add(orbit);
- const trailGeo=new THREE.BufferGeometry();trailGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(512*3),3).setUsage(THREE.DynamicDrawUsage));trailGeo.setDrawRange(0,0);const trail=new THREE.Line(trailGeo,new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:.3}));trail.frustumCulled=false;scene.add(trail);views.set(b.id,{group,axis,mesh,halo,orbit,trail,history:[]});}
+ const trailGeo=new THREE.BufferGeometry();trailGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(512*3),3).setUsage(THREE.DynamicDrawUsage));trailGeo.setDrawRange(0,0);const trail=new THREE.Line(trailGeo,new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:.3}));trail.frustumCulled=false;scene.add(trail);views.set(b.id,{group,axis,mesh,halo,spots,orbit,trail,history:[]});}
 function disposeView(id){const v=views.get(id);if(!v)return;scene.remove(v.group,v.orbit,v.trail);v.undamagedGeometry?.dispose();v.group.traverse(o=>{if(o.isMesh){if(o.geometry!==sphere)o.geometry.dispose();o.material.dispose()}});v.orbit.geometry.dispose();v.orbit.material.dispose();v.trail.geometry.dispose();v.trail.material.dispose();views.delete(id);if(selected===id){selected=null;panel.hidden=true}if(follow===id)follow=null}
 bs.forEach(addView);applySolarBrightness();
 // Dynamic point attributes are uploaded to WebGL for stars, asteroid belt and comet dust.
