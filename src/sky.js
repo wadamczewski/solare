@@ -10,6 +10,9 @@
 // physically is starlight too faint to resolve, so the map carries its glow
 // while the points restore the grain of the stars that do resolve.
 import * as THREE from 'three';
+import {LineSegments2} from 'three/addons/lines/LineSegments2.js';
+import {LineSegmentsGeometry} from 'three/addons/lines/LineSegmentsGeometry.js';
+import {LineMaterial} from 'three/addons/lines/LineMaterial.js';
 
 // The sky remains transparent, but must still participate in depth testing.
 // Otherwise Three.js renders it after opaque bodies and its stars shine through
@@ -244,6 +247,8 @@ export function createSky(dpr) {
  let constellationVisible = false;
  let skyScale = 1;
  let activeConstellation = null;
+ const constellationGlowMaterials = [];
+ const lineResolution = new THREE.Vector2(1, 1);
  const constellationRay = new THREE.Raycaster();
  constellationRay.params.Line.threshold = 2.4;
 
@@ -291,14 +296,30 @@ export function createSky(dpr) {
    place(unpackRA(lines.ra[i]), unpackDec(lines.dec[i]), linePositions, i);
   layers.constellations = new THREE.Group();
   for (const figure of splitConstellationFigures(lines)) {
+   const positions = linePositions.slice(figure.start * 6, (figure.start + figure.count) * 6);
    const geometry = new THREE.BufferGeometry();
-   const start = figure.start * 6, end = (figure.start + figure.count) * 6;
-   geometry.setAttribute('position', new THREE.BufferAttribute(linePositions.slice(start, end), 3));
+   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
    const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color: '#5f7fa8', transparent: true, opacity: .34, ...skyLayerDepthState}));
    line.userData.constellation = figure;
+   // WebGL ignores LineBasicMaterial.linewidth on most platforms. A separate
+   // LineSegments2 layer gives the active figure an actual screen-space width
+   // and additive energy for the bloom pass, while the thin line remains the
+   // reliable raycasting target.
+   const glowGeometry = new LineSegmentsGeometry();
+   glowGeometry.setPositions(Array.from(positions));
+   const glowMaterial = new LineMaterial({color:'#bfeaff',linewidth:9,transparent:true,opacity:.9,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,toneMapped:false});
+   glowMaterial.resolution.copy(lineResolution);
+   const glow = new LineSegments2(glowGeometry, glowMaterial);
+   glow.visible = false;
+   glow.frustumCulled = false;
+   constellationGlowMaterials.push(glowMaterial);
    line.frustumCulled = false;
    line.renderOrder = -1;
-   layers.constellations.add(line);
+   glow.renderOrder = -1;
+   const figureGroup = new THREE.Group();
+   figureGroup.userData.constellation = figure;
+   figureGroup.add(line, glow);
+   layers.constellations.add(figureGroup);
   }
   layers.constellations.frustumCulled = false;
   layers.constellations.visible = constellationVisible;
@@ -341,8 +362,9 @@ export function createSky(dpr) {
   },
   clearConstellationHighlight() {
    if (!activeConstellation) return;
-   activeConstellation.material.color.set('#5f7fa8');
-   activeConstellation.material.opacity = .34;
+   activeConstellation.line.material.color.set('#5f7fa8');
+   activeConstellation.line.material.opacity = .34;
+   activeConstellation.glow.visible = false;
    activeConstellation = null;
   },
   pickConstellation(event, camera, element) {
@@ -350,14 +372,16 @@ export function createSky(dpr) {
    const rect = element.getBoundingClientRect();
    constellationRay.setFromCamera(new THREE.Vector2((event.clientX - rect.left) / rect.width * 2 - 1, -((event.clientY - rect.top) / rect.height * 2 - 1)), camera);
    group.updateMatrixWorld(true);
-   const line = constellationRay.intersectObjects(layers.constellations.children, false)[0]?.object || null;
-   if (line === activeConstellation) return line?.userData.constellation || null;
+   const line = constellationRay.intersectObjects(layers.constellations.children, true).find(hit=>hit.object.isLineSegments)?.object || null;
+   const constellation = line?.userData.constellation || null;
+   if (line === activeConstellation?.line) return constellation;
    this.clearConstellationHighlight();
    if (!line) return null;
-   activeConstellation = line;
+   activeConstellation = {line, glow:line.parent.children.find(child=>child.isLineSegments2)};
    line.material.color.set('#d8edff');
    line.material.opacity = .96;
-   return line.userData.constellation;
+   activeConstellation.glow.visible = true;
+   return constellation;
   },
   // Star sizes are in device pixels, so a real-scale flyby needs no change, but
   // the caller can dim the field when a bright foreground would wash it out.
@@ -365,6 +389,10 @@ export function createSky(dpr) {
    skyScale=value;
    for (const layer of [layers.stars, layers.milkyway, layers.deepSky])
     if (layer) layer.material.uniforms.scale.value = value;
+  },
+  setViewport(width,height) {
+   lineResolution.set(Math.max(1,width),Math.max(1,height));
+   for(const material of constellationGlowMaterials)material.resolution.copy(lineResolution);
   }
  };
 }

@@ -16,6 +16,9 @@ test('sky hover exposes a constellation picker and highlighted line state',()=>{
  const source=readFileSync(new URL('../src/sky.js',import.meta.url),'utf8');
  assert.match(source,/pickConstellation\(event, camera, element\)/);
  assert.match(source,/line\.material\.color\.set\('#d8edff'\)/);
+ assert.match(source,/LineSegments2/);
+ assert.match(source,/linewidth:9/);
+ assert.match(source,/activeConstellation\.glow\.visible = true/);
 });
 
 test('constellation labels follow the selected language and retain IAU Latin names',()=>{
