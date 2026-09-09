@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cometNucleusGeometry, activity} from '../src/comet.js';
+import {cometNucleusGeometry, activity,applyCometAppearance} from '../src/comet.js';
+import {MeshStandardMaterial,ShaderLib} from 'three';
 
 test('the nucleus is finely tessellated and free of flat facets',()=>{
  const geometry = cometNucleusGeometry(7);
@@ -30,6 +31,14 @@ test('Halley uses the elongated Giotto-like nucleus rather than the generic cont
  let x=0,y=0,z=0;
  for(let i=0;i<position.count;i++){x=Math.max(x,Math.abs(position.getX(i)));y=Math.max(y,Math.abs(position.getY(i)));z=Math.max(z,Math.abs(position.getZ(i)))}
  assert.ok(x/y>1.85&&x/z>1.85,`Halley is insufficiently elongated: ${x}/${y}/${z}`);
+});
+
+test('Halley surface texture runs without a UV map and preserves a visible sunlit albedo',()=>{
+ const material=new MeshStandardMaterial();applyCometAppearance(material,'halley');
+ const shader={uniforms:{},vertexShader:ShaderLib.standard.vertexShader,fragmentShader:ShaderLib.standard.fragmentShader};material.onBeforeCompile(shader);
+ assert.ok(material.color.r>.08&&material.color.g>.04,'not a black cutout');
+ assert.match(shader.fragmentShader,/varying vec3 cometLocal/);
+ assert.ok(shader.fragmentShader.indexOf('#include <map_fragment>')<shader.fragmentShader.indexOf('float coarse='));
 });
 
 test('nuclei are stable per seed and differ between seeds',()=>{

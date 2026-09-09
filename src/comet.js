@@ -121,21 +121,25 @@ export function cometNucleusGeometry(seed = 1, detail = 12, profile = 'generic')
 // geometry, so it works for the map and the shared WebGL inspector viewport.
 export function applyCometAppearance(material, profile = 'generic') {
  const halley = profile === 'halley';
- material.color.set(halley ? '#171411' : '#403c37');
+ // The Giotto albedo is only 2–4%, but scene exposure must still retain the
+ // illuminated relief. This is charcoal-brown regolith, not an unlit black cutout.
+ material.color.set(halley ? '#5a4332' : '#4b433b');
+ material.emissive.set(halley ? '#100b07' : '#090807');
+ material.emissiveIntensity = halley ? .035 : .015;
  material.roughness = .96;
  material.metalness = 0;
  material.onBeforeCompile = shader => {
-  shader.uniforms.cometBase = {value: new THREE.Color(halley ? '#171411' : '#403c37')};
-  shader.uniforms.cometWarm = {value: new THREE.Color(halley ? '#5b4330' : '#655443')};
+  shader.uniforms.cometBase = {value: new THREE.Color(halley ? '#4a3527' : '#403c37')};
+  shader.uniforms.cometWarm = {value: new THREE.Color(halley ? '#8b674a' : '#655443')};
   shader.vertexShader = `varying vec3 cometLocal;\n${shader.vertexShader}`.replace('#include <begin_vertex>', '#include <begin_vertex>\ncometLocal=transformed;');
-  shader.fragmentShader = `uniform vec3 cometBase;uniform vec3 cometWarm;varying vec3 cometLocal;\n${shader.fragmentShader}`.replace('#include <map_fragment>', `
+  shader.fragmentShader = `uniform vec3 cometBase;uniform vec3 cometWarm;varying vec3 cometLocal;\n${shader.fragmentShader}`.replace('#include <map_fragment>', `#include <map_fragment>
    float coarse=sin(cometLocal.x*7.1+sin(cometLocal.z*5.7))*sin(cometLocal.y*9.3-cometLocal.z*4.1);
    float grit=sin(dot(cometLocal,vec3(41.7,27.1,36.3)))*.5+.5;
    float patch=smoothstep(.20,.82,coarse*.5+.5)*(.20+.24*grit);
    diffuseColor.rgb*=mix(cometBase,cometWarm,patch);
   `);
  };
- material.customProgramCacheKey = () => `comet-surface-${profile}-2`;
+ material.customProgramCacheKey = () => `comet-surface-${profile}-3`;
 }
 
 // ----------------------------------------------------------------- tails
