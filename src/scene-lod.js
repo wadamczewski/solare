@@ -11,6 +11,10 @@ const geometries = Object.freeze({
 export const shapeGeometry = level => geometries[level] || geometries.medium;
 export const isShapeGeometry = geometry => Object.values(geometries).includes(geometry);
 
+// A comet's silhouette is authored data. Replacing it with a shared LOD sphere
+// removes the elongated Halley nucleus as soon as its first frame is rendered.
+export const keepsAuthoredGeometry = body => body?.key === 'comet' || !!body?.irregular;
+
 export function projectedDiameterPixels(radius, distance, fovDegrees, viewportHeight) {
  if (!(radius > 0 && distance > 0 && viewportHeight > 0)) return 0;
  const focalLength = viewportHeight / (2 * Math.tan(fovDegrees * Math.PI / 360));

@@ -10,6 +10,9 @@ test('visual contact merges visibly touching bodies despite separated physical s
  assert.equal(resolveCollisions(bs,{contactTest:(x,y)=>viewContact(x,y,current)}).length,1);assert.equal(bs.length,1);
 });
 test('separated visible spheres do not collide',()=>{const [a,b]=pair();assert.equal(viewContact(a,b,snapshot(a,b,2)),false)});
+test('visible contact tolerates float rounding at the painted external edge',()=>{
+ const [a,b]=pair();assert.equal(viewContact(a,b,snapshot(a,b,1.2000005)),true);
+});
 test('swept test catches fast crossing between integration samples',()=>{const [a,b]=pair();assert.equal(viewContact(a,b,snapshot(a,b,3),snapshot(a,b,-3)),true)});
 test('swept test rejects near miss and ignores bodies absent from previous sample',()=>{
  const [a,b]=pair(),before=snapshot(a,b,-3),after=snapshot(a,b,3);before.get(b.id).p[1]=2;after.get(b.id).p[1]=2;

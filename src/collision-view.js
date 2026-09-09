@@ -10,7 +10,9 @@ export function viewContact(a,b,current,previous){
  if((a.parent||b.parent)&&!relatedSatellite)return false;
  const x=current.get(a.id),y=current.get(b.id);if(!x||!y)return false;
  const end=y.p.map((n,k)=>n-x.p[k]),limit=x.r+y.r;
- if(Math.hypot(...end)<=limit)return true;
+ // The scripted leg is measured in days while rendered positions pass through
+ // float buffers. This prevents a visible one-frame stop at exact contact.
+ if(Math.hypot(...end)<=limit+1e-6)return true;
  // Sibling satellites follow curved orbits, not the chord between samples.
  if(a.parent&&a.parent===b.parent)return false;
  const oldX=previous?.get(a.id),oldY=previous?.get(b.id);if(!oldX||!oldY)return false;

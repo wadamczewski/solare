@@ -39,5 +39,5 @@ export function scenarioCollisionReady(a,b,elapsedDays){
  if(!scenario)return true;
  const other=a.collisionScenario?b:a;
  if(other.id!==scenario.targetId)return true;
- return elapsedDays-scenario.launchElapsed>=scenario.minDurationDays;
+ return elapsedDays-scenario.launchElapsed>=scenario.minDurationDays-1e-6;
 }

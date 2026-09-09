@@ -163,7 +163,11 @@ varying vec3 c; varying float a;
 void main(){
  float r = length(gl_PointCoord - .5) * 2.;
  if (r > 1.) discard;
- gl_FragColor = vec4(c * a * pow(1. - r, 1.7), 1.);
+ float falloff = pow(1. - r, 1.7);
+ // Additive blending uses alpha as well as RGB. Keeping alpha at one made
+ // hundreds of newborn grains stack into three white light bulbs at Halley's
+ // head. A soft, premultiplied particle keeps the coma continuous instead.
+ gl_FragColor = vec4(c * a * falloff, a * falloff);
 }`;
 
 const ION_TINT = [0.32, 0.62, 1.0];   // CO+ emission dominates the plasma tail
@@ -243,63 +247,50 @@ export function createCometTails(scene, particlesPerComet = 5200) {
     const ionLength = span * (0.9 + 2.6 * strength) * (halley ? 1.35 : 1);
     const dustLength = span * (0.5 + 1.5 * strength) * (halley ? 1.22 : 1);
     for (let i = 0; i < particlesPerComet; i++, cursor++) {
-     const jet = halley && i >= particlesPerComet * .92;
-     const ion = !jet && i < particlesPerComet * 0.42;
+     // A resolved coma is one object, not a handful of oversized jet sprites.
+     // Solar-facing jets live inside its slightly asymmetric envelope; the two
+     // distinct large-scale structures remain the ion and dust tails.
+     const coma = i < particlesPerComet * 0.16;
+     const ion = !coma && i < particlesPerComet * 0.56;
      const age = draw[i * 4], beta = draw[i * 4 + 1];
      const angle = draw[i * 4 + 2] * Math.PI * 2, spread = draw[i * 4 + 3];
      let alpha, width, tone, brightness, radius;
-     if (jet) {
-      // Sunlit active regions release narrow, dusty jets before radiation and
-      // the solar wind stretch the material into the two large tails.
-      const t = age * .22, jetAngle = (i % 3) * 2.094 + .32;
-      const source = lateralA.clone().multiplyScalar(Math.cos(jetAngle)).addScaledVector(lateralB, Math.sin(jetAngle) * .7).addScaledVector(antisun, -.18).normalize();
-      grain.copy(nucleus).addScaledVector(source, t * span * (.32 + .42 * spread)).addScaledVector(antisun, t * t * span * .35);
-      alpha = 1 - age * .65; width = 2.8 + 3.8 * (1 - age); tone = COMA_TINT; brightness = 1.6;
+     if (coma) {
+      // Gas expands around the nucleus but is brighter on the Sun-facing side.
+      // It begins outside the opaque solid so the 15 × 8 km Halley core stays
+      // readable at every camera distance.
+      const u = Math.sqrt(age), comaRadius = clearRadius + u * span * (.032 + .028 * strength);
+      const source = lateralA.clone().multiplyScalar(Math.cos(angle)).addScaledVector(lateralB, Math.sin(angle));
+      source.addScaledVector(antisun, -.22 * (1 - u) + (beta - .5) * .08).normalize();
+      grain.copy(nucleus).addScaledVector(source, comaRadius);
+      alpha = .20 + (1 - u) * .28; width = .7 + (1 - u) * 1.35; tone = COMA_TINT; brightness = halley ? 1.05 : .82;
      } else if (ion) {
       // Straight, fast, narrow, with slow-travelling kinks like real ion tails.
-      const t = (age + time * 0.09) % 1;
+      const t = .028 + age * .972;
       // A coherent kink travelling down the tail, plus per-grain scatter so the
       // plasma reads as a bundle of filaments rather than one ribbon.
-      const wave = Math.sin(t * 5 + angle * 6.283) * 0.03;
+      const wave = Math.sin(t * 5 + angle * 6.283 + time * .55) * 0.03;
       const flare = t * (0.5 + t);
       grain.copy(nucleus)
        .addScaledVector(antisun, t * ionLength)
        .addScaledVector(lateralA, (wave + Math.cos(angle * 6.283) * (0.05 + spread * 0.11) * flare) * ionLength)
        .addScaledVector(lateralB, (Math.sin(angle * 6.283) * (0.05 + beta * 0.11) * flare) * ionLength);
-      alpha = 1 - t; width = 1.5 + 2.1 * (1 - t); tone = ION_TINT; brightness = 1.35;
+      alpha = Math.pow(1 - t, .82) * .46; width = .75 + 1.25 * (1 - t); tone = ION_TINT; brightness = 1.08;
      } else {
       // Syndyne: released age ago, then pushed anti-sunward, so it lags the nucleus
       // along its own track and the fan curves.
       // Age and beta vary independently, so the grains fill a syndyne-synchrone
       // fan rather than a line: heavier grains (low beta) lag near the orbit,
       // light ones are blown far anti-sunward.
-      const t = age;
+      const t = .024 + age * .976;
       const push = 0.5 * (0.15 + beta * 1.9) * t * t;
       grain.copy(nucleus)
        .addScaledVector(motion, -t * dustLength * 0.62)
        .addScaledVector(antisun, push * dustLength * 1.5)
        .addScaledVector(lateralA, (spread - 0.5) * t * dustLength * 0.42)
        .addScaledVector(lateralB, Math.sin(angle * 6.283) * t * dustLength * 0.3);
-      alpha = Math.pow(1 - t, 1.3); width = 1.8 + 3.1 * (1 - t); tone = DUST_TINT; brightness = 1.05;
+      alpha = Math.pow(1 - t, 1.3) * .34; width = .8 + 1.45 * (1 - t); tone = DUST_TINT; brightness = .9;
      }
-     // Innermost grains form the coma: bright, round, close in.
-     if (age < 0.06) {
-       const u = age / 0.06;
-       grain.copy(nucleus)
-       .addScaledVector(lateralA, Math.cos(angle) * (clearRadius + u * span * 0.045 * (0.4 + spread)))
-       .addScaledVector(lateralB, Math.sin(angle) * (clearRadius + u * span * 0.045 * (0.4 + spread)))
-       .addScaledVector(antisun, (beta - 0.3) * u * span * 0.035);
-      alpha = .68 - u * .28; width = 2.2 + 2.8 * (1 - u); tone = COMA_TINT; brightness = .72;
-     }
-     // Dust and plasma may surround the nucleus, but never cover its rendered
-     // silhouette. Without this, additive point sprites turn Halley into a
-     // featureless bright dot at map distance.
-     grain.sub(nucleus);
-     if (grain.lengthSq() < clearRadius * clearRadius) {
-      if (grain.lengthSq() < 1e-12) grain.copy(lateralA);
-      grain.normalize().multiplyScalar(clearRadius);
-     }
-     grain.add(nucleus);
      radius = strength * alpha * brightness;
      position[cursor * 3] = grain.x; position[cursor * 3 + 1] = grain.y; position[cursor * 3 + 2] = grain.z;
      size[cursor] = width;
