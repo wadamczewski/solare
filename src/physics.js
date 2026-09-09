@@ -1,5 +1,6 @@
 // AU, solar masses, days. G = Gaussian gravitational constant squared.
 import {planetState,toSceneFrame} from './ephemeris.js';
+import {centralStars} from './central-stars.js';
 export const G=0.0002959122082855911, AU=149597870.7, SOLAR_MASS=1.98847e30;
 // name, key, semi-major axis AU, eccentricity, inclination deg, mass M☉, radius km, rotation h, axial tilt deg, colour
 export const planets=[
@@ -28,7 +29,8 @@ export const velocityKmPerSecond=velocity=>Math.hypot(...velocity)*AU/86400;
 // Planets are placed at their true heliocentric state for `date`; moons keep
 // composed phases (see moons table) because no satellite theory is modelled.
 export function initialSystem(date=new Date()){
- const result=[body({name:'Słońce',key:'sun',mass:1,radius:695700,spin:609.12,tilt:7.25,color:'#ffffff'})];
+ const star=centralStars[0];
+ const result=[body({...star,key:'sun',stellar:true,starPresetId:star.id,color:'#fff6ec'})];
  for(const [name,key,a,e,inc,mass,radius,spin,tilt,color] of planets){
   const state=planetState(key,date);
   result.push(body({name,key,a,e,mass,radius,spin,tilt,color,p:toSceneFrame(state.p),v:toSceneFrame(state.v)}));

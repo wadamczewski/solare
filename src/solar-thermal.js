@@ -23,7 +23,10 @@ export function surfaceTemperatures(body,bodies,brightness=100){
  const host=body.parent&&bodies.find(candidate=>candidate.id===body.parent);
  const measuredReference=vectorDistance(host?.p||body.p,sun.p);
  const reference=Math.max(1e-9,body.a||host?.a||body.thermalReferenceAU||(body.thermalReferenceAU=measuredReference));
- const irradiance=Math.max(0,brightness/100)*(reference/distance)**2;
+ // The selected central star retains its measured bolometric luminosity. The
+ // UI slider changes only the displayed/star-output multiplier, while this
+ // term carries the physical luminosity through to the thermal estimate.
+ const irradiance=Math.max(0,brightness/100)*Math.max(0,sun.luminosity??1)*(reference/distance)**2;
  const [litReference,darkReference]=profileFor(body);
  // Stefan–Boltzmann scaling: temperature follows radiant flux to the 1/4 power.
  const litK=Math.max(CMB_K,litReference*Math.pow(irradiance,.25));
