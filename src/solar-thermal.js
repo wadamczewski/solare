@@ -1,3 +1,5 @@
+import {effectiveLuminosity} from './central-stars.js';
+
 const CMB_K=2.725;
 
 // Representative global surface temperatures in kelvin under present solar output.
@@ -26,7 +28,7 @@ export function surfaceTemperatures(body,bodies,brightness=100){
  // The selected central star retains its measured bolometric luminosity. The
  // UI slider changes only the displayed/star-output multiplier, while this
  // term carries the physical luminosity through to the thermal estimate.
- const irradiance=Math.max(0,brightness/100)*Math.max(0,sun.luminosity??1)*(reference/distance)**2;
+ const irradiance=Math.max(0,brightness/100)*effectiveLuminosity(sun)*(reference/distance)**2;
  const [litReference,darkReference]=profileFor(body);
  // Stefan–Boltzmann scaling: temperature follows radiant flux to the 1/4 power.
  const litK=Math.max(CMB_K,litReference*Math.pow(irradiance,.25));

@@ -14,6 +14,13 @@ export const centralStars=[
 
 export const starPreset=id=>centralStars.find(star=>star.id===id)||centralStars[0];
 
+// An edited star retains its preset photospheric temperature. Stefan–Boltzmann
+// then makes its output proportional to emitting surface area, R².
+export function effectiveLuminosity(body){
+ const referenceRadius=body?.luminosityRadius??starPreset(body?.starPresetId)?.radius??body?.radius??SOLAR_RADIUS_KM;
+ return Math.max(0,body?.luminosity??1)*Math.pow(Math.max(0,body?.radius??referenceRadius)/referenceRadius,2);
+}
+
 // Approximation to the visible black-body locus. It describes the apparent
 // colour of a stellar photosphere in vacuum, not the atmospheric colour seen
 // from the ground.
@@ -32,7 +39,7 @@ export function blackbodyColor(temperature){
 export const visualLuminosity=luminosity=>Math.max(.28,1+.28*Math.log10(Math.max(1e-8,luminosity)));
 
 export function centralStarDetails(body){
- return body?.key==='sun'?{luminosity:body.luminosity??1,temperature:body.temperature??5772,colorTemperature:body.colorTemperature??5778,spectralType:body.spectralType??'G2 V',galaxy:body.galaxy??'Droga Mleczna',source:body.source,note:body.note,starPresetId:body.starPresetId??'sun'}:null;
+ return body?.key==='sun'?{luminosity:effectiveLuminosity(body),temperature:body.temperature??5772,colorTemperature:body.colorTemperature??5778,spectralType:body.spectralType??'G2 V',galaxy:body.galaxy??'Droga Mleczna',source:body.source,note:body.note,starPresetId:body.starPresetId??'sun'}:null;
 }
 
 export function applyCentralStarPreset(sun,preset,bodies){
@@ -41,6 +48,6 @@ export function applyCentralStarPreset(sun,preset,bodies){
  // heliocentric velocity by √(Mnew/Mold) prevents an artificial one-frame
  // ejection solely because the central mass was changed in the editor.
  for(const body of bodies)if(body!==sun)body.v=body.v.map((value,index)=>originVelocity[index]+(value-originVelocity[index])*factor);
- Object.assign(sun,{name:preset.name,mass:preset.mass,radius:preset.radius,spin:preset.spin,tilt:preset.tilt,color:blackbodyColor(preset.colorTemperature),luminosity:preset.luminosity,temperature:preset.temperature,colorTemperature:preset.colorTemperature,spectralType:preset.spectralType,galaxy:preset.galaxy,source:preset.source,note:preset.note,starPresetId:preset.id,stellar:true});
+ Object.assign(sun,{name:preset.name,mass:preset.mass,radius:preset.radius,spin:preset.spin,tilt:preset.tilt,color:blackbodyColor(preset.colorTemperature),luminosity:preset.luminosity,luminosityRadius:preset.radius,temperature:preset.temperature,colorTemperature:preset.colorTemperature,spectralType:preset.spectralType,galaxy:preset.galaxy,source:preset.source,note:preset.note,starPresetId:preset.id,stellar:true});
  return sun;
 }

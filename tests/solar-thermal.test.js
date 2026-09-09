@@ -19,6 +19,15 @@ test('increasing solar brightness heats both sides by their thermal response',()
  assert.ok(Math.abs((brighter.litC+273.15)/(nominal.litC+273.15)-Math.SQRT2)<1e-10);
 });
 
+test('editing a star radius changes irradiance by its emitting area',()=>{
+ const nominal=surfaceTemperatures(earth,[sun,earth],100);
+ const enlargedSun={...sun,radius:695700*100,luminosity:1,starPresetId:'sun'};
+ const enlarged=surfaceTemperatures(earth,[enlargedSun,earth],100);
+ assert.equal(enlarged.irradiance/nominal.irradiance,10_000);
+ assert.ok(Math.abs((enlarged.litC+273.15)/(nominal.litC+273.15)-10)<1e-10);
+ assert.ok(enlarged.darkC>nominal.darkC);
+});
+
 test('moving a body farther from the Sun lowers its temperature',()=>{
  const far={...earth,p:[2,0,0]};
  assert.ok(surfaceTemperatures(far,[sun,far],100).litC<surfaceTemperatures(earth,[sun,earth],100).litC);
