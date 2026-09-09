@@ -59,10 +59,29 @@ const softMax = (a, b, k) => {
 
 // Three subdivides each icosahedron edge into (detail + 1) segments, so this is
 // 20 * 13^2 = 3380 faces against the 180 the old detail-2 sphere had.
-export function cometNucleusGeometry(seed = 1, detail = 12) {
+export function cometNucleusGeometry(seed = 1, detail = 12, profile = 'generic') {
  const geometry = new THREE.IcosahedronGeometry(1, detail);
  const position = geometry.attributes.position;
  const random = (n) => hash(n, seed * 17, 3, seed);
+ // Giotto measured 1P/Halley as a very dark 15.3 × 7.2 × 7.2 km prolate
+ // nucleus. It was a battered potato, but not the bilobate contact binary
+ // familiar from 67P, which remains the deliberately generic comet profile.
+ if (profile === 'halley') {
+  const v = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+   v.fromBufferAttribute(position, i).normalize();
+   const ridge = 1 + .075 * valueNoise(v.x * 3.1, v.y * 3.1, v.z * 3.1, seed)
+    + .032 * valueNoise(v.x * 10.7, v.y * 10.7, v.z * 10.7, seed + 17);
+   // Two broad depressions and a few metre-scale-looking rough patches prevent
+   // a mathematically clean ellipsoid from reading as a photographed nucleus.
+   const bowlA = Math.max(0, v.x * .36 + v.z * .78 - .69);
+   const bowlB = Math.max(0, -v.x * .61 + v.y * .55 - .73);
+   const crater = 1 - bowlA * .16 - bowlB * .12;
+   position.setXYZ(i, v.x * 1.37 * ridge * crater, v.y * .645 * ridge * crater, v.z * .645 * ridge * crater);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
+ }
  // Two lobes of unequal size on a slightly tilted axis, as at 67P.
  const bigCentre = [0.30 + random(1) * 0.08, random(2) * 0.05, random(3) * 0.05];
  const smallCentre = [-(0.34 + random(4) * 0.08), random(5) * 0.07, random(6) * 0.07];
@@ -95,6 +114,28 @@ export function cometNucleusGeometry(seed = 1, detail = 12) {
  }
  geometry.computeVertexNormals();
  return geometry;
+}
+
+// A low-albedo carbonaceous crust needs its own material response: a flat grey
+// body makes Halley look like an asteroid. The procedural texture follows the
+// geometry, so it works for the map and the shared WebGL inspector viewport.
+export function applyCometAppearance(material, profile = 'generic') {
+ const halley = profile === 'halley';
+ material.color.set(halley ? '#171411' : '#403c37');
+ material.roughness = .96;
+ material.metalness = 0;
+ material.onBeforeCompile = shader => {
+  shader.uniforms.cometBase = {value: new THREE.Color(halley ? '#171411' : '#403c37')};
+  shader.uniforms.cometWarm = {value: new THREE.Color(halley ? '#5b4330' : '#655443')};
+  shader.vertexShader = `varying vec3 cometLocal;\n${shader.vertexShader}`.replace('#include <begin_vertex>', '#include <begin_vertex>\ncometLocal=transformed;');
+  shader.fragmentShader = `uniform vec3 cometBase;uniform vec3 cometWarm;varying vec3 cometLocal;\n${shader.fragmentShader}`.replace('#include <map_fragment>', `
+   float coarse=sin(cometLocal.x*7.1+sin(cometLocal.z*5.7))*sin(cometLocal.y*9.3-cometLocal.z*4.1);
+   float grit=sin(dot(cometLocal,vec3(41.7,27.1,36.3)))*.5+.5;
+   float patch=smoothstep(.20,.82,coarse*.5+.5)*(.20+.24*grit);
+   diffuseColor.rgb*=mix(cometBase,cometWarm,patch);
+  `);
+ };
+ material.customProgramCacheKey = () => `comet-surface-${profile}-2`;
 }
 
 // ----------------------------------------------------------------- tails
@@ -177,7 +218,10 @@ export function createCometTails(scene, particlesPerComet = 5200) {
     antisun.copy(nucleus).sub(sunDisplayed);
     const sunDistance = antisun.length();
     if (sunDistance < 1e-9) antisun.set(1, 0, 0); else antisun.divideScalar(sunDistance);
-    const strength = activity(distanceOf(comet));
+    const halley = comet.cometProfile === 'halley';
+    // Halley's 1986 apparition showed bright, localised gas-and-dust jets;
+    // give it a slightly stronger coma and tails than a dormant generic core.
+    const strength = Math.min(1, activity(distanceOf(comet)) * (halley ? 1.22 : 1));
     motion.copy(velocityOf(comet));
     if (motion.lengthSq() < 1e-18) motion.copy(antisun).cross(new THREE.Vector3(0, 1, 0));
     motion.normalize();
@@ -187,14 +231,22 @@ export function createCometTails(scene, particlesPerComet = 5200) {
     lateralA.normalize();
     lateralB.copy(antisun).cross(lateralA).normalize();
 
-    const ionLength = span * (0.9 + 2.6 * strength);
-    const dustLength = span * (0.5 + 1.5 * strength);
+    const ionLength = span * (0.9 + 2.6 * strength) * (halley ? 1.35 : 1);
+    const dustLength = span * (0.5 + 1.5 * strength) * (halley ? 1.22 : 1);
     for (let i = 0; i < particlesPerComet; i++, cursor++) {
-     const ion = i < particlesPerComet * 0.42;
+     const jet = halley && i >= particlesPerComet * .92;
+     const ion = !jet && i < particlesPerComet * 0.42;
      const age = draw[i * 4], beta = draw[i * 4 + 1];
      const angle = draw[i * 4 + 2] * Math.PI * 2, spread = draw[i * 4 + 3];
      let alpha, width, tone, brightness, radius;
-     if (ion) {
+     if (jet) {
+      // Sunlit active regions release narrow, dusty jets before radiation and
+      // the solar wind stretch the material into the two large tails.
+      const t = age * .22, jetAngle = (i % 3) * 2.094 + .32;
+      const source = lateralA.clone().multiplyScalar(Math.cos(jetAngle)).addScaledVector(lateralB, Math.sin(jetAngle) * .7).addScaledVector(antisun, -.18).normalize();
+      grain.copy(nucleus).addScaledVector(source, t * span * (.32 + .42 * spread)).addScaledVector(antisun, t * t * span * .35);
+      alpha = 1 - age * .65; width = 2.8 + 3.8 * (1 - age); tone = COMA_TINT; brightness = 1.6;
+     } else if (ion) {
       // Straight, fast, narrow, with slow-travelling kinks like real ion tails.
       const t = (age + time * 0.09) % 1;
       // A coherent kink travelling down the tail, plus per-grain scatter so the

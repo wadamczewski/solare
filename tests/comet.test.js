@@ -25,6 +25,13 @@ test('the shape is a two-lobed body, not a sphere',()=>{
  assert.ok(Math.sqrt(variance) / mean > 0.05, 'surface carries real relief');
 });
 
+test('Halley uses the elongated Giotto-like nucleus rather than the generic contact binary',()=>{
+ const position=cometNucleusGeometry(1,4,'halley').attributes.position;
+ let x=0,y=0,z=0;
+ for(let i=0;i<position.count;i++){x=Math.max(x,Math.abs(position.getX(i)));y=Math.max(y,Math.abs(position.getY(i)));z=Math.max(z,Math.abs(position.getZ(i)))}
+ assert.ok(x/y>1.85&&x/z>1.85,`Halley is insufficiently elongated: ${x}/${y}/${z}`);
+});
+
 test('nuclei are stable per seed and differ between seeds',()=>{
  const a = cometNucleusGeometry(11, 2).attributes.position.array;
  const again = cometNucleusGeometry(11, 2).attributes.position.array;
