@@ -21,3 +21,21 @@ export function viewContact(a,b,current,previous){
  const t=length2?Math.max(0,Math.min(1,-start.reduce((s,n,k)=>s+n*motion[k],0)/length2)):0;
  return Math.hypot(...start.map((n,k)=>n+t*motion[k]))<=limit;
 }
+
+// Following a projectile must not end when the projectile does. The merge
+// remnant is the same physical object the viewer was watching, so the camera
+// hands over to it instead of being abandoned in empty space while the target
+// carries on along its orbit and slides out of frame within a second or two.
+export function collisionFocusTransfer(event, followedId) {
+ if (followedId == null) return followedId;
+ if (!Object.hasOwn(event.replacements, followedId)) return followedId;
+ return event.replacements[followedId] ?? event.survivor ?? null;
+}
+
+// Distance at which a body of this rendered radius spans `fraction` of the
+// viewport height. Inheriting the projectile's close-up distance would leave
+// the camera inside the crater rim of whatever it just hit.
+export function framingDistance(radius, fovDegrees, fraction = .42) {
+ if (!(radius > 0 && fraction > 0)) return 0;
+ return radius / (fraction * Math.tan(fovDegrees * Math.PI / 360));
+}

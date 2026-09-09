@@ -6,7 +6,10 @@ const SHARD_COUNT=32;
 // surviving Earth look as if it had been annihilated.
 export function impactVisualProfile(event){
  const planetaryImpact=event.kind==='impact'&&event.surface?.targetSurvives===true;
- return {planetaryImpact,shards:planetaryImpact?7:SHARD_COUNT,plumeScale:planetaryImpact?.22:1,duration:planetaryImpact?8:event.kind==='graze'?3.5:6};
+ // `shardCount` is deliberately not called `shards`: the live effect keeps the
+ // InstancedMesh under that name, and spreading this profile over it replaced
+ // the mesh with a number, so every later frame threw inside the render loop.
+ return {planetaryImpact,shardCount:planetaryImpact?7:SHARD_COUNT,plumeScale:planetaryImpact?.22:1,duration:planetaryImpact?8:event.kind==='graze'?3.5:6};
 }
 
 // Bounded visual debris pool. Massive ejecta are integrated separately by N-body.
@@ -48,7 +51,7 @@ float r=length(gl_PointCoord-.5)*2.;if(r>1.)discard;gl_FragColor=vec4(tint,alpha
    else{const tangent=new THREE.Vector3().crossVectors(e.normal,Math.abs(e.normal.y)<.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0)).normalize(),bitangent=new THREE.Vector3().crossVectors(e.normal,tangent);const cone=.28+.72*(j%37)/36,side=tangent.multiplyScalar(Math.cos(seed.theta)*cone).addScaledVector(bitangent,Math.sin(seed.theta)*cone);const direction=e.normal.clone().multiplyScalar(.28+.72*seed.variation).add(side).normalize(),plume=e.plumeScale;const range=e.size*plume*(.20+3.1*local*local*(.55+.45*seed.variation));p=direction.multiplyScalar(range);p.addScaledVector(e.normal,e.size*plume*local*(.14+.48*e.energy));}
    a.setXYZ(j,p.x,p.y,p.z);b.setX(j,(1-local)**1.4*(.7+.3*Math.sin(j+t*18)**2));
   }a.needsUpdate=true;b.needsUpdate=true;
-  for(let j=0;j<SHARD_COUNT;j++){const index=j*29%count;dummy.position.fromBufferAttribute(a,index);dummy.rotation.set(t*(j%3+1)*4,t*5+j,t*3);if(j>=e.shards)dummy.scale.setScalar(0);else if(e.absorb){const filament=Math.max(.01,1-t);dummy.scale.set(e.size*.025*filament,e.size*.025*filament,e.size*.52*filament)}else dummy.scale.set(e.size*.045*(1-t),e.size*.025*(1-t),e.size*.11*(1-t));dummy.updateMatrix();e.shards.setMatrixAt(j,dummy.matrix)}e.shards.instanceMatrix.needsUpdate=true;e.shards.material.opacity=(1-t)**.7;e.shards.material.emissiveIntensity=2.5*(1-t)**2;
+  for(let j=0;j<SHARD_COUNT;j++){const index=j*29%count;dummy.position.fromBufferAttribute(a,index);dummy.rotation.set(t*(j%3+1)*4,t*5+j,t*3);if(j>=e.shardCount)dummy.scale.setScalar(0);else if(e.absorb){const filament=Math.max(.01,1-t);dummy.scale.set(e.size*.025*filament,e.size*.025*filament,e.size*.52*filament)}else dummy.scale.set(e.size*.045*(1-t),e.size*.025*(1-t),e.size*.11*(1-t));dummy.updateMatrix();e.shards.setMatrixAt(j,dummy.matrix)}e.shards.instanceMatrix.needsUpdate=true;e.shards.material.opacity=(1-t)**.7;e.shards.material.emissiveIntensity=2.5*(1-t)**2;
   e.flash.scale.setScalar(e.size*(e.absorb?Math.max(.02,.18-t*.14):.16+e.energy*.28+t*.22));e.flash.material.opacity=e.absorb?Math.max(0,.05-t*.08):Math.max(0,(.36+.32*e.energy)-t*3.2);
   e.wave.scale.setScalar(e.size*(.38+t*(2.2+e.energy*2.4)));e.wave.material.opacity=.10*(1-t)**3;e.light.intensity=e.absorb?.4*(1-t):(.42+e.energy)*Math.exp(-t*8);
  }}

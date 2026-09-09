@@ -20,14 +20,17 @@ export function releaseSatellites(bodies,parentIds,event){
 }
 
 // Reduced-order gravity-regime model, not hydrodynamics or fitted SPH scaling laws.
-export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
+export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contactNormal=null}={}){
  const events=[],touched=new Set();
  for(let i=0;i<bodies.length;i++)for(let j=bodies.length-1;j>i;j--){
   const a=bodies[i],b=bodies[j];if(touched.has(a.id)||touched.has(b.id))continue;
   const delta=sub(b.p,a.p),distance=norm(delta),contact=collisionRadius(a)+collisionRadius(b);
   if(contactTest?!contactTest(a,b):distance>contact)continue;
   const m=a.mass+b.mass,rel=sub(b.v,a.v),speed=norm(rel),mu=a.mass*b.mass/m;
-  const normal=distance>1e-20?delta.map(x=>x/distance):speed>0?rel.map(x=>-x/speed):[1,0,0];
+  // A scripted encounter may supply the approach direction it was staged along;
+  // its rendered contact happens where the integrator's separation vector says
+  // nothing useful about the geometry of the hit.
+  const normal=contactNormal?.(a,b)||(distance>1e-20?delta.map(x=>x/distance):speed>0?rel.map(x=>-x/speed):[1,0,0]);
   const center=a.p.map((x,k)=>(x*a.mass+b.p[k]*b.mass)/m),velocity=a.v.map((x,k)=>(x*a.mass+b.v[k]*b.mass)/m);
   const volumeRadius=Math.cbrt(a.radius**3+b.radius**3),escape=Math.sqrt(2*G*m/Math.max(contact,1e-20));
   const specificEnergy=.5*mu*speed**2/m,binding=collisionBindingState(a,b,speed),severity=binding.pairDisruptionRatio;

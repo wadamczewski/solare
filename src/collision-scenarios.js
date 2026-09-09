@@ -41,3 +41,22 @@ export function scenarioCollisionReady(a,b,elapsedDays){
  if(other.id!==scenario.targetId)return true;
  return elapsedDays-scenario.launchElapsed>=scenario.minDurationDays-1e-6;
 }
+
+// A scripted encounter draws the projectile along a planned approach while the
+// integrator carries its real state somewhere else entirely, so the physical
+// separation vector at the moment of visual contact points in an unrelated
+// direction. Left alone it reads as a glancing blow: the pair registers a graze
+// and an impulse before the real impact. The planned approach direction is the
+// honest normal for a contact the script decided, so it is supplied instead.
+export function scenarioContactNormal(a,b){
+ const scenario=a.collisionScenario||b.collisionScenario;
+ if(!scenario?.visualDirection)return null;
+ const projectile=a.collisionScenario?a:b,target=projectile===a?b:a;
+ if(target.id!==scenario.targetId)return null;
+ const length=Math.hypot(...scenario.visualDirection);
+ if(!(length>0))return null;
+ // resolveCollisions expects the normal to run from the first body to the
+ // second; visualDirection runs from the target out towards the projectile.
+ const sign=projectile===b?1:-1;
+ return scenario.visualDirection.map(value=>sign*value/length);
+}
