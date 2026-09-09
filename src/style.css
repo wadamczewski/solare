@@ -33,3 +33,9 @@ button:disabled{opacity:.35;cursor:default}#light-flight{position:fixed;bottom:2
 /* A sky object's note is prose, not a readout: it needs a measure and leading
    the value rows do not, and it must not inherit their monospace alignment. */
 .sky-note{margin:.6rem 0 .35rem;font-size:.82rem;line-height:1.5;color:#c7d3e4;max-width:34rem}
+
+/* During the flyby the controls must retain their context without obscuring
+   the planet or the Sun. This is a frosted pane, not an opaque modal. */
+#light-flight:not([hidden]),#time-dock.in-flight{background:rgba(7,11,24,.48);backdrop-filter:blur(18px) saturate(135%);-webkit-backdrop-filter:blur(18px) saturate(135%);border-color:rgba(220,235,255,.28);box-shadow:0 14px 42px rgba(0,0,0,.24);color:#e7eef9}
+#solar-control{transition:opacity .2s ease,transform .2s ease,visibility .2s step-end}
+body.in-light-flight #solar-control{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease,visibility .2s step-start}
