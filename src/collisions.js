@@ -1,4 +1,4 @@
-import {surfaceImpact} from './surface-impact.js';
+import {collisionBindingState,surfaceImpact} from './surface-impact.js';
 import {horizonRadius} from './catalog.js';
 import {AU,G,SOLAR_MASS,body} from './physics.js';
 import {accretionStateFor} from './black-hole.js';
@@ -30,13 +30,13 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const normal=distance>1e-20?delta.map(x=>x/distance):speed>0?rel.map(x=>-x/speed):[1,0,0];
   const center=a.p.map((x,k)=>(x*a.mass+b.p[k]*b.mass)/m),velocity=a.v.map((x,k)=>(x*a.mass+b.v[k]*b.mass)/m);
   const volumeRadius=Math.cbrt(a.radius**3+b.radius**3),escape=Math.sqrt(2*G*m/Math.max(contact,1e-20));
-  const specificEnergy=.5*mu*speed**2/m,binding=.6*G*m/(volumeRadius/AU),severity=specificEnergy/Math.max(binding,1e-30);
+  const specificEnergy=.5*mu*speed**2/m,binding=collisionBindingState(a,b,speed),severity=binding.pairDisruptionRatio;
   const grazing=speed>0?Math.sqrt(Math.max(0,1-(dot(rel,normal)/speed)**2)):0;
   const blackhole=a.key==='blackhole'||b.key==='blackhole';
   const gas=a.gas||b.gas||['sun','jupiter','saturn','uranus','neptune'].includes(a.key)||['sun','jupiter','saturn','uranus','neptune'].includes(b.key);
   const primary=blackhole?(a.key==='blackhole'?a:b):(a.mass>=b.mass?a:b),secondary=primary===a?b:a;
   const cometImpact=!blackhole&&!gas&&secondary.key==='comet';
-  const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],replacements:{},orphaned:[],color:primary.color};
+  const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,binding,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],replacements:{},orphaned:[],color:primary.color};
   touched.add(a.id);touched.add(b.id);
   // Grazing rocky impact: dissipate normal kinetic energy, retain tangential motion.
   if(!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
@@ -46,10 +46,11 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
    const separation=contactTest?0:contact*1.002-distance;for(let k=0;k<3;k++){a.p[k]-=normal[k]*separation*b.mass/m;b.p[k]+=normal[k]*separation*a.mass/m}
    a.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal};b.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal.map(x=>-x)};event.kind='graze';events.push(event);continue;
   }
-  // Above this regime the impact energy is many times the combined binding
-  // energy: neither precursor survives as a coherent object. Lower-energy
-  // impacts retain a remnant and release a bounded resolved ejecta component.
-  const totalDisruption=!blackhole&&!gas&&a.key!=='fragment'&&b.key!=='fragment'&&severity>=7&&maxBodies-(bodies.length-2)>=2;
+  // A pair may only be replaced by debris once the impact can unbind *each*
+  // precursor and their contact system. This prevents a small impactor from
+  // incorrectly annihilating a massive target simply because it is destroyed.
+  // Horizon crossing remains an absorption event, not material disruption.
+  const totalDisruption=!blackhole&&!gas&&a.key!=='fragment'&&b.key!=='fragment'&&binding.a.disruptionRatio>=2&&binding.b.disruptionRatio>=2&&severity>=7&&maxBodies-(bodies.length-2)>=2;
   let fraction=blackhole||gas||a.key==='fragment'||b.key==='fragment'||severity<.15?0:totalDisruption?1:Math.min(.65,severity*.22);
   const slots=Math.max(0,maxBodies-(bodies.length-(totalDisruption?2:1)));
   const fragments=fraction>0?Math.min(totalDisruption?10:6,totalDisruption?slots:Math.floor(slots/2)*2):0;

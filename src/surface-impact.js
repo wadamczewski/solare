@@ -1,15 +1,33 @@
 import {SOLAR_MASS,AU} from './physics.js';
-export function surfaceImpact(a,b,speed){
+const G=6.67430e-11;
+
+// A uniform-density sphere is deliberately conservative here: real differentiated
+// bodies need at least this much energy to disperse gravitationally.  The value
+// gives the collision model a physical baseline before it creates ejecta.
+export function bindingEnergyJ(b){
+ return .6*G*(b.mass*SOLAR_MASS)**2/Math.max(1,b.radius*1000);
+}
+
+export function collisionBindingState(a,b,speed){
  const c=299792458,v=Math.min(speed*AU*1000/86400,c*.999999),beta2=(v/c)**2;
- // Reduced-mass estimate with relativistic kinetic-energy correction; dynamics remain Newtonian.
  const reduced=a.mass*b.mass/(a.mass+b.mass)*SOLAR_MASS;
+ // Centre-of-mass kinetic energy with a relativistic correction for deliberate
+ // high-speed scenarios. Regular integration remains Newtonian.
  const energyJ=reduced*v*v/(Math.sqrt(1-beta2)*(1+Math.sqrt(1-beta2)));
- const target=a.mass>=b.mass?a:b,fluence=energyJ/(4*Math.PI*(target.radius*1000)**2);
- // Uniform-sphere binding energy is enough to distinguish a planet-wide impact
- // catastrophe from actual gravitational dispersal of the target.
- const bindingJ=.6*6.67430e-11*(target.mass*SOLAR_MASS)**2/(target.radius*1000);
- const disruptionRatio=energyJ/bindingJ;
- return {energyJ,globalHeat:Math.max(0,Math.min(1,(Math.log10(Math.max(1,fluence))-7)/7)),targetBindingJ:bindingJ,disruptionRatio,targetSurvives:disruptionRatio<.01};
+ const aBindingJ=bindingEnergyJ(a),bBindingJ=bindingEnergyJ(b);
+ const contactDistance=Math.max(1,(a.radius+b.radius)*1000);
+ const mutualBindingJ=G*(a.mass*SOLAR_MASS)*(b.mass*SOLAR_MASS)/contactDistance;
+ const pairBindingJ=aBindingJ+bBindingJ+mutualBindingJ;
+ return {energyJ,mutualBindingJ,pairBindingJ,pairDisruptionRatio:energyJ/pairBindingJ,
+  a:{id:a.id,bindingJ:aBindingJ,disruptionRatio:energyJ/aBindingJ},
+  b:{id:b.id,bindingJ:bBindingJ,disruptionRatio:energyJ/bBindingJ}};
+}
+
+export function surfaceImpact(a,b,speed){
+ const binding=collisionBindingState(a,b,speed),target=a.mass>=b.mass?a:b;
+ const targetState=target===a?binding.a:binding.b;
+ const fluence=binding.energyJ/(4*Math.PI*(target.radius*1000)**2);
+ return {energyJ:binding.energyJ,globalHeat:Math.max(0,Math.min(1,(Math.log10(Math.max(1,fluence))-7)/7)),targetBindingJ:targetState.bindingJ,disruptionRatio:targetState.disruptionRatio,targetSurvives:targetState.disruptionRatio<.01,binding};
 }
 export function attachSurfaceImpact(view,b,axis){
  if(b.key!=='earth'||!b.damage?.surface)return;
