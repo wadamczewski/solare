@@ -12,6 +12,9 @@ test('tidal stretch grows toward the disruption radius',()=>{
  const target={key:'earth',mass:3e-6,radius:6371},hole={mass:1e6};const r=tidalRadiusAU(target,hole);
  assert.ok(r>0);assert.ok(tidalStretch(target,hole,r)>tidalStretch(target,hole,r*2));
 });
-test('black-hole visual has a volumetric disk and screen-space lens range',()=>{
- const visual=createBlackHoleVisual();assert.ok(visual.group.children.length>=5);assert.ok(blackHoleScreenRadius(1,10,43)>0);assert.ok(blackHoleScreenRadius(1,100,43)<blackHoleScreenRadius(1,10,43));
+test('black-hole visual has a lensed disk, shadow and photon rings',()=>{
+ const visual=createBlackHoleVisual();
+ assert.ok(visual.group.children.length>=6);assert.equal(visual.shadow.name,'black-hole-shadow');
+ assert.equal(visual.photonRings.children.length,3);assert.equal(visual.lensedArcs.children.length,2);
+ assert.ok(blackHoleScreenRadius(1,10,43)>0);assert.ok(blackHoleScreenRadius(1,100,43)<blackHoleScreenRadius(1,10,43));
 });
