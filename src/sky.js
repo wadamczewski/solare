@@ -11,6 +11,7 @@
 // while the points restore the grain of the stars that do resolve.
 import * as THREE from 'three';
 import {LineSegments2} from 'three/addons/lines/LineSegments2.js';
+import {brightestFigureStar,createStarIndex} from './sky-detail.js';
 import {LineSegmentsGeometry} from 'three/addons/lines/LineSegmentsGeometry.js';
 import {LineMaterial} from 'three/addons/lines/LineMaterial.js';
 
@@ -33,6 +34,13 @@ export function skyDirection(raDeg, decDeg) {
  const cd = Math.cos(dec);
  const xe = cd * Math.cos(ra), ye = cd * Math.sin(ra), ze = Math.sin(dec);
  return [xe, -ye * SIN_E + ze * COS_E, ye * COS_E + ze * SIN_E];
+}
+
+// The inverse, so a stored direction can be quoted back as catalogue coordinates.
+export function equatorialFromDirection([x, y, z]) {
+ const ye = z * COS_E - y * SIN_E, ze = z * SIN_E + y * COS_E;
+ const ra = (Math.atan2(ye, x) / DEG + 360) % 360;
+ return [ra, Math.asin(Math.max(-1, Math.min(1, ze))) / DEG];
 }
 
 // Ballesteros (2012) colour-index to effective temperature, then a blackbody
@@ -312,6 +320,7 @@ export function createSky(dpr) {
   for (let i = 0; i < lines.count; i++)
    place(unpackRA(lines.ra[i]), unpackDec(lines.dec[i]), linePositions, i);
   layers.constellations = new THREE.Group();
+  const starIndex=createStarIndex(stars);
   constellationEntries=[];
   for (const figure of splitConstellationFigures(lines)) {
    const positions = linePositions.slice(figure.start * 6, (figure.start + figure.count) * 6);
@@ -319,7 +328,10 @@ export function createSky(dpr) {
    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
    const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color: '#5f7fa8', transparent: true, opacity: .34, ...skyLayerDepthState}));
    const target=new THREE.Vector3();for(let i=0;i<positions.length;i+=3)target.add(new THREE.Vector3(positions[i],positions[i+1],positions[i+2]).normalize());target.normalize();
-   const entry={...figure,target};constellationEntries.push(entry);
+   // The figure is drawn between catalogue stars, so its brightest member can be
+   // looked up in the same data rather than asserted in a table by hand.
+   const vertices=[];for(let i=figure.start*2;i<(figure.start+figure.count)*2;i++)vertices.push([unpackRA(lines.ra[i]),unpackDec(lines.dec[i])]);
+   const entry={...figure,target,star:brightestFigureStar(vertices,starIndex,names)};constellationEntries.push(entry);
    line.userData.constellation = entry;
    // WebGL ignores LineBasicMaterial.linewidth on most platforms. A separate
    // LineSegments2 layer gives the active figure an actual screen-space width

@@ -15,7 +15,9 @@ import {createNavigation} from './navigation.js';
 import {captureCollisionView,viewContact} from './collision-view.js';
 import {catalog,createCatalogBody,horizonRadius,validDimensions} from './catalog.js';
 import {bodyKind} from './body-search.js';
-import {constellationLabel,createSky,deepSkyKind} from './sky.js';
+import {constellationLabel,createSky,deepSkyKind,equatorialFromDirection} from './sky.js';
+import {constellationNote,deepSkyNote} from './sky-descriptions.js';
+import {formatAngularSize,formatDeclination,formatRightAscension} from './sky-detail.js';
 import {cometNucleusGeometry,createCometTails} from './comet.js';
 import {fastStepSize,splitStep} from './fast-step.js';
 import * as THREE from 'three';
@@ -144,10 +146,17 @@ renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.cli
 renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>6)clearTimeout(lastTouchTimer);if(e.buttons){hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true;return}const id=hit(e),deepSky=id?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null,constellation=id||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;hoveredConstellation=constellation;hoveredDeepSky=deepSky;if(id||deepSky||!constellation)sky.clearConstellationHighlight();if(id||constellation||!deepSky)sky.clearDeepSkyHighlight();renderer.domElement.style.cursor=id||constellation||deepSky?'pointer':'grab';tip.hidden=!id&&!constellation&&!deepSky;if(id||constellation||deepSky){tip.textContent=id?bs.find(b=>b.id===id)?.name:deepSky?deepSky.label:constellationLabel(constellation,getLanguage());tip.style.left=Math.min(innerWidth-180,e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px'}});
 renderer.domElement.addEventListener('pointerleave',()=>{hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true});
 document.addEventListener('languagechange',()=>{if(hoveredConstellation&&!tip.hidden)tip.textContent=constellationLabel(hoveredConstellation,getLanguage())});
-renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const id=hit(e);if(id){selected=id;showBody()}else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
+document.addEventListener('languagechange',()=>{if(panel.hidden||!skySubject)return;const subject=skySubject;if(subject.kind==='constellation')showConstellation(subject.entry);else showDeepSky(subject.entry)});
+renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const id=hit(e);
+ // Picking again rather than trusting the hover state, which a touch pointer
+ // never produces. A marker or a figure under the cursor opens its own sheet;
+ // only genuinely empty sky falls through to the body spawner.
+ const deepSky=id?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null;
+ const constellation=id||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;
+ if(id){selected=id;showBody()}else if(deepSky)showDeepSky(deepSky);else if(constellation)showConstellation(constellation);else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
 renderer.domElement.addEventListener('dblclick',e=>{const id=hit(e);if(id)focusBody(id)});
 function shell(title,content){preview.clear();restoreFocus=document.activeElement;panel.innerHTML=`<div class="panel-head"><h2>${title}</h2><button class="close" aria-label="Zamknij">×</button></div>${content}`;panel.hidden=false;panel.querySelector('.close').onclick=closePanel}
-function closePanel(){preview.clear();panel.hidden=true;selected=null;restoreFocus?.focus?.()}
+function closePanel(){preview.clear();panel.hidden=true;selected=null;skySubject=null;restoreFocus?.focus?.()}
 const row=(label,html)=>`<div class="row"><label>${label}</label>${html}</div>`;
 const inputLabel=id=>({mass:'Masa · kg','spawn-mass':'Masa · kg','spawn-solar-mass':'Masa · M☉',radius:'Promień · km','spawn-radius':'Promień · km',spin:'Obrót · godz.',tilt:'Nachylenie osi · °',launch:'Prędkość · km/s',angle:'Kierunek · °',pitch:'Wznoszenie · °'}[id]||`${id.startsWith('v')?'Prędkość':'Położenie'} ${id.slice(-1)} · ${id.startsWith('v')?'km/s':'AU'}`);
 const num=(id,value,step='any')=>`<input id="${id}" type="number" step="${step}" value="${Number(value.toPrecision(7))}" aria-label="${inputLabel(id)}">`;
@@ -208,6 +217,40 @@ function showTools(){selected=null;shell('Symulacja',`<div class="tools"><button
 function setConstellationsVisible(visible){showConstellations=visible;sky.setConstellations(visible);const checkbox=document.querySelector('#constellations');if(checkbox)checkbox.checked=visible;}
 function setDeepSkyMarkersVisible(visible){showDeepSkyMarkers=visible;sky.setDeepSkyMarkers(visible);const checkbox=document.querySelector('#deep-sky-markers');if(checkbox)checkbox.checked=visible;}
 function focusSkyTarget(direction){if(lightFlight)stopLightFlight();follow=null;const target=camera.position.clone().add(direction.clone().normalize().multiplyScalar(100));controls.target.copy(target);controls.update();}
+// A sky object has no simulated state to edit, so its panel is a read-only
+// sheet: measured values from the catalogues, then a note about what is there.
+const skyRow=(label,value)=>row(label,`<output class="value-readout">${value}</output>`);
+let skySubject=null;
+function skyPanel(title,rows,note,source){
+ // The note is already written in the viewer's language, so the interface
+ // phrase substituter must leave it alone; it only knows single labels.
+ shell(title,`${rows.join('')}${note?`<p class="sky-note" data-no-translate>${note}</p>`:''}<p class="muted">${source}</p><div class="actions"><button class="action primary" id="sky-center">Wyśrodkuj</button></div>`);
+}
+function showConstellation(entry){
+ skySubject={kind:'constellation',entry};
+ focusSkyTarget(entry.target);
+ const star=entry.star,brightest=star?(star.name?`${star.name} · ${formatNumber(star.magnitude,2)} mag`:`${formatNumber(star.magnitude,2)} mag`):'—';
+ const [ra,dec]=equatorialFromDirection(entry.target.toArray());
+ skyPanel(constellationLabel(entry,getLanguage()),[
+  skyRow('Skrót IAU',entry.id),
+  skyRow('Najjaśniejsza gwiazda figury',brightest),
+  skyRow('Rektascensja',formatRightAscension(ra)),
+  skyRow('Deklinacja',formatDeclination(dec))
+ ],constellationNote(entry.name,getLanguage()),'Figura gwiazdozbioru wg d3-celestial · gwiazda z katalogu sceny');
+ document.querySelector('#sky-center').onclick=()=>focusSkyTarget(entry.target);
+}
+function showDeepSky(object){
+ skySubject={kind:'deep-sky',entry:object};
+ focusSkyTarget(object.target);
+ skyPanel(`${object.label} · ${object.id}`,[
+  skyRow('Rodzaj',translate(deepSkyKind(object))),
+  ...(object.type==='pos'?[]:[skyRow('Jasność wizualna',`${formatNumber(object.mag,1)} mag`)]),
+  skyRow('Rozmiar kątowy',formatAngularSize(object.arcmin)),
+  skyRow('Rektascensja',formatRightAscension(object.ra)),
+  skyRow('Deklinacja',formatDeclination(object.dec))
+ ],deepSkyNote(object.id,getLanguage()),'Współrzędne i jasności z katalogu obiektów sceny');
+ document.querySelector('#sky-center').onclick=()=>focusSkyTarget(object.target);
+}
 function setupBodySearch(){
  const input=document.querySelector('#body-search'),list=document.querySelector('#body-results');
  let matches=[],active=-1;
@@ -216,7 +259,7 @@ function setupBodySearch(){
  function targets(query){const needle=normalize(query.trim()),all=[...bs.map(body=>({kind:'body',key:`body:${body.id}`,body,label:translate(body.name),type:translate(bodyKind(body,bs))})),...sky.getConstellations().map(entry=>({kind:'constellation',key:`constellation:${entry.start}`,entry,label:constellationLabel(entry,getLanguage()),type:translate('Gwiazdozbiór')})),...sky.getDeepSkyObjects().map(entry=>({kind:'deep-sky',key:`deep-sky:${entry.id}`,entry,label:entry.label,type:translate(deepSkyKind(entry))}))];return needle?all.filter(item=>normalize(`${item.label} ${item.type} ${item.entry?.id||''}`).includes(needle)):all;}
  function render(query){matches=targets(query);active=-1;list.innerHTML=matches.length?matches.map(item=>`<li role="option" id="body-result-${item.key}" data-key="${item.key}">${escapeHtml(item.label)}<span class="body-kind">${item.type}</span></li>`).join(''):'<li class="empty">Brak wyników.</li>';list.hidden=false;input.setAttribute('aria-expanded','true');input.removeAttribute('aria-activedescendant')}
  function highlight(i){const items=[...list.children].filter(el=>el.dataset.key);items.forEach(el=>el.classList.remove('active'));const el=items[i];if(el){el.classList.add('active');el.scrollIntoView({block:'nearest'});input.setAttribute('aria-activedescendant',el.id)}active=i}
- function pick(item){if(!item)return;if(item.kind==='body'){selected=item.body.id;focusBody(item.body.id,{keepPanel:true});showBody();return}if(item.kind==='constellation'){setConstellationsVisible(true);focusSkyTarget(item.entry.target);return}setDeepSkyMarkersVisible(true);focusSkyTarget(item.entry.target);}
+ function pick(item){if(!item)return;if(item.kind==='body'){selected=item.body.id;focusBody(item.body.id,{keepPanel:true});showBody();return}if(item.kind==='constellation'){setConstellationsVisible(true);showConstellation(item.entry);return}setDeepSkyMarkersVisible(true);showDeepSky(item.entry);}
  input.addEventListener('focus',()=>render(input.value));
  input.addEventListener('input',()=>render(input.value));
  input.addEventListener('blur',()=>setTimeout(()=>{list.hidden=true;input.setAttribute('aria-expanded','false')},120));

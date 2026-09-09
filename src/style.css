@@ -29,3 +29,7 @@ button:disabled{opacity:.35;cursor:default}#light-flight{position:fixed;bottom:2
 @media(max-height:620px){#flight-rail{top:56px;bottom:132px}.rail-stop{font-size:9px}}
 #language{pointer-events:auto;margin-left:auto;margin-right:18px;max-width:145px;border:1px solid #ffffff24;background:#070b16bb;color:#dce3ed;border-radius:8px;padding:8px 10px;font:inherit;font-size:12px;backdrop-filter:blur(12px)}#language option{background:#101521;color:#fff}#language:focus-visible{outline:2px solid #b4d9ef;outline-offset:3px}@media(max-width:520px){#language{margin-right:10px;max-width:115px;padding:7px 5px}}
 #solar-interior{position:fixed;left:clamp(24px,6vw,90px);top:30%;width:min(390px,65vw);color:#26313b;pointer-events:none;font-size:12px;line-height:1.65;z-index:3}#solar-interior>span{font-size:10px;letter-spacing:.16em;text-transform:uppercase}#solar-interior strong{display:block;font-size:clamp(22px,4vw,38px);font-weight:400;line-height:1.2;margin:12px 0}#solar-interior p{opacity:.8;max-width:360px}.inside-sun #flight-rail{color:#29333d}.inside-sun #flight-rail .rail-stop{color:#36414b}.inside-sun #logo{color:#26313b}.appearance-note a{color:inherit;text-decoration:underline;margin-left:5px}
+
+/* A sky object's note is prose, not a readout: it needs a measure and leading
+   the value rows do not, and it must not inherit their monospace alignment. */
+.sky-note{margin:.6rem 0 .35rem;font-size:.82rem;line-height:1.5;color:#c7d3e4;max-width:34rem}
