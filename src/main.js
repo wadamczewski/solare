@@ -134,7 +134,33 @@ const loader=new THREE.TextureLoader(),textures={},textureRequests=new Set(),moo
 const vector=(a)=>new THREE.Vector3(...a);
 function mapped(p){const v=vector(p),r=v.length();return r?v.multiplyScalar(sceneRadius(r,compressed)/r):v}
 function displayed(b){if(lightFlight){const stop=flightStops.find(s=>s.id===b.id);if(stop)return mapped(lightFlight.origin).addScaledVector(vector(lightFlight.direction),stop.distance*6);if(b.parent){const host=bs.find(x=>x.id===b.parent);if(host)return displayed(host).add(flightTrueScale?vector(b.p).sub(vector(host.p)).multiplyScalar(6):vector(b.p).sub(vector(host.p)).normalize().multiplyScalar(radius(host)*2.5))}if(b.key==='sun')return mapped(lightFlight.origin);}if(!compressed)return mapped(b.p);if(b.collisionScenario){const target=bs.find(candidate=>candidate.id===b.collisionScenario.targetId);if(target){const direction=vector(b.collisionScenario.visualDirection||[1,0,0]).normalize(),contactRadius=radius(b)+radius(target),separation=scenarioVisualSeparation(b.collisionScenario,elapsed,contactRadius);return displayed(target).addScaledVector(direction,separation)}}if(b.parent){const host=bs.find(x=>x.id===b.parent);if(host){const d=vector(b.p).sub(vector(host.p)),r=d.length();return displayed(host).add(d.multiplyScalar(r?((radius(host)*1.8+Math.pow(r*AU/200000,.55)*.8)/r):1))}}return mapped(b.p)}
-function radius(b){const stellarScale=Math.pow(Math.max(.01,b.radius/695700),.42);if(lightFlight){if(flightTrueScale)return b.radius/AU*6;if(b.key==='sun')return .12*stellarScale;if(b.key==='neutron-star')return .04;if(b.parent)return .008;return .018+.095*Math.pow(b.radius/69911,.6)}if(!compressed)return b.radius/AU*6;if(b.key==='sun')return 1.02*stellarScale;if(b.key==='blackhole')return .5*Math.pow(b.mass,.15);if(b.key==='neutron-star')return .055;if(b.parent)return b.irregular?.029:Math.max(.035,b.radius/22000);if(b.key==='comet')return b.cometProfile==='halley'?.083:.055;if(b.key==='fragment')return .035+.16*Math.pow(b.radius/69911,.5);return .10+.57*Math.pow(b.radius/69911,.62)}
+function radius(b){
+ const stellarScale=Math.pow(Math.max(.01,b.radius/695700),.42);
+ if(lightFlight){
+  if(flightTrueScale)return b.radius/AU*6;
+  if(b.key==='sun')return .12*stellarScale;
+  if(b.key==='neutron-star')return .04;
+  if(b.parent)return .008;
+  return .018+.095*Math.pow(b.radius/69911,.6);
+ }
+ if(!compressed)return b.radius/AU*6;
+ if(b.key==='sun')return 1.02*stellarScale;
+ if(b.key==='blackhole')return .5*Math.pow(b.mass,.15);
+ if(b.key==='neutron-star')return .028;
+ const host=b.parent&&bs.find(candidate=>candidate.id===b.parent);
+ if(host){
+  // Satellites inherit a readable fraction of their primary, but never the
+  // former uniform moon size. The exponent keeps kilometre-scale moons on
+  // screen while retaining the many-orders-of-magnitude size hierarchy.
+  const physicalFraction=Math.max(1e-10,b.radius/host.radius);
+  return radius(host)*Math.min(.34,Math.max(.004,.54*Math.pow(physicalFraction,.68)));
+ }
+ if(b.key==='comet')return Math.min(.029,.006+.018*Math.pow(Math.max(1e-6,b.radius/5.5),.28));
+ if(b.key==='fragment'||b.key==='asteroid')return .0015+.045*Math.pow(Math.max(1e-9,b.radius/1000),.32);
+ // A smaller baseline and steeper curve make terrestrial and giant planets
+ // visibly distinct without changing their positions or orbital paths.
+ return .035+.625*Math.pow(Math.max(1e-9,b.radius/69911),.85);
+}
 const sphere=shapeGeometry('high');
 function addView(b){const group=new THREE.Group();scene.add(group);const authoredGeometry=keepsAuthoredGeometry(b);let geo=shapeGeometry('medium');if(b.key==='comet'||b.key==='fragment'&&b.irregular)geo=cometNucleusGeometry(b.id,12,b.cometProfile);else if(b.irregular){geo=new THREE.IcosahedronGeometry(1,3);const a=geo.attributes.position;for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i),f=1+.12*Math.sin(x*18+y*13+z*8)+.05*Math.sin(x*37+y*29+z*23);a.setXYZ(i,x*f*1.3,y*f*.78,z*f)}geo.computeVertexNormals()}
  const textureKey=b.textureKey||b.key;const surfaceMap=textures[textureKey]||null;const mat=b.key==='sun'?new THREE.MeshBasicMaterial({color:new THREE.Color('#ffffff').multiplyScalar(24),toneMapped:true}):new THREE.MeshStandardMaterial({map:b.key==='moon'?null:surfaceMap,color:surfaceMap?'#ffffff':b.key==='moon'?b.color:b.key==='blackhole'?'#000000':b.key==='neutron-star'?'#d6efff':b.color||'#ffffff',roughness:b.key==='neutron-star'?.34:1,metalness:0,emissive:b.key==='neutron-star'?'#2570a8':'#000000',emissiveIntensity:b.key==='neutron-star'?.75:0});if(b.key==='blackhole')mat.map=null;if(b.key==='comet'){mat.map=null;applyCometAppearance(mat,b.cometProfile)}if(b.textureKey&&!surfaceMap){mat.map=null;mat.color.set(b.gas?'#b0aaa0':'#77736c')}naturalColorMaterial(mat,b.key);applyMoonAppearance(mat,b,moonMaps);makeOpaqueSurface(mat);
