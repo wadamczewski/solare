@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cometNucleusGeometry, activity,applyCometAppearance} from '../src/comet.js';
+import {cometNucleusGeometry, activity,applyCometAppearance,nucleusClearance} from '../src/comet.js';
 import {MeshStandardMaterial,ShaderLib} from 'three';
 
 test('the nucleus is finely tessellated and free of flat facets',()=>{
@@ -39,6 +39,11 @@ test('Halley surface texture runs without a UV map and preserves a visible sunli
  assert.ok(material.color.r>.08&&material.color.g>.04,'not a black cutout');
  assert.match(shader.fragmentShader,/varying vec3 cometLocal/);
  assert.ok(shader.fragmentShader.indexOf('#include <map_fragment>')<shader.fragmentShader.indexOf('float coarse='));
+});
+
+test('the coma starts outside the rendered nucleus so Halley remains visible',()=>{
+ assert.equal(nucleusClearance(.083),.10126);
+ assert.ok(nucleusClearance(0)>0);
 });
 
 test('nuclei are stable per seed and differ between seeds',()=>{

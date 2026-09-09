@@ -123,9 +123,9 @@ export function applyCometAppearance(material, profile = 'generic') {
  const halley = profile === 'halley';
  // The Giotto albedo is only 2–4%, but scene exposure must still retain the
  // illuminated relief. This is charcoal-brown regolith, not an unlit black cutout.
- material.color.set(halley ? '#5a4332' : '#4b433b');
- material.emissive.set(halley ? '#100b07' : '#090807');
- material.emissiveIntensity = halley ? .035 : .015;
+ material.color.set(halley ? '#6b4e38' : '#51483f');
+ material.emissive.set(halley ? '#1c110a' : '#0d0a08');
+ material.emissiveIntensity = halley ? .06 : .025;
  material.roughness = .96;
  material.metalness = 0;
  material.onBeforeCompile = shader => {
@@ -141,6 +141,10 @@ export function applyCometAppearance(material, profile = 'generic') {
  };
  material.customProgramCacheKey = () => `comet-surface-${profile}-3`;
 }
+
+// The opaque nucleus must remain visible through its own translucent coma.
+// This is a presentation clearance around the solid, not a physical coma size.
+export const nucleusClearance = radius => Math.max(1e-5, radius * 1.22);
 
 // ----------------------------------------------------------------- tails
 const TAIL_VERTEX = `
@@ -213,9 +217,9 @@ export function createCometTails(scene, particlesPerComet = 5200) {
  return {
   points,
   setPixelRatio(value) { material.uniforms.dpr.value = value; },
-  // context: {comets, sunDisplayed, displayed, velocityOf, distanceOf, scale, time}
+  // context: {comets, sunDisplayed, displayed, velocityOf, distanceOf, radiusOf, scale, time}
   update(context) {
-   const {comets, sunDisplayed, displayed, velocityOf, distanceOf, span, time} = context;
+   const {comets, sunDisplayed, displayed, velocityOf, distanceOf, radiusOf, span, time} = context;
    let cursor = 0;
    for (const comet of comets.slice(0, maxComets)) {
     nucleus.copy(displayed(comet));
@@ -223,6 +227,7 @@ export function createCometTails(scene, particlesPerComet = 5200) {
     const sunDistance = antisun.length();
     if (sunDistance < 1e-9) antisun.set(1, 0, 0); else antisun.divideScalar(sunDistance);
     const halley = comet.cometProfile === 'halley';
+    const clearRadius = nucleusClearance(radiusOf(comet));
     // Halley's 1986 apparition showed bright, localised gas-and-dust jets;
     // give it a slightly stronger coma and tails than a dormant generic core.
     const strength = Math.min(1, activity(distanceOf(comet)) * (halley ? 1.22 : 1));
@@ -279,13 +284,22 @@ export function createCometTails(scene, particlesPerComet = 5200) {
      }
      // Innermost grains form the coma: bright, round, close in.
      if (age < 0.06) {
-      const u = age / 0.06;
-      grain.copy(nucleus)
-       .addScaledVector(lateralA, Math.cos(angle) * u * span * 0.05 * (0.4 + spread))
-       .addScaledVector(lateralB, Math.sin(angle) * u * span * 0.05 * (0.4 + spread))
-       .addScaledVector(antisun, (beta - 0.3) * u * span * 0.05);
-      alpha = 1 - u * 0.5; width = 3.4 + 4.2 * (1 - u); tone = COMA_TINT; brightness = 2.1;
+       const u = age / 0.06;
+       grain.copy(nucleus)
+       .addScaledVector(lateralA, Math.cos(angle) * (clearRadius + u * span * 0.045 * (0.4 + spread)))
+       .addScaledVector(lateralB, Math.sin(angle) * (clearRadius + u * span * 0.045 * (0.4 + spread)))
+       .addScaledVector(antisun, (beta - 0.3) * u * span * 0.035);
+      alpha = .68 - u * .28; width = 2.2 + 2.8 * (1 - u); tone = COMA_TINT; brightness = .72;
      }
+     // Dust and plasma may surround the nucleus, but never cover its rendered
+     // silhouette. Without this, additive point sprites turn Halley into a
+     // featureless bright dot at map distance.
+     grain.sub(nucleus);
+     if (grain.lengthSq() < clearRadius * clearRadius) {
+      if (grain.lengthSq() < 1e-12) grain.copy(lateralA);
+      grain.normalize().multiplyScalar(clearRadius);
+     }
+     grain.add(nucleus);
      radius = strength * alpha * brightness;
      position[cursor * 3] = grain.x; position[cursor * 3 + 1] = grain.y; position[cursor * 3 + 2] = grain.z;
      size[cursor] = width;
