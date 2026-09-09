@@ -251,6 +251,7 @@ export function createSky(dpr) {
  let deepSkyMarkersVisible = false;
  let skyScale = 1;
  let activeConstellation = null;
+ let activeDeepSky = null;
  let constellationEntries = [], deepSkyEntries = [];
  const constellationGlowMaterials = [];
  const lineResolution = new THREE.Vector2(1, 1);
@@ -299,10 +300,12 @@ export function createSky(dpr) {
   // These are navigational markers, distinct from the resolved deep-sky
   // render above. They remain opt-in so the sky can stay photographic by
   // default, while named nebulae, clusters and galaxies can be located fast.
-  layers.deepSkyMarkers=buildPoints(deepSkyEntries.length,({position,size,intensity,tint})=>{
+ layers.deepSkyMarkers=buildPoints(deepSkyEntries.length,({position,size,intensity,tint})=>{
    deepSkyEntries.forEach((object,index)=>{const [x,y,z]=skyDirection(object.ra,object.dec),color=deepSkyMarkerTint[object.type]||[.8,.9,1];position.set([x*RADIUS,y*RADIUS,z*RADIUS],index*3);size[index]=object.type==='pos'?13:Math.max(7,Math.min(16,5+Math.sqrt(object.arcmin)*.55));intensity[index]=1.35;tint.set(color,index*3);});
   },GLOW_FRAGMENT,dpr);
   layers.deepSkyMarkers.visible=deepSkyMarkersVisible;
+  layers.deepSkyHighlight=buildPoints(1,({position,size,intensity,tint})=>{position.set([0,0,0]);size[0]=34;intensity[0]=2.7;tint.set([.7,.9,1]);},GLOW_FRAGMENT,dpr);
+  layers.deepSkyHighlight.visible=false;
 
   const lines = decodeLines(lineBuffer);
   const linePositions = new Float32Array(lines.count * 3);
@@ -385,9 +388,27 @@ export function createSky(dpr) {
   setDeepSkyMarkers(visible) {
    deepSkyMarkersVisible=visible;
    if(layers.deepSkyMarkers)layers.deepSkyMarkers.visible=visible;
+   if(!visible)this.clearDeepSkyHighlight();
   },
   getConstellations(){return constellationEntries.map(entry=>({...entry,target:entry.target.clone()}));},
   getDeepSkyObjects(){return deepSkyEntries.map(entry=>({...entry,target:entry.target.clone()}));},
+  clearDeepSkyHighlight(){if(!activeDeepSky)return;layers.deepSkyHighlight.visible=false;activeDeepSky=null;},
+  pickDeepSkyMarker(event,camera,element){
+   if(!layers.deepSkyMarkers?.visible)return null;
+   const rect=element.getBoundingClientRect(),ray=new THREE.Raycaster();
+   ray.params.Points.threshold=10;
+   ray.setFromCamera(new THREE.Vector2((event.clientX-rect.left)/rect.width*2-1,-((event.clientY-rect.top)/rect.height*2-1)),camera);
+   group.updateMatrixWorld(true);
+   const hit=ray.intersectObject(layers.deepSkyMarkers,false)[0];
+   const entry=hit&&deepSkyEntries[hit.index];
+   if(entry===activeDeepSky)return entry||null;
+   this.clearDeepSkyHighlight();
+   if(!entry)return null;
+   const position=layers.deepSkyHighlight.geometry.attributes.position,tint=layers.deepSkyHighlight.geometry.attributes.tint,color=deepSkyMarkerTint[entry.type]||[.8,.9,1];
+   position.setXYZ(0,entry.target.x*RADIUS,entry.target.y*RADIUS,entry.target.z*RADIUS);tint.setXYZ(0,...color);position.needsUpdate=true;tint.needsUpdate=true;
+   layers.deepSkyHighlight.visible=true;activeDeepSky=entry;
+   return entry;
+  },
   clearConstellationHighlight() {
    if (!activeConstellation) return;
    activeConstellation.line.material.color.set('#5f7fa8');
@@ -415,7 +436,7 @@ export function createSky(dpr) {
   // the caller can dim the field when a bright foreground would wash it out.
   setScale(value) {
    skyScale=value;
-   for (const layer of [layers.stars, layers.milkyway, layers.deepSky])
+   for (const layer of [layers.stars, layers.milkyway, layers.deepSky, layers.deepSkyMarkers, layers.deepSkyHighlight])
     if (layer) layer.material.uniforms.scale.value = value;
   },
   setViewport(width,height) {

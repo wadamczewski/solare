@@ -19,6 +19,8 @@ test('sky hover exposes a constellation picker and highlighted line state',()=>{
  assert.match(source,/LineSegments2/);
  assert.match(source,/\[\[30,\.055\],\[15,\.17\],\[6,\.72\]\]/);
  assert.match(source,/activeConstellation\.glows\.forEach\(glow=>glow\.visible=true\)/);
+ assert.match(source,/pickDeepSkyMarker\(event,camera,element\)/);
+ assert.match(source,/layers\.deepSkyHighlight\.visible=true/);
 });
 
 test('constellation labels follow the selected language and retain IAU Latin names',()=>{
