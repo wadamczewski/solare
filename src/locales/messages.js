@@ -1,5 +1,16 @@
 // Polish source messages with complete English, German and Spanish translations.
 export const rows = [
+['Małe ciała','Small bodies','Kleine Körper','Cuerpos pequeños'],
+['Gwiazdy neutronowe','Neutron stars','Neutronensterne','Estrellas de neutrones'],
+['Własny kurs','Custom course','Eigener Kurs','Trayectoria propia'],
+['Pocisk','Projectile','Geschoss','Proyectil'],
+['Cel','Target','Ziel','Objetivo'],
+['Uruchom własny','Launch custom','Eigenen starten','Lanzar propia'],
+['Wybierz pocisk i cel.','Choose a projectile and a target.','Geschoss und Ziel wählen.','Elige un proyectil y un objetivo.'],
+['Impaktor Chicxulub','Chicxulub impactor','Chicxulub-Impaktor','Impactador de Chicxulub'],
+['4 Westa','4 Vesta','4 Vesta','4 Vesta'],
+['Theia (hipotetyczna)','Theia (hypothetical)','Theia (hypothetisch)','Theia (hipotética)'],
+['Shoemaker-Levy 9 (fragment)','Shoemaker-Levy 9 (fragment)','Shoemaker-Levy 9 (Fragment)','Shoemaker-Levy 9 (fragmento)'],
 ['Wielki Obłok Magellana','Large Magellanic Cloud','Große Magellansche Wolke','Gran Nube de Magallanes'],
 ['Mały Obłok Magellana','Small Magellanic Cloud','Kleine Magellansche Wolke','Pequeña Nube de Magallanes'],
 ['Wielka Mgławica Oriona','Great Orion Nebula','Großer Orionnebel','Gran Nebulosa de Orión'],

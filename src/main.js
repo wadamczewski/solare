@@ -40,7 +40,7 @@ import {createBlackHoleLensingPass,updateBlackHoleLensing} from './black-hole-le
 import {tidalStretch,tidalStreamStrength} from './tidal-disruption.js';
 import {createTidalStreams} from './tidal-stream.js';
 import {createAsteroidBelt} from './asteroid-belt.js';
-import {collisionScenarios,collisionLaunchState,scenarioCollisionReady,scenarioContactNormal,scenarioVisualSeparation} from './collision-scenarios.js';
+import {DEFAULT_IMPACT_SPEED_KMS,buildCustomScenario,clampImpactSpeed,collisionScenarios,collisionLaunchState,findScenarioTarget,scenarioCollisionReady,scenarioContactNormal,scenarioVisualSeparation} from './collision-scenarios.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: ruch. Q/E: dół/góra. Shift: szybciej. Prawy przycisk i mysz: rozglądanie. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza. Escape: zamknij.');
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(43,innerWidth/innerHeight,.0000001,2000);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.minDistance=.00001;controls.maxDistance=maxViewDistance(true);controls.zoomToCursor=true;controls.enablePan=true;controls.panSpeed=.7;
@@ -215,17 +215,38 @@ function showSpawner(presetId='comet'){
   }catch(error){validation.textContent=error.message}
  };
 }
-function launchCollisionScenario(id){
- const scenario=collisionScenarios.find(item=>item.id===id),target=scenario&&bs.find(item=>item.key===scenario.target);if(!scenario||!target)return;
- const existing=bs.find(item=>item.scenarioId===id);if(existing){bs=bs.filter(item=>item!==existing);disposeView(existing.id)}
+function launchCollisionScenario(scenario){
+ const target=scenario&&findScenarioTarget(bs,scenario);if(!scenario||!target)return;
+ const id=scenario.id,existing=bs.find(item=>item.scenarioId===id);if(existing){bs=bs.filter(item=>item!==existing);disposeView(existing.id)}
  const preset=catalog.find(item=>item.id===scenario.projectile),state=collisionLaunchState(target,scenario);
  const projectile=createCatalogBody(preset.id,{massKg:preset.mass*SOLAR_MASS,radiusKm:preset.radius,p:state.p,v:state.v});
  projectile.name=`${preset.name} → ${target.name}`;projectile.scenarioId=id;projectile.collisionScenario={targetId:target.id,launchElapsed:elapsed,minDurationDays:state.impactDays,visualDirection:state.direction,visualApproachSpan:Math.max(2.6,radius(target)*8)};bs.push(projectile);addView(projectile);selected=projectile.id;paused=false;updateOrbits();focusBody(projectile.id,{keepPanel:true});
 }
 function showCollisionLauncher(){
  const options=collisionScenarios.map(item=>`<option value="${item.id}">${item.name}</option>`).join('');
- shell('Kurs kolizyjny',`${row('Scenariusz',`<select id="collision-scenario">${options}</select>`)}<p class="muted">Obiekty są tworzone z katalogowymi rozmiarami i masą. Wektor prędkości jest ustawiony na środek celu.</p><div class="actions"><button class="action primary" id="launch-collision">Uruchom</button><button class="action" id="tools">Symulacja</button></div>`);
- document.querySelector('#launch-collision').onclick=()=>launchCollisionScenario(document.querySelector('#collision-scenario').value);document.querySelector('#tools').onclick=showTools;
+ // Anything in the catalogue may be thrown, and anything in the scene may be
+ // hit, including a body the viewer added a moment ago. Grouping mirrors the
+ // spawner so the same object is found in the same place in both panels.
+ const groups=[...new Set(catalog.map(item=>item.group))];
+ const projectiles=groups.map(group=>`<optgroup label="${group}">${catalog.filter(item=>item.group===group).map(item=>`<option value="${item.id}">${item.name}</option>`).join('')}</optgroup>`).join('');
+ // Default to Earth when it is still there: the Sun merely happens to be first
+ // in the body list, and is nobody's first choice of thing to aim at.
+ const preferred=bs.find(item=>item.key==='earth')||bs[1]||bs[0];
+ const targets=bs.map(item=>`<option value="${item.id}"${item===preferred?' selected':''}>${item.name}</option>`).join('');
+ shell('Kurs kolizyjny',`${row('Scenariusz',`<select id="collision-scenario">${options}</select>`)}<p class="muted">Obiekty są tworzone z katalogowymi rozmiarami i masą. Wektor prędkości jest ustawiony na środek celu.</p><div class="actions"><button class="action primary" id="launch-collision">Uruchom</button></div><div class="separator"></div><label class="field-title">Własny kurs</label>${row('Pocisk',`<select id="custom-projectile">${projectiles}</select>`)}${row('Cel',`<select id="custom-target">${targets}</select>`)}${row('Prędkość · km/s',`<input id="custom-speed" type="number" min="0.1" step="0.1" value="${DEFAULT_IMPACT_SPEED_KMS}" aria-label="Prędkość zderzenia · km/s">`)}<p class="muted" id="custom-note"></p><div class="actions"><button class="action primary" id="launch-custom">Uruchom własny</button><button class="action" id="tools">Symulacja</button></div>`);
+ const scenarioOf=id=>collisionScenarios.find(item=>item.id===id);
+ document.querySelector('#launch-collision').onclick=()=>launchCollisionScenario(scenarioOf(document.querySelector('#collision-scenario').value));
+ document.querySelector('#launch-custom').onclick=()=>{
+  const preset=catalog.find(item=>item.id===document.querySelector('#custom-projectile').value);
+  const target=bs.find(item=>item.id===+document.querySelector('#custom-target').value);
+  const note=document.querySelector('#custom-note');
+  if(!preset||!target){note.textContent='Wybierz pocisk i cel.';return}
+  const speed=clampImpactSpeed(document.querySelector('#custom-speed').value);
+  document.querySelector('#custom-speed').value=String(speed);
+  note.textContent='';
+  launchCollisionScenario(buildCustomScenario({projectileId:preset.id,projectileName:preset.name,target,speedKmS:speed}));
+ };
+ document.querySelector('#tools').onclick=showTools;
 }
 collisionCourseButton.onclick=showCollisionLauncher;
 function showTools(){selected=null;shell('Symulacja',`<div class="tools"><button id="pause" aria-label="Pauza">${paused?'▶':'Ⅱ'}</button><button id="zoom-in" aria-label="Przybliż">＋</button><button id="zoom-out" aria-label="Oddal">−</button><button id="home" aria-label="Domyślny widok">⌖</button></div>${row('Tempo',`<select id="speed">${lightFlight?`<option selected>Lot · ${lightFlight.rate} ×</option>`:''}${[.02,.1,.5,2,10,50,100,200,365].map(s=>`<option value="${s}" ${s===speed?'selected':''}>${s} dni / s</option>`).join('')}</select>`)}${row('Widok',`<select id="scale"><option value="visual" ${compressed?'selected':''}>Czytelny</option><option value="real" ${!compressed?'selected':''}>Rzeczywista skala</option></select>`)}<div class="actions"><button class="action" id="light-start">${lightFlight?'Zakończ lot światła':'Symulacja prędkości światła'}</button></div><div class="actions"><button class="action" id="add">Dodaj ciało</button><button class="action" id="custom-blackhole">Własna czarna dziura</button><button class="action danger" id="restart">Od nowa</button></div>`);document.querySelector('#pause').onclick=e=>{setPaused(!paused);e.target.textContent=paused?'▶':'Ⅱ'};document.querySelector('#light-start').onclick=()=>lightFlight?stopLightFlight():startLightFlight();for(const id of ['speed','scale','zoom-in','zoom-out','home'])document.getElementById(id).disabled=!!lightFlight;document.querySelector('#zoom-in').onclick=()=>camera.position.lerp(controls.target,.25);document.querySelector('#zoom-out').onclick=()=>camera.position.sub(controls.target).multiplyScalar(1.3).add(controls.target);document.querySelector('#home').onclick=resetView;document.querySelector('#speed').onchange=e=>setSimulationSpeed(e.target.value);document.querySelector('#scale').onchange=e=>setScaleMode(e.target.value==='visual');document.querySelector('#add').onclick=()=>{spawnAt.set(2,0,0);showSpawner()};document.querySelector('#custom-blackhole').onclick=()=>{spawnAt.set(2,0,0);showSpawner('custom-blackhole')};document.querySelector('#restart').onclick=restart;}
