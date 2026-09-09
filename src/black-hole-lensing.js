@@ -7,7 +7,7 @@ export function blackHoleScreenRadius(radius,distance,fovDegrees){
 export function createBlackHoleLensingPass(ShaderPass){
  const centers=Array.from({length:MAX_BLACK_HOLES},()=>new THREE.Vector2(-10,-10));
  const shader={uniforms:{tDiffuse:{value:null},centers:{value:centers},radii:{value:new Float32Array(MAX_BLACK_HOLES)}},vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',fragmentShader:`uniform sampler2D tDiffuse;uniform vec2 centers[${MAX_BLACK_HOLES}];uniform float radii[${MAX_BLACK_HOLES}];varying vec2 vUv;
- void main(){vec2 uv=vUv;vec3 color=vec3(0.);for(int i=0;i<${MAX_BLACK_HOLES};i++){float r=radii[i];vec2 d=uv-centers[i];float l=length(d);if(r>0.){float safeL=max(l,.00001);if(l>r*1.12&&l<r*4.2){float x=l/r;float falloff=pow(clamp(1.-x/4.2,0.,1.),2.2);uv-=d/safeL*falloff*r*(.64/(.42+x*.33));}}}color=texture2D(tDiffuse,uv).rgb;for(int i=0;i<${MAX_BLACK_HOLES};i++){float r=radii[i];float l=length(vUv-centers[i]);if(r>0.){float shadow=1.-smoothstep(r*1.08,r*1.20,l);color*=1.-shadow;}}gl_FragColor=vec4(color,1.);}`};
+ void main(){vec2 uv=vUv;for(int i=0;i<${MAX_BLACK_HOLES};i++){float r=radii[i];vec2 d=uv-centers[i];float l=length(d);if(r>0.){float safeL=max(l,.00001);if(l>r*1.12&&l<r*4.2){float x=l/r;float falloff=pow(clamp(1.-x/4.2,0.,1.),2.2);uv-=d/safeL*falloff*r*(.64/(.42+x*.33));}}}gl_FragColor=texture2D(tDiffuse,uv);}`};
  return new ShaderPass(shader);
 }
 export function updateBlackHoleLensing(pass,bodies,views,camera,radiusOf){
