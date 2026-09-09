@@ -2,8 +2,8 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {createImpactEffects, impactVisualProfile} from '../src/impact-effects.js';
-import {collisionFocusTransfer, framingDistance} from '../src/collision-view.js';
-import {scenarioContactNormal} from '../src/collision-scenarios.js';
+import {collisionFocusTransfer, framingDistance, viewContact} from '../src/collision-view.js';
+import {scenarioContactNormal, scenarioContactSpeed} from '../src/collision-scenarios.js';
 import {resolveCollisions} from '../src/collisions.js';
 import {AU, SOLAR_MASS, body} from '../src/physics.js';
 
@@ -112,4 +112,50 @@ test('an ordinary pair can still graze', () => {
  const two = body({name: 'B', key: 'rock', mass: 1e22 / SOLAR_MASS, radius: 1500, p: [1.00002, 0, 0], v: [0, -sideways, 0]});
  const events = resolveCollisions([one, two], {contactTest: () => true});
  assert.equal(events[0].kind, 'graze');
+});
+
+test('a moon is not swallowed by its host between two samples of its own orbit', () => {
+ // Phobos rounds Mars in 7.6 hours while the step runs up to a quarter day, so
+ // consecutive samples can sit most of an orbit apart and the chord between
+ // them passes through the planet. That, not any real approach, was eating it.
+ const mars = {id: 5, parent: undefined}, phobos = {id: 11, parent: 5};
+ const at = (marsAt, phobosAt) => new Map([[5, {p: marsAt, r: .187}], [11, {p: phobosAt, r: .029}]]);
+ // Half an orbit apart on a display ring of 0.485 around Mars: the chord runs
+ // through the centre, but nothing ever came within the contact radius.
+ const before = at([0, 0, 0], [.485, 0, 0]), now = at([0, 0, 0], [-.485, 0, 0]);
+ assert.equal(viewContact(mars, phobos, now, before), false);
+ // A moon that genuinely reaches its host still registers.
+ const touching = at([0, 0, 0], [.2, 0, 0]);
+ assert.equal(viewContact(mars, phobos, touching, before), true);
+});
+
+test('a staged impact carries the energy of the speed its scenario advertises', () => {
+ // Halley at 51.3 km/s. The integrator has the pair a long way apart and moving
+ // slowly relative to each other by the rendered contact; without the staged
+ // speed the crater is sized by that accident instead of by the encounter.
+ const stated = 51.3 * 86400 / AU;
+ const make = () => {
+  const earth = body({name: 'Ziemia', key: 'earth', mass: 5.972e24 / SOLAR_MASS, radius: 6371, p: [1, 0, 0], v: [0, .0172, 0]});
+  const comet = body({name: '1P/Halley', key: 'comet', mass: 2.2e14 / SOLAR_MASS, radius: 5.5, p: [1.3, .01, 0], v: [0, .0172, 0]});
+  comet.collisionScenario = {targetId: earth.id, visualDirection: [1, 0, 0], launchElapsed: 0, minDurationDays: 32, impactSpeedAUPerDay: stated};
+  return {earth, comet, bodies: [earth, comet]};
+ };
+ const drifting = make();
+ // Same pair, same near-zero physical relative velocity, with and without the
+ // staged speed: only the advertised one produces the energy of a real impact.
+ const withSpeed = resolveCollisions(drifting.bodies, {contactTest: () => true, contactNormal: scenarioContactNormal, contactSpeed: scenarioContactSpeed});
+ const without = resolveCollisions(make().bodies, {contactTest: () => true, contactNormal: scenarioContactNormal});
+ assert.equal(withSpeed[0].impactSpeed.toFixed(9), stated.toFixed(9));
+ assert.ok(without[0].impactSpeed < stated / 100, 'the drifting pair must be the slow case this fixes');
+ // 0.5 * mu * v^2 for a 2.2e14 kg nucleus at 51.3 km/s is about 2.9e23 J.
+ const energy = withSpeed[0].surface.energyJ;
+ assert.ok(energy > 2.5e23 && energy < 3.5e23, energy.toExponential(2));
+ assert.ok(withSpeed[0].surface.energyJ > without[0].surface.energyJ * 1e4);
+});
+
+test('an unstaged collision still takes its speed from the integrator', () => {
+ const one = body({name: 'A', key: 'rock', mass: 1e22 / SOLAR_MASS, radius: 1500, p: [1, 0, 0], v: [0, 0, 0]});
+ const two = body({name: 'B', key: 'rock', mass: 1e22 / SOLAR_MASS, radius: 1500, p: [1.00002, 0, 0], v: [-.001, 0, 0]});
+ const events = resolveCollisions([one, two], {contactTest: () => true, contactNormal: () => null, contactSpeed: () => 999});
+ assert.ok(Math.abs(events[0].impactSpeed - .001) < 1e-12, String(events[0].impactSpeed));
 });

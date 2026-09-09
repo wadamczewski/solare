@@ -75,6 +75,7 @@ export function collisionLaunchState(target,{durationDays,distanceAU,impactSpeed
   impactDays:durationDays,
   distanceAU:plannedDistance,
   speedKmS:speedAUPerDay*AU/86400,
+  speedAUPerDay,
   direction:unit
  };
 }
@@ -123,4 +124,15 @@ export function scenarioContactNormal(a,b){
  // second; visualDirection runs from the target out towards the projectile.
  const sign=projectile===b?1:-1;
  return scenario.visualDirection.map(value=>sign*value/length);
+}
+
+// The closing speed the encounter advertises, in AU per day. By its rendered
+// contact the integrator has usually carried the projectile well past its
+// target, so the physical relative velocity there belongs to a trajectory
+// nobody is shown - and it, not the stated speed, was setting the crater.
+export function scenarioContactSpeed(a,b){
+ const scenario=a.collisionScenario||b.collisionScenario;
+ if(!(scenario?.impactSpeedAUPerDay>0))return null;
+ const projectile=a.collisionScenario?a:b,target=projectile===a?b:a;
+ return target.id===scenario.targetId?scenario.impactSpeedAUPerDay:null;
 }

@@ -18,8 +18,14 @@ export function viewContact(a,b,current,previous){
  // The scripted leg is measured in days while rendered positions pass through
  // float buffers. This prevents a visible one-frame stop at exact contact.
  if(Math.hypot(...end)<=limit+1e-6)return true;
- // Sibling satellites follow curved orbits, not the chord between samples.
- if(a.parent&&a.parent===b.parent)return false;
+ // Neither does a satellite travel the chord between two samples: it travels an
+ // arc around its host. The step is capped at a quarter day and a parent pair is
+ // exempt from the close-approach reduction, so Phobos - which goes round Mars
+ // in 7.6 hours - can advance most of an orbit between samples, and the chord
+ // between those two points passes straight through the planet. Mars swallowed
+ // it within a week of every session. The direct overlap test above still
+ // applies, so a moon that genuinely falls onto its host is still caught.
+ if(relatedSatellite)return false;
  const oldX=previous?.get(a.id),oldY=previous?.get(b.id);if(!oldX||!oldY)return false;
  const start=oldY.p.map((n,k)=>n-oldX.p[k]),motion=end.map((n,k)=>n-start[k]);
  const length2=motion.reduce((s,n)=>s+n*n,0);

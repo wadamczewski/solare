@@ -20,7 +20,7 @@ export function releaseSatellites(bodies,parentIds,event){
 }
 
 // Reduced-order gravity-regime model, not hydrodynamics or fitted SPH scaling laws.
-export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contactNormal=null,contactVeto=null}={}){
+export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contactNormal=null,contactVeto=null,contactSpeed=null}={}){
  const events=[],touched=new Set();
  for(let i=0;i<bodies.length;i++)for(let j=bodies.length-1;j>i;j--){
   const a=bodies[i],b=bodies[j];if(touched.has(a.id)||touched.has(b.id))continue;
@@ -30,11 +30,14 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contact
   if(contactVeto?.(a,b))continue;
   const delta=sub(b.p,a.p),distance=norm(delta),contact=collisionRadius(a)+collisionRadius(b);
   if(contactTest?!contactTest(a,b):distance>contact)continue;
-  const m=a.mass+b.mass,rel=sub(b.v,a.v),speed=norm(rel),mu=a.mass*b.mass/m;
-  // A scripted encounter may supply the approach direction it was staged along;
-  // its rendered contact happens where the integrator's separation vector says
-  // nothing useful about the geometry of the hit.
-  const staged=contactNormal?.(a,b);
+  const m=a.mass+b.mass,mu=a.mass*b.mass/m;
+  // A scripted encounter may supply the approach direction and the closing speed
+  // it was staged along. Both are needed: at its rendered contact the integrator
+  // has usually carried the projectile past its target, so the physical relative
+  // velocity there describes an unseen trajectory and would set the impact energy
+  // by accident rather than by the speed the scenario states.
+  const staged=contactNormal?.(a,b),stagedSpeed=staged?contactSpeed?.(a,b):null;
+  const rel=stagedSpeed?staged.map(x=>-x*stagedSpeed):sub(b.v,a.v),speed=norm(rel);
   const normal=staged||(distance>1e-20?delta.map(x=>x/distance):speed>0?rel.map(x=>-x/speed):[1,0,0]);
   const center=a.p.map((x,k)=>(x*a.mass+b.p[k]*b.mass)/m),velocity=a.v.map((x,k)=>(x*a.mass+b.v[k]*b.mass)/m);
   const volumeRadius=Math.cbrt(a.radius**3+b.radius**3),escape=Math.sqrt(2*G*m/Math.max(contact,1e-20));
@@ -72,7 +75,8 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contact
   const remnantRadius=volumeRadius*Math.cbrt(1-fraction),fragmentRadius=volumeRadius*Math.cbrt(fraction/Math.max(1,fragments));
   const surface=surfaceImpact(a,b,speed);const hitDirection=primary===a?normal:normal.map(x=>-x);
   event.surface=surface;event.impactSpeed=speed;event.impactDirection=hitDirection;
-  const primaryDelta=primary===a?delta:delta.map(x=>-x),primaryVelocity=primary===a?rel:rel.map(x=>-x),spinState=collisionSpinState(primary,secondary,primaryDelta,primaryVelocity,contact);
+  const contactVector=staged?normal.map(x=>x*contact):delta;
+  const primaryDelta=primary===a?contactVector:contactVector.map(x=>-x),primaryVelocity=primary===a?rel:rel.map(x=>-x),spinState=collisionSpinState(primary,secondary,primaryDelta,primaryVelocity,contact);
   if(!totalDisruption){
    primary.spin=spinState.period;primary.tilt=spinState.tilt;
    primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
