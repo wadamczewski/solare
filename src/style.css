@@ -43,3 +43,17 @@ button:disabled{opacity:.35;cursor:default}#light-flight{position:fixed;bottom:2
 body.in-light-flight #solar-control{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease,visibility .2s step-start}
 
 canvas.mouse-steering{cursor:none}
+
+/* The stellar-evolution readout sits opposite the body panel so both can be
+   open at once: the star's own numbers on one side, whatever the viewer has
+   selected on the other. */
+#solar-death{position:fixed;left:34px;top:364px;bottom:104px;width:320px;overflow:auto;padding:20px;background:rgba(10,13,25,.88);border:1px solid #ffffff13;backdrop-filter:blur(24px);border-radius:12px;box-shadow:0 20px 70px #0006;font-size:12px;animation:appear .22s ease-out}
+#solar-death[hidden]{display:none}
+.death-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
+.death-head strong{font-size:15px;font-weight:400;letter-spacing:-.2px}
+.death-track{height:2px;background:#ffffff18;border-radius:2px;overflow:hidden}
+.death-fill{height:100%;width:0;background:linear-gradient(90deg,#ffd9a3,#ff8a4c);transition:width .2s linear}
+.death-values{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:14px 0 10px;color:#eef5ff;font-variant-numeric:tabular-nums}
+.death-note{margin:0 0 10px;font-size:.82rem;line-height:1.5;color:#c7d3e4}
+#dock-death .dock-c{font-size:15px;margin-right:7px;vertical-align:-1px}
+@media(max-width:600px){#solar-death{left:16px;right:16px;width:auto;top:auto;bottom:96px;max-height:38dvh}}

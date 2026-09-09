@@ -1,5 +1,15 @@
 // Polish source messages with complete English, German and Spanish translations.
 export const rows = [
+['Śmierć Słońca','Death of the Sun','Tod der Sonne','Muerte del Sol'],
+['Ciąg główny','Main sequence','Hauptreihe','Secuencia principal'],
+['Podolbrzym','Subgiant','Unterriese','Subgigante'],
+['Gałąź czerwonych olbrzymów','Red giant branch','Roter-Riesen-Ast','Rama de las gigantes rojas'],
+['Błysk helowy i spalanie helu','Helium flash and core helium burning','Heliumblitz und Heliumbrennen','Destello de helio y combustión de helio'],
+['Asymptotyczna gałąź olbrzymów','Asymptotic giant branch','Asymptotischer Riesenast','Rama asintótica gigante'],
+['Mgławica planetarna','Planetary nebula','Planetarischer Nebel','Nebulosa planetaria'],
+['Biały karzeł','White dwarf','Weißer Zwerg','Enana blanca'],
+['Zakończ','Finish','Beenden','Terminar'],
+['jądro mgławicy','nebula core','Nebelkern','núcleo de la nebulosa'],
 ['Małe ciała','Small bodies','Kleine Körper','Cuerpos pequeños'],
 ['Gwiazdy neutronowe','Neutron stars','Neutronensterne','Estrellas de neutrones'],
 ['Własny kurs','Custom course','Eigener Kurs','Trayectoria propia'],
