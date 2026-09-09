@@ -307,18 +307,23 @@ export function createSky(dpr) {
    // reliable raycasting target.
    const glowGeometry = new LineSegmentsGeometry();
    glowGeometry.setPositions(Array.from(positions));
-   const glowMaterial = new LineMaterial({color:'#bfeaff',linewidth:9,transparent:true,opacity:.9,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,toneMapped:false});
-   glowMaterial.resolution.copy(lineResolution);
-   const glow = new LineSegments2(glowGeometry, glowMaterial);
-   glow.visible = false;
-   glow.frustumCulled = false;
-   constellationGlowMaterials.push(glowMaterial);
+   // Layered additive strokes approximate a radial falloff: a broad, faint
+   // halo loses into the sky before the narrow luminous core becomes visible.
+   // This avoids the hard fluorescent edge of a single thick polyline.
+   const glows = [[30,.055],[15,.17],[6,.72]].map(([linewidth,opacity])=>{
+    const material = new LineMaterial({color:'#bfeaff',linewidth,transparent:true,opacity,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,toneMapped:false});
+    material.resolution.copy(lineResolution);
+    const glow = new LineSegments2(glowGeometry, material);
+    glow.visible=false;glow.frustumCulled=false;glow.renderOrder=-1;
+    constellationGlowMaterials.push(material);
+    return glow;
+   });
    line.frustumCulled = false;
    line.renderOrder = -1;
-   glow.renderOrder = -1;
    const figureGroup = new THREE.Group();
    figureGroup.userData.constellation = figure;
-   figureGroup.add(line, glow);
+   figureGroup.userData.glows = glows;
+   figureGroup.add(line, ...glows);
    layers.constellations.add(figureGroup);
   }
   layers.constellations.frustumCulled = false;
@@ -364,7 +369,7 @@ export function createSky(dpr) {
    if (!activeConstellation) return;
    activeConstellation.line.material.color.set('#5f7fa8');
    activeConstellation.line.material.opacity = .34;
-   activeConstellation.glow.visible = false;
+   activeConstellation.glows.forEach(glow=>glow.visible=false);
    activeConstellation = null;
   },
   pickConstellation(event, camera, element) {
@@ -377,10 +382,10 @@ export function createSky(dpr) {
    if (line === activeConstellation?.line) return constellation;
    this.clearConstellationHighlight();
    if (!line) return null;
-   activeConstellation = {line, glow:line.parent.children.find(child=>child.isLineSegments2)};
+   activeConstellation = {line, glows:line.parent.userData.glows};
    line.material.color.set('#d8edff');
    line.material.opacity = .96;
-   activeConstellation.glow.visible = true;
+   activeConstellation.glows.forEach(glow=>glow.visible=true);
    return constellation;
   },
   // Star sizes are in device pixels, so a real-scale flyby needs no change, but
