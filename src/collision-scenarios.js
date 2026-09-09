@@ -14,3 +14,14 @@ export function collisionLaunchState(target,{durationDays,distanceAU}){
   speedKmS:speedAUPerDay*AU/86400
  };
 }
+
+// Readable-scale bodies are deliberately enlarged for navigation. A scripted
+// impact must not use that enlarged silhouette as its contact boundary before
+// the planned physical approach has had time to play out.
+export function scenarioCollisionReady(a,b,elapsedDays){
+ const scenario=a.collisionScenario||b.collisionScenario;
+ if(!scenario)return true;
+ const other=a.collisionScenario?b:a;
+ if(other.id!==scenario.targetId)return true;
+ return elapsedDays-scenario.launchElapsed>=scenario.minDurationDays;
+}
