@@ -29,17 +29,17 @@ float r=length(gl_PointCoord-.5)*2.;if(r>1.)discard;gl_FragColor=vec4(tint,alpha
   const flash=new THREE.Mesh(new THREE.SphereGeometry(1,24,16),new THREE.MeshBasicMaterial({color:'#fff0cf',transparent:true,opacity:.7,depthWrite:false,blending:THREE.AdditiveBlending,toneMapped:false}));flash.visible=false;flash.scale.setScalar(size);group.add(flash);
   const wave=new THREE.Mesh(new THREE.RingGeometry(.82,1,80),new THREE.MeshBasicMaterial({color:'#ffad66',transparent:true,opacity:.18,side:THREE.DoubleSide,depthWrite:false,blending:THREE.AdditiveBlending}));wave.visible=!absorb;wave.quaternion.setFromUnitVectors(new THREE.Vector3(0,0,1),normal);group.add(wave);
   const light=new THREE.PointLight('#ff9c52',0,0,0);group.add(light);
-  active.push({group,dust,shards,flash,wave,light,seeds,normal,size,age:0,absorb,survivor:event.survivor,p:[...event.p],v:[...event.v],duration:absorb?7:event.kind==='graze'?3.5:6});
+  active.push({group,dust,shards,flash,wave,light,seeds,normal,size,age:0,absorb,survivor:event.survivor,p:[...event.p],v:[...event.v],duration:absorb?9:event.kind==='graze'?3.5:6});
  }
  function update(dt,map,simulationDelta,findSurvivor){for(let i=active.length-1;i>=0;i--){const e=active[i];e.age+=dt;e.p=e.p.map((x,k)=>x+e.v[k]*simulationDelta);const anchor=e.absorb?findSurvivor?.(e.survivor):null;e.group.position.copy(anchor||map(e.p));const t=e.age/e.duration;if(t>=1){dispose(e);active.splice(i,1);continue}
   const a=e.dust.geometry.attributes.position,b=e.dust.geometry.attributes.brightness;
   for(let j=0;j<count;j++){const seed=e.seeds[j],local=Math.max(0,Math.min(1,t*1.25-(j%13)*.015));let p;
-   if(e.absorb){const radius=e.size*(.08+2.4*(1-local)**1.7),angle=seed.theta+local*12+seed.variation*local*5;p=new THREE.Vector3(Math.cos(angle)*radius,seed.direction.y*e.size*(1-local)**2*.8,Math.sin(angle)*radius);}
+   if(e.absorb){const axis=e.normal.clone(),tangent=new THREE.Vector3().crossVectors(axis,Math.abs(axis.y)<.9?new THREE.Vector3(0,1,0):new THREE.Vector3(1,0,0)).normalize(),bitangent=new THREE.Vector3().crossVectors(axis,tangent);const tail=e.size*(.9+3.6*(1-local)),radius=e.size*(.06+.42*(1-local));const angle=seed.theta+local*(10+seed.variation*9);p=axis.multiplyScalar(tail*(.18+.82*(1-seed.variation*.25))).addScaledVector(tangent,Math.cos(angle)*radius).addScaledVector(bitangent,Math.sin(angle)*radius);}
    else{p=seed.direction.clone().multiplyScalar(e.size*(.65+4.5*local*seed.variation));p.addScaledVector(e.normal,e.size*local*(.12+Math.sin(seed.theta*2)*.08));}
    a.setXYZ(j,p.x,p.y,p.z);b.setX(j,(1-local)**1.4*(.7+.3*Math.sin(j+t*18)**2));
   }a.needsUpdate=true;b.needsUpdate=true;
   for(let j=0;j<shardCount;j++){const index=j*29%count;dummy.position.fromBufferAttribute(a,index);dummy.rotation.set(t*(j%3+1)*4,t*5+j,t*3);if(e.absorb){const filament=Math.max(.01,1-t);dummy.scale.set(e.size*.025*filament,e.size*.025*filament,e.size*.52*filament)}else dummy.scale.set(e.size*.055*(1-t),e.size*.035*(1-t),e.size*.08*(1-t));dummy.updateMatrix();e.shards.setMatrixAt(j,dummy.matrix)}e.shards.instanceMatrix.needsUpdate=true;e.shards.material.opacity=(1-t)**.7;e.shards.material.emissiveIntensity=2.5*(1-t)**2;
-  e.flash.scale.setScalar(e.size*(e.absorb?Math.max(.02,.65-t):.7+t*2));e.flash.material.opacity=e.absorb?Math.max(0,.2-t*.5):Math.max(0,.8-t*5);
+  e.flash.scale.setScalar(e.size*(e.absorb?Math.max(.02,.18-t*.14):.7+t*2));e.flash.material.opacity=e.absorb?Math.max(0,.05-t*.08):Math.max(0,.8-t*5);
   e.wave.scale.setScalar(e.size*(1+t*7));e.wave.material.opacity=.12*(1-t)**3;e.light.intensity=e.absorb?.4*(1-t):1.5*Math.exp(-t*12);
  }}
  return {add,update,clear(){active.splice(0).forEach(dispose)}};
