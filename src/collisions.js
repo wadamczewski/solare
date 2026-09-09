@@ -20,17 +20,22 @@ export function releaseSatellites(bodies,parentIds,event){
 }
 
 // Reduced-order gravity-regime model, not hydrodynamics or fitted SPH scaling laws.
-export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contactNormal=null}={}){
+export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contactNormal=null,contactVeto=null}={}){
  const events=[],touched=new Set();
  for(let i=0;i<bodies.length;i++)for(let j=bodies.length-1;j>i;j--){
   const a=bodies[i],b=bodies[j];if(touched.has(a.id)||touched.has(b.id))continue;
+  // A veto rules a pair out before geometry is considered at all, whichever
+  // contact test is in force. A staged encounter uses it to keep its projectile
+  // from being consumed by a bystander on the way to the body it was aimed at.
+  if(contactVeto?.(a,b))continue;
   const delta=sub(b.p,a.p),distance=norm(delta),contact=collisionRadius(a)+collisionRadius(b);
   if(contactTest?!contactTest(a,b):distance>contact)continue;
   const m=a.mass+b.mass,rel=sub(b.v,a.v),speed=norm(rel),mu=a.mass*b.mass/m;
   // A scripted encounter may supply the approach direction it was staged along;
   // its rendered contact happens where the integrator's separation vector says
   // nothing useful about the geometry of the hit.
-  const normal=contactNormal?.(a,b)||(distance>1e-20?delta.map(x=>x/distance):speed>0?rel.map(x=>-x/speed):[1,0,0]);
+  const staged=contactNormal?.(a,b);
+  const normal=staged||(distance>1e-20?delta.map(x=>x/distance):speed>0?rel.map(x=>-x/speed):[1,0,0]);
   const center=a.p.map((x,k)=>(x*a.mass+b.p[k]*b.mass)/m),velocity=a.v.map((x,k)=>(x*a.mass+b.v[k]*b.mass)/m);
   const volumeRadius=Math.cbrt(a.radius**3+b.radius**3),escape=Math.sqrt(2*G*m/Math.max(contact,1e-20));
   const specificEnergy=.5*mu*speed**2/m,binding=collisionBindingState(a,b,speed),severity=binding.pairDisruptionRatio;
@@ -42,7 +47,12 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contact
   const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,binding,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],replacements:{},orphaned:[],color:primary.color};
   touched.add(a.id);touched.add(b.id);
   // Grazing rocky impact: dissipate normal kinetic energy, retain tangential motion.
-  if(!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
+  // A staged encounter is a designed impact and never a chance sideswipe. By the
+  // time its rendered contact arrives the integrator has usually carried the
+  // projectile past its target, so the physical relative velocity points away
+  // and this reads as a graze: the pair records lastGraze, and from then on the
+  // early-out below skips them forever. The impact simply never happens.
+  if(!staged&&!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
    const incoming=dot(rel,normal);if(incoming>=0&&a.lastGraze===b.id&&b.lastGraze===a.id)continue;if(incoming<0){const impulse=-(1+.25)*incoming/(1/a.mass+1/b.mass);for(let k=0;k<3;k++){a.v[k]-=impulse*normal[k]/a.mass;b.v[k]+=impulse*normal[k]/b.mass}}
    const aSpin=collisionSpinState(a,b,delta,rel,contact),bSpin=collisionSpinState(b,a,delta.map(x=>-x),rel.map(x=>-x),contact);a.spin=aSpin.period;a.tilt=aSpin.tilt;b.spin=bSpin.period;b.tilt=bSpin.tilt;
    a.lastGraze=b.id;b.lastGraze=a.id;

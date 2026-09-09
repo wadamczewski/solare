@@ -14,3 +14,13 @@ test('persistent sky search enables the matching visual layer and recentres ever
  assert.match(source,/id="deep-sky-markers"/);
  assert.match(source,/document\.body\.append\(solarControl\);setupBodySearch\(\)/);
 });
+
+test('a listed collision scenario rewinds the system to its own epoch before launching',()=>{
+ const source=readFileSync(new URL('../src/main.js',import.meta.url),'utf8');
+ // Repeatability rests on this: the whole system is rebuilt from the scenario's
+ // date, so every planet the projectile could meet is back where it was.
+ assert.match(source,/if\(scenario\?\.epoch\)resetSystem\(new Date\(scenario\.epoch\)\)/);
+ assert.match(source,/function restart\(\)\{resetSystem\(new Date\(\)\);resetView\(\)\}/);
+ // And a staged projectile is vetoed out of contact with every bystander.
+ assert.match(source,/contactVeto:\(a,b\)=>!scenarioCollisionReady\(a,b,elapsed\)/);
+});

@@ -9,23 +9,37 @@ import {AU} from './physics.js';
 export const DEFAULT_DURATION_DAYS=32;
 export const DEFAULT_IMPACT_SPEED_KMS=20;
 const LIGHT_SPEED_KMS=299792.458;
-const scenario=(id,name,projectile,target,impactSpeedKmS)=>({id,name,projectile,target,durationDays:DEFAULT_DURATION_DAYS,impactSpeedKmS});
+// Each listed encounter also fixes the moment it is staged from. The whole
+// system state follows from that date through initialSystem, so launching one
+// twice gives the identical run: the same planets in the same places, the same
+// sky behind them, the same approach. Where a real event exists the epoch is
+// the leg's duration before it, so the impact lands on that date; the rest use
+// J2000, the reference epoch, rather than a date pretending to mean something.
+const scenario=(id,name,projectile,target,impactSpeedKmS,impactDate)=>({
+ id,name,projectile,target,durationDays:DEFAULT_DURATION_DAYS,impactSpeedKmS,
+ epoch:new Date(Date.parse(impactDate)-DEFAULT_DURATION_DAYS*86400000).toISOString()
+});
 
+// Dates below are when each impact happens, not when the projectile is placed.
+// Chicxulub (66 Ma), Theia (4.5 Ga) and a Mercury-Venus collision have no date
+// the planetary theory can reach - its fit runs 1800 to 2050 - so they are
+// staged from J2000 and make no claim to a moment in history.
+const J2000='2000-01-01T12:00:00Z';
 export const collisionScenarios=[
  // Smallest first: the list doubles as a sense of scale, from a body a probe
  // has already nudged to one that would remake the planet it hits.
- scenario('dimorphos-moon','Dimorphos → Księżyc','dimorphos','moon',15),
- scenario('apophis-earth','99942 Apophis → Ziemia','apophis','earth',12.6),
- scenario('bennu-earth','101955 Bennu → Ziemia','bennu','earth',12.7),
+ scenario('dimorphos-moon','Dimorphos → Księżyc','dimorphos','moon',15,'2022-09-26T23:14:00Z'),        // DART
+ scenario('apophis-earth','99942 Apophis → Ziemia','apophis','earth',12.6,'2029-04-13T21:46:00Z'),     // closest approach
+ scenario('bennu-earth','101955 Bennu → Ziemia','bennu','earth',12.7,'2023-09-24T14:52:00Z'),          // sample return
  // 1994's fragments entered Jupiter at about 60 km/s, most of it the planet's
  // own escape velocity rather than the comet's approach.
- scenario('shoemaker-levy-9-jupiter','Shoemaker-Levy 9 → Jowisz','shoemaker-levy-9','jupiter',60),
- scenario('halley-earth','1P/Halley → Ziemia','halley','earth',51.3),
- scenario('chicxulub-earth','Impaktor Chicxulub → Ziemia','chicxulub','earth',20),
- scenario('vesta-mars','4 Westa → Mars','vesta','mars',10),
- scenario('ceres-earth','1 Ceres → Ziemia','ceres','earth',15),
- scenario('mercury-venus','Merkury → Wenus','mercury','venus',30),
- scenario('theia-earth','Theia → Ziemia','theia','earth',9)
+ scenario('shoemaker-levy-9-jupiter','Shoemaker-Levy 9 → Jowisz','shoemaker-levy-9','jupiter',60,'1994-07-16T20:13:00Z'),
+ scenario('halley-earth','1P/Halley → Ziemia','halley','earth',51.3,'1986-02-09T00:00:00Z'),           // perihelion
+ scenario('chicxulub-earth','Impaktor Chicxulub → Ziemia','chicxulub','earth',20,J2000),
+ scenario('vesta-mars','4 Westa → Mars','vesta','mars',10,'2011-07-16T04:47:00Z'),                     // Dawn arrives
+ scenario('ceres-earth','1 Ceres → Ziemia','ceres','earth',15,'2015-03-06T12:39:00Z'),                 // Dawn arrives
+ scenario('mercury-venus','Merkury → Wenus','mercury','venus',30,J2000),
+ scenario('theia-earth','Theia → Ziemia','theia','earth',9,J2000)
 ];
 
 // A viewer-built encounter is the same descriptor a listed one is, so it takes
@@ -82,7 +96,13 @@ export function scenarioCollisionReady(a,b,elapsedDays){
  const scenario=a.collisionScenario||b.collisionScenario;
  if(!scenario)return true;
  const other=a.collisionScenario?b:a;
- if(other.id!==scenario.targetId)return true;
+ // A staged projectile may only ever meet the body it was aimed at. Its drawn
+ // position is on the scripted approach, not where the integrator carries it,
+ // so a contact with anything else is a collision with a trajectory nobody can
+ // see - and it deletes the encounter before it has a chance to happen. This is
+ // what makes a launched scenario certain rather than dependent on what else
+ // happens to lie along a line the viewer is not shown.
+ if(other.id!==scenario.targetId)return false;
  return elapsedDays-scenario.launchElapsed>=scenario.minDurationDays-1e-6;
 }
 

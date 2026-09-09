@@ -15,7 +15,12 @@ test('enlarged readable-scale silhouettes cannot end the scripted approach early
  const projectile={id:1,collisionScenario:{targetId:2,launchElapsed:10,minDurationDays:32}},earth={id:2};
  assert.equal(scenarioCollisionReady(projectile,earth,41.99),false);
  assert.equal(scenarioCollisionReady(projectile,earth,42),true);
- assert.equal(scenarioCollisionReady(projectile,{id:3},10),true);
+ // A bystander can never take the projectile: that is what stops an encounter
+ // from being cancelled by whatever happens to lie along an unseen trajectory.
+ assert.equal(scenarioCollisionReady(projectile,{id:3},10),false);
+ assert.equal(scenarioCollisionReady(projectile,{id:3},1000),false);
+ // Two bodies with no scenario between them collide as they always did.
+ assert.equal(scenarioCollisionReady({id:4},{id:5},10),true);
 });
 test('readable-scale approach ends at external visual contact after the planned duration',()=>{
  const scenario={launchElapsed:10,minDurationDays:32,visualApproachSpan:2.6},contactRadius=.334;
@@ -77,4 +82,26 @@ test('an unusable speed falls back rather than launching something that never ar
  // Nothing may be launched at or above light speed: the binding-energy model
  // carries a relativistic correction that diverges there.
  assert.ok(clampImpactSpeed(1e9)<299792.458);
+});
+
+test('every scenario is staged from one fixed moment inside the planetary theory',()=>{
+ // The whole system state follows from this date, so a scenario launched twice
+ // is the identical run. The approximate-elements fit is valid 1800-2050; a
+ // date outside it would place the planets by extrapolation.
+ const from=Date.parse('1800-01-01T00:00:00Z'),to=Date.parse('2050-01-01T00:00:00Z');
+ for(const item of collisionScenarios){
+  const at=Date.parse(item.epoch);
+  assert.ok(Number.isFinite(at),`${item.id}: unparseable epoch ${item.epoch}`);
+  assert.ok(at>from&&at<to,`${item.id}: ${item.epoch} is outside the ephemeris fit`);
+  // The epoch is the launch; the impact lands one leg later.
+  const impact=new Date(at+item.durationDays*86400000);
+  assert.ok(impact.getTime()>at);
+ }
+ // Reading the same scenario twice must give the same instant, not "now".
+ assert.equal(collisionScenarios[0].epoch,collisionScenarios[0].epoch);
+});
+
+test('a viewer-built course carries no epoch, so it plays out where the viewer is',()=>{
+ const custom=buildCustomScenario({projectileId:'bennu',projectileName:'Bennu',target:{id:2,name:'Mars'},speedKmS:12});
+ assert.equal(custom.epoch,undefined);
 });

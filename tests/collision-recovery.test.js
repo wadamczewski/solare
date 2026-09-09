@@ -84,3 +84,32 @@ test('a staged comet impact merges head-on instead of registering a graze first'
  assert.ok(earth.mass > 5.972e24 / SOLAR_MASS);
  assert.equal(earth.damage.kind, 'crater');
 });
+
+test('a staged encounter resolves as its impact even after the integrator carries it past', () => {
+ // At the rendered contact the physical pair is a third of an AU apart and
+ // receding: the relative velocity is almost perpendicular to the staged
+ // approach. Read literally that is a glancing blow, and the graze branch
+ // records lastGraze and then skips the pair on every later frame, so the
+ // impact never happens - this is why Mercury never reached Venus.
+ const mercury = body({name: 'Merkury', key: 'mercury', mass: 3.301e23 / SOLAR_MASS, radius: 2439.7, p: [.7, .3, 0], v: [.01, .017, 0]});
+ const venus = body({name: 'Wenus', key: 'venus', mass: 4.867e24 / SOLAR_MASS, radius: 6051.8, p: [.35, .62, 0], v: [-.018, .011, 0]});
+ mercury.collisionScenario = {targetId: venus.id, visualDirection: [1, .06, -.04], launchElapsed: 0, minDurationDays: 32};
+ const bodies = [venus, mercury];
+ const events = resolveCollisions(bodies, {contactTest: () => true, contactNormal: scenarioContactNormal});
+ assert.equal(events.length, 1);
+ assert.notEqual(events[0].kind, 'graze', 'a staged encounter must never come out as a sideswipe');
+ assert.equal(events[0].survivor, venus.id);
+ assert.ok(!bodies.includes(mercury), 'the projectile is consumed by the impact it was staged for');
+ assert.ok(!mercury.lastGraze && !venus.lastGraze, 'nothing may be marked as having grazed');
+});
+
+test('an ordinary pair can still graze', () => {
+ // The exclusion above must not disable glancing blows for everything else.
+ // Tangential contact at 2 km/s: above the pair's ~0.9 km/s escape speed, well
+ // below the energy that would unbind either of them.
+ const sideways = 1 / 86400 * 2 * 86400 / 149597870.7 * 86400 / 2;
+ const one = body({name: 'A', key: 'rock', mass: 1e22 / SOLAR_MASS, radius: 1500, p: [1, 0, 0], v: [0, sideways, 0]});
+ const two = body({name: 'B', key: 'rock', mass: 1e22 / SOLAR_MASS, radius: 1500, p: [1.00002, 0, 0], v: [0, -sideways, 0]});
+ const events = resolveCollisions([one, two], {contactTest: () => true});
+ assert.equal(events[0].kind, 'graze');
+});

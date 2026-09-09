@@ -7,7 +7,12 @@ export function viewContact(a,b,current,previous){
  // their hosts. They must not strike an unrelated planet merely because two
  // compressed orbital diagrams overlap on screen.
  const relatedSatellite=a.parent===b.id||b.parent===a.id||(a.parent&&a.parent===b.parent);
- if((a.parent||b.parent)&&!relatedSatellite)return false;
+ // A staged encounter names its target outright, and a moon is as valid a
+ // target as a planet. Without this a scenario aimed at the Moon could never
+ // land: the rule below exists to stop unrelated compressed orbits from
+ // touching, not to make satellites unhittable.
+ const staged=a.collisionScenario?.targetId===b.id||b.collisionScenario?.targetId===a.id;
+ if(!staged&&(a.parent||b.parent)&&!relatedSatellite)return false;
  const x=current.get(a.id),y=current.get(b.id);if(!x||!y)return false;
  const end=y.p.map((n,k)=>n-x.p[k]),limit=x.r+y.r;
  // The scripted leg is measured in days while rendered positions pass through
