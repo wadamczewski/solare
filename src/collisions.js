@@ -40,6 +40,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const remnantMass=m*(1-fraction),fragmentMass=m*fraction/Math.max(1,fragments);
   const remnantRadius=volumeRadius*Math.cbrt(1-fraction),fragmentRadius=volumeRadius*Math.cbrt(fraction/Math.max(1,fragments));
   const surface=surfaceImpact(a,b,speed);const hitDirection=primary===a?normal:normal.map(x=>-x);
+  event.surface=surface;event.impactSpeed=speed;
   const primaryDelta=primary===a?delta:delta.map(x=>-x),primaryVelocity=primary===a?rel:rel.map(x=>-x),spinState=collisionSpinState(primary,primaryDelta,primaryVelocity,escape,severity);primary.spin=spinState.period;primary.tilt=spinState.tilt;
   primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
   if(blackhole){primary.accretion=accretionStateFor(primary,secondary);event.accretion=primary.accretion;}
