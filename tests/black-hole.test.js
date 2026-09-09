@@ -14,7 +14,7 @@ test('tidal stretch grows toward the disruption radius',()=>{
 });
 test('black-hole visual has a lensed disk, shadow and photon rings',()=>{
  const visual=createBlackHoleVisual();
- assert.ok(visual.group.children.length>=2);assert.equal(visual.shadow.name,'black-hole-shadow');
- assert.equal(visual.photonRings.name,'photon-rings');assert.equal(visual.lensedArcs.children.length,0);
+ assert.ok(visual.group.children.length>=6);assert.equal(visual.shadow.name,'black-hole-shadow');
+ assert.equal(visual.photonRings.children.length,3);assert.equal(visual.lensedArcs.children.length,0);
  assert.ok(blackHoleScreenRadius(1,10,43)>0);assert.ok(blackHoleScreenRadius(1,100,43)<blackHoleScreenRadius(1,10,43));
 });
