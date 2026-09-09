@@ -95,6 +95,9 @@ export function constellationLabel(figure, language='en') {
  return `${localized} (${latin})`;
 }
 
+export const deepSkyKind = object => ({s:'Galaktyka',sd:'Galaktyka',i:'Galaktyka',oc:'Gromada',gc:'Gromada',sfr:'Mgławica',en:'Mgławica',pn:'Mgławica',pos:'Punkt orientacyjny'}[object.type] || 'Obiekt głębokiego nieba');
+const deepSkyMarkerTint = {s:[.78,.89,1],sd:[.78,.89,1],i:[.78,.89,1],oc:[.98,.9,.58],gc:[1,.72,.48],sfr:[1,.58,.7],en:[1,.58,.7],pn:[.52,.96,1],pos:[1,.84,.5]};
+
 // Segment totals are retained from the d3-celestial GeoJSON features when the
 // compact binary file is built. They preserve exact figure boundaries, even
 // where one constellation contains detached strokes (notably Serpens).
@@ -245,8 +248,10 @@ export function createSky(dpr) {
  const layers = {};
  let loaded = false;
  let constellationVisible = false;
+ let deepSkyMarkersVisible = false;
  let skyScale = 1;
  let activeConstellation = null;
+ let constellationEntries = [], deepSkyEntries = [];
  const constellationGlowMaterials = [];
  const lineResolution = new THREE.Vector2(1, 1);
  const constellationRay = new THREE.Raycaster();
@@ -277,6 +282,7 @@ export function createSky(dpr) {
   layers.stars = buildStarLayer(stars,dpr,starIndicesForMagnitude(stars,5.6));
 
   // 'pos' marks a coordinate of interest (the galactic centre), not a body to draw.
+  deepSkyEntries=deepSky.map(object=>({...object,target:new THREE.Vector3(...skyDirection(object.ra,object.dec)).normalize()}));
   const objects = deepSky.filter(o => o.type !== 'pos');
   layers.deepSky = buildPoints(objects.length, ({position, size, intensity, tint}) => {
    objects.forEach((object, i) => {
@@ -290,17 +296,28 @@ export function createSky(dpr) {
    });
   }, GLOW_FRAGMENT, dpr);
 
+  // These are navigational markers, distinct from the resolved deep-sky
+  // render above. They remain opt-in so the sky can stay photographic by
+  // default, while named nebulae, clusters and galaxies can be located fast.
+  layers.deepSkyMarkers=buildPoints(deepSkyEntries.length,({position,size,intensity,tint})=>{
+   deepSkyEntries.forEach((object,index)=>{const [x,y,z]=skyDirection(object.ra,object.dec),color=deepSkyMarkerTint[object.type]||[.8,.9,1];position.set([x*RADIUS,y*RADIUS,z*RADIUS],index*3);size[index]=object.type==='pos'?13:Math.max(7,Math.min(16,5+Math.sqrt(object.arcmin)*.55));intensity[index]=1.35;tint.set(color,index*3);});
+  },GLOW_FRAGMENT,dpr);
+  layers.deepSkyMarkers.visible=deepSkyMarkersVisible;
+
   const lines = decodeLines(lineBuffer);
   const linePositions = new Float32Array(lines.count * 3);
   for (let i = 0; i < lines.count; i++)
    place(unpackRA(lines.ra[i]), unpackDec(lines.dec[i]), linePositions, i);
   layers.constellations = new THREE.Group();
+  constellationEntries=[];
   for (const figure of splitConstellationFigures(lines)) {
    const positions = linePositions.slice(figure.start * 6, (figure.start + figure.count) * 6);
    const geometry = new THREE.BufferGeometry();
    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
    const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color: '#5f7fa8', transparent: true, opacity: .34, ...skyLayerDepthState}));
-   line.userData.constellation = figure;
+   const target=new THREE.Vector3();for(let i=0;i<positions.length;i+=3)target.add(new THREE.Vector3(positions[i],positions[i+1],positions[i+2]).normalize());target.normalize();
+   const entry={...figure,target};constellationEntries.push(entry);
+   line.userData.constellation = entry;
    // WebGL ignores LineBasicMaterial.linewidth on most platforms. A separate
    // LineSegments2 layer gives the active figure an actual screen-space width
    // and additive energy for the bloom pass, while the thin line remains the
@@ -321,7 +338,7 @@ export function createSky(dpr) {
    line.frustumCulled = false;
    line.renderOrder = -1;
    const figureGroup = new THREE.Group();
-   figureGroup.userData.constellation = figure;
+   figureGroup.userData.constellation = entry;
    figureGroup.userData.glows = glows;
    figureGroup.add(line, ...glows);
    layers.constellations.add(figureGroup);
@@ -365,6 +382,12 @@ export function createSky(dpr) {
    if (layers.constellations) layers.constellations.visible = visible;
    if (!visible) this.clearConstellationHighlight();
   },
+  setDeepSkyMarkers(visible) {
+   deepSkyMarkersVisible=visible;
+   if(layers.deepSkyMarkers)layers.deepSkyMarkers.visible=visible;
+  },
+  getConstellations(){return constellationEntries.map(entry=>({...entry,target:entry.target.clone()}));},
+  getDeepSkyObjects(){return deepSkyEntries.map(entry=>({...entry,target:entry.target.clone()}));},
   clearConstellationHighlight() {
    if (!activeConstellation) return;
    activeConstellation.line.material.color.set('#5f7fa8');

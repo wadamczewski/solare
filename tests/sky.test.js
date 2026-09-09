@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {skyDirection, colourIndexToRGB, magnitudeFlux, decodeStars, decodeGlow, decodeLines, unpackRA, unpackDec, skyLayerDepthState} from '../src/sky.js';
+import {skyDirection, colourIndexToRGB, magnitudeFlux, decodeStars, decodeGlow, decodeLines, unpackRA, unpackDec, skyLayerDepthState, deepSkyKind} from '../src/sky.js';
 
 test('sky layers participate in depth testing so solid bodies occlude them',()=>{
  assert.deepEqual(skyLayerDepthState, {depthWrite: false, depthTest: true});
@@ -105,4 +105,10 @@ test('the bright deep-sky list carries the landmarks worth steering by',()=>{
  assert.ok(Math.abs(byId['M 31'].dec - 41.27) < 0.2);
  assert.ok(byId['M 31'].arcmin > 150);
  for(const o of objects) assert.ok(o.ra >= 0 && o.ra < 360 && o.dec >= -90 && o.dec <= 90, o.id);
+});
+
+test('deep-sky reference markers distinguish galaxies, clusters and nebulae',()=>{
+ assert.equal(deepSkyKind({type:'s'}),'Galaktyka');
+ assert.equal(deepSkyKind({type:'oc'}),'Gromada');
+ assert.equal(deepSkyKind({type:'sfr'}),'Mgławica');
 });
