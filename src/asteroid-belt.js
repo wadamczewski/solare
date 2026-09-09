@@ -24,8 +24,13 @@ export function createAsteroidBelt({count=ASTEROID_COUNT,random=Math.random}={})
  }
  if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
  const position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3(),matrix=new THREE.Matrix4();
- const update=(elapsed,mapped,compressed=true)=>{
-  for(const asteroid of data){
+ const update=(elapsed,mapped,compressed=true,density=1)=>{
+  const active=Math.min(count,Math.max(1,Math.round(count*density)));
+  // The belt remains a recognisable population at map scale; close inspection
+  // restores every instance without rebuilding geometry or losing detail.
+  mesh.count=active;
+  for(let index=0;index<active;index++){
+   const asteroid=data[index];
    const angle=asteroid.t+elapsed*Math.sqrt(G/asteroid.r**3);
    const raw=[asteroid.r*Math.cos(angle),asteroid.y,asteroid.r*Math.sin(angle)];
    position.copy(compressed?mapped(raw):new THREE.Vector3(...raw).multiplyScalar(6));

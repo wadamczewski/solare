@@ -319,20 +319,31 @@ export function createSky(dpr) {
   const linePositions = new Float32Array(lines.count * 3);
   for (let i = 0; i < lines.count; i++)
    place(unpackRA(lines.ra[i]), unpackDec(lines.dec[i]), linePositions, i);
-  layers.constellations = new THREE.Group();
   const starIndex=createStarIndex(stars);
   constellationEntries=[];
   for (const figure of splitConstellationFigures(lines)) {
    const positions = linePositions.slice(figure.start * 6, (figure.start + figure.count) * 6);
-   const geometry = new THREE.BufferGeometry();
-   geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-   const line = new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({color: '#5f7fa8', transparent: true, opacity: .34, ...skyLayerDepthState}));
    const target=new THREE.Vector3();for(let i=0;i<positions.length;i+=3)target.add(new THREE.Vector3(positions[i],positions[i+1],positions[i+2]).normalize());target.normalize();
    // The figure is drawn between catalogue stars, so its brightest member can be
    // looked up in the same data rather than asserted in a table by hand.
    const vertices=[];for(let i=figure.start*2;i<(figure.start+figure.count)*2;i++)vertices.push([unpackRA(lines.ra[i]),unpackDec(lines.dec[i])]);
-   const entry={...figure,target,star:brightestFigureStar(vertices,starIndex,names)};constellationEntries.push(entry);
-   line.userData.constellation = entry;
+   const entry={...figure,target,star:brightestFigureStar(vertices,starIndex,names),positions};constellationEntries.push(entry);
+  }
+
+  for (const layer of Object.values(layers)) { layer.renderOrder = -1; group.add(layer); }
+  loaded = true;
+  if(constellationVisible) ensureConstellationLayer();
+  void refineSky(stars,grab).catch(error=>console.warn('Nie udało się uzupełnić mapy nieba:',error.message));
+  return {stars: stars.count, glow: 0, deepSky: objects.length, names};
+ }
+
+ function ensureConstellationLayer(){
+  if(!loaded||layers.constellations)return;
+  const layer=layers.constellations=new THREE.Group();
+  for(const entry of constellationEntries){
+   const positions=entry.positions;
+   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.BufferAttribute(positions,3));
+   const line=new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({color:'#5f7fa8',transparent:true,opacity:.34,...skyLayerDepthState}));line.userData.constellation=entry;
    // WebGL ignores LineBasicMaterial.linewidth on most platforms. A separate
    // LineSegments2 layer gives the active figure an actual screen-space width
    // and additive energy for the bloom pass, while the thin line remains the
@@ -356,15 +367,9 @@ export function createSky(dpr) {
    figureGroup.userData.constellation = entry;
    figureGroup.userData.glows = glows;
    figureGroup.add(line, ...glows);
-   layers.constellations.add(figureGroup);
+   layer.add(figureGroup);
   }
-  layers.constellations.frustumCulled = false;
-  layers.constellations.visible = constellationVisible;
-
-  for (const layer of Object.values(layers)) { layer.renderOrder = -1; group.add(layer); }
-  loaded = true;
-  void refineSky(stars,grab).catch(error=>console.warn('Nie udało się uzupełnić mapy nieba:',error.message));
-  return {stars: stars.count, glow: 0, deepSky: objects.length, names};
+  layer.frustumCulled=false;layer.visible=constellationVisible;layer.renderOrder=-1;group.add(layer);
  }
 
  async function refineSky(stars,grab) {
@@ -394,6 +399,7 @@ export function createSky(dpr) {
   },
   setConstellations(visible) {
    constellationVisible=visible;
+   if (visible) ensureConstellationLayer();
    if (layers.constellations) layers.constellations.visible = visible;
    if (!visible) this.clearConstellationHighlight();
   },

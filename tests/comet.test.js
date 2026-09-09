@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cometNucleusGeometry, activity,applyCometAppearance,nucleusClearance} from '../src/comet.js';
-import {MeshStandardMaterial,ShaderLib} from 'three';
+import {cometNucleusGeometry, activity,applyCometAppearance,nucleusClearance,createCometTails} from '../src/comet.js';
+import {MeshStandardMaterial,ShaderLib,Scene,Vector3} from 'three';
 
 test('the nucleus is finely tessellated and free of flat facets',()=>{
  const geometry = cometNucleusGeometry(7);
@@ -44,6 +44,20 @@ test('Halley surface texture runs without a UV map and preserves a visible sunli
 test('the coma starts outside the rendered nucleus so Halley remains visible',()=>{
  assert.equal(nucleusClearance(.083),.10126);
  assert.ok(nucleusClearance(0)>0);
+});
+
+test('Halley tail keeps a resolved nucleus clearance and does not collapse into bright duplicate heads',()=>{
+ const tails=createCometTails(new Scene(),100);
+ const halley={cometProfile:'halley'};
+ tails.update({
+  comets:[halley],sunDisplayed:new Vector3(0,0,0),displayed:()=>new Vector3(1.8,0,0),
+  velocityOf:()=>new Vector3(0,.01,.002),distanceOf:()=>1.8,radiusOf:()=>.083,span:.55,time:0
+ });
+ const p=tails.points.geometry.attributes.position;
+ const distances=[];
+ for(let i=0;i<100;i++)distances.push(Math.hypot(p.getX(i)-1.8,p.getY(i),p.getZ(i)));
+ assert.ok(Math.min(...distances)>=nucleusClearance(.083)-1e-6);
+ assert.ok(new Set(distances.map(v=>v.toFixed(4))).size>70,'tail points must not stack into duplicate bright heads');
 });
 
 test('nuclei are stable per seed and differ between seeds',()=>{

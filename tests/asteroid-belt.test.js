@@ -14,4 +14,6 @@ test('asteroid belt uses many small instanced rocky bodies that receive shadows'
  const version=belt.mesh.instanceMatrix.version;
  belt.update(1,raw=>new THREE.Vector3(...raw),true);
  assert.ok(belt.mesh.instanceMatrix.version>version);
+ belt.update(1,raw=>new THREE.Vector3(...raw),true,.25);
+ assert.equal(belt.mesh.count,3,'far-map LOD reduces updates without rebuilding the belt');
 });

@@ -164,10 +164,10 @@ void main(){
  float r = length(gl_PointCoord - .5) * 2.;
  if (r > 1.) discard;
  float falloff = pow(1. - r, 1.7);
- // Additive blending uses alpha as well as RGB. Keeping alpha at one made
- // hundreds of newborn grains stack into three white light bulbs at Halley's
- // head. A soft, premultiplied particle keeps the coma continuous instead.
- gl_FragColor = vec4(c * a * falloff, a * falloff);
+ // The particle locations are deliberately de-clustered at the nucleus below.
+ // Keep their alpha opaque here: otherwise additive blending squares the very
+ // low dust intensity and makes the physically present tail disappear.
+ gl_FragColor = vec4(c * a * falloff, 1.);
 }`;
 
 const ION_TINT = [0.32, 0.62, 1.0];   // CO+ emission dominates the plasma tail
@@ -272,7 +272,10 @@ export function createCometTails(scene, particlesPerComet = 5200) {
       const wave = Math.sin(t * 5 + angle * 6.283 + time * .55) * 0.03;
       const flare = t * (0.5 + t);
       grain.copy(nucleus)
-       .addScaledVector(antisun, t * ionLength)
+       // Begin the tail outside the solid silhouette. Starting its first
+       // particles at the origin made them render as a few stacked bright
+       // points over the nucleus when the comet was followed closely.
+       .addScaledVector(antisun, clearRadius + t * ionLength)
        .addScaledVector(lateralA, (wave + Math.cos(angle * 6.283) * (0.05 + spread * 0.11) * flare) * ionLength)
        .addScaledVector(lateralB, (Math.sin(angle * 6.283) * (0.05 + beta * 0.11) * flare) * ionLength);
       alpha = Math.pow(1 - t, .82) * .46; width = .75 + 1.25 * (1 - t); tone = ION_TINT; brightness = 1.08;
@@ -285,6 +288,7 @@ export function createCometTails(scene, particlesPerComet = 5200) {
       const t = .024 + age * .976;
       const push = 0.5 * (0.15 + beta * 1.9) * t * t;
       grain.copy(nucleus)
+       .addScaledVector(antisun, clearRadius)
        .addScaledVector(motion, -t * dustLength * 0.62)
        .addScaledVector(antisun, push * dustLength * 1.5)
        .addScaledVector(lateralA, (spread - 0.5) * t * dustLength * 0.42)
