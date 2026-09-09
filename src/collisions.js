@@ -35,6 +35,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const blackhole=a.key==='blackhole'||b.key==='blackhole';
   const gas=a.gas||b.gas||['sun','jupiter','saturn','uranus','neptune'].includes(a.key)||['sun','jupiter','saturn','uranus','neptune'].includes(b.key);
   const primary=blackhole?(a.key==='blackhole'?a:b):(a.mass>=b.mass?a:b),secondary=primary===a?b:a;
+  const cometImpact=!blackhole&&!gas&&secondary.key==='comet';
   const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],replacements:{},orphaned:[],color:primary.color};
   touched.add(a.id);touched.add(b.id);
   // Grazing rocky impact: dissipate normal kinetic energy, retain tangential motion.
@@ -91,7 +92,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const largest=event.added.map(id=>bodies.find(candidate=>candidate.id===id)).filter(Boolean).sort((left,right)=>right.mass-left.mass)[0];
   if(totalDisruption){event.replacements[a.id]=largest?.id||null;event.replacements[b.id]=largest?.id||null;}
   else if(largest)event.replacements[secondary.id]=largest.id;
-  event.kind=blackhole?'absorb':gas?'accrete':totalDisruption||fraction>.25?'disrupt':fraction>0?'eject':'merge';events.push(event);
+  event.kind=blackhole?'absorb':gas?'accrete':cometImpact?'impact':totalDisruption||fraction>.25?'disrupt':fraction>0?'eject':'merge';events.push(event);
   // Restart scanning after array removal; touched remnants are resolved next substep.
   i=-1;break;
  }

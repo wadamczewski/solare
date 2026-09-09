@@ -5,7 +5,11 @@ export function surfaceImpact(a,b,speed){
  const reduced=a.mass*b.mass/(a.mass+b.mass)*SOLAR_MASS;
  const energyJ=reduced*v*v/(Math.sqrt(1-beta2)*(1+Math.sqrt(1-beta2)));
  const target=a.mass>=b.mass?a:b,fluence=energyJ/(4*Math.PI*(target.radius*1000)**2);
- return {energyJ,globalHeat:Math.max(0,Math.min(1,(Math.log10(Math.max(1,fluence))-7)/7))};
+ // Uniform-sphere binding energy is enough to distinguish a planet-wide impact
+ // catastrophe from actual gravitational dispersal of the target.
+ const bindingJ=.6*6.67430e-11*(target.mass*SOLAR_MASS)**2/(target.radius*1000);
+ const disruptionRatio=energyJ/bindingJ;
+ return {energyJ,globalHeat:Math.max(0,Math.min(1,(Math.log10(Math.max(1,fluence))-7)/7)),targetBindingJ:bindingJ,disruptionRatio,targetSurvives:disruptionRatio<.01};
 }
 export function attachSurfaceImpact(view,b,axis){
  if(b.key!=='earth'||!b.damage?.surface)return;

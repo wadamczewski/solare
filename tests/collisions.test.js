@@ -33,3 +33,8 @@ test('total disruption removes both parents and keeps resolved fragments as phys
  assert.equal(event.kind,'disrupt');assert.equal(event.removed.length,2);assert.ok(event.added.length>=2);assert.equal(bs.some(b=>b.id===old[0].id||b.id===old[1].id),false);assert.ok(event.added.includes(event.replacements[old[0].id]));conserved(old,bs);
  const fragment=bs.find(b=>b.id===event.added[0]),before=[...fragment.v];step(bs,.001);assert.notDeepEqual(fragment.v,before,'fragment is accelerated by the same N-body solver');
 });
+test('a Halley-sized comet impact is a planetary catastrophe, not Earth annihilation',()=>{
+ const earth=body({key:'earth',name:'Ziemia',mass:3.0035e-6,radius:6371}),halley=body({key:'comet',name:'1P/Halley',mass:2.2e14/1.98847e30,radius:5.5,p:[0,0,0],v:[51.3*86400/AU,0,0]}),bs=[earth,halley];
+ const event=resolveCollisions(bs)[0],survivor=bs.find(b=>b.id===earth.id);
+ assert.equal(event.kind,'impact');assert.ok(survivor);assert.equal(bs.some(b=>b.id===halley.id),false);assert.equal(event.surface.targetSurvives,true);assert.ok(event.surface.disruptionRatio<1e-6);assert.ok(event.surface.energyJ>2e23);
+});

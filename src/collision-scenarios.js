@@ -1,16 +1,21 @@
 import {AU} from './physics.js';
 
 export const collisionScenarios=[
- {id:'halley-earth',name:'1P/Halley → Ziemia',projectile:'halley',target:'earth',durationDays:32,distanceAU:.14}
+ // Halley-type comets meet Earth at a most-probable 51.3 km/s. The start is
+ // placed far enough away for that physical closing speed to remain visible for
+ // sixteen seconds at the default 2 simulated days per real second.
+ {id:'halley-earth',name:'1P/Halley → Ziemia',projectile:'halley',target:'earth',durationDays:32,impactSpeedKmS:51.3}
 ];
 
-export function collisionLaunchState(target,{durationDays,distanceAU}){
+export function collisionLaunchState(target,{durationDays,distanceAU,impactSpeedKmS}){
  const direction=[1,.06,-.04],length=Math.hypot(...direction),unit=direction.map(value=>value/length);
- const speedAUPerDay=distanceAU/durationDays;
+ const speedAUPerDay=impactSpeedKmS?impactSpeedKmS*86400/AU:distanceAU/durationDays;
+ const plannedDistance=distanceAU??speedAUPerDay*durationDays;
  return {
-  p:target.p.map((value,index)=>value+unit[index]*distanceAU),
+  p:target.p.map((value,index)=>value+unit[index]*plannedDistance),
   v:target.v.map((value,index)=>value-unit[index]*speedAUPerDay),
   impactDays:durationDays,
+  distanceAU:plannedDistance,
   speedKmS:speedAUPerDay*AU/86400
  };
 }

@@ -7,6 +7,8 @@ test('Halley launch is aimed at Earth and stays visible for at least 15 seconds 
  const relPosition=state.p.map((value,index)=>value-target.p[index]),relVelocity=state.v.map((value,index)=>value-target.v[index]);
  assert.ok(relPosition.reduce((sum,value,index)=>sum+value*relVelocity[index],0)<0);
  assert.ok(state.impactDays/2>=15);
+ assert.ok(Math.abs(state.speedKmS-51.3)<1e-9);
+ assert.ok(state.distanceAU>.9,'approach distance must match 32 days at the stated collision speed');
 });
 test('enlarged readable-scale silhouettes cannot end the scripted approach early',()=>{
  const projectile={id:1,collisionScenario:{targetId:2,launchElapsed:10,minDurationDays:32}},earth={id:2};
