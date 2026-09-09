@@ -10,6 +10,7 @@ const exoplanet = (id, name, mass, radius, color, note, gas=false, visualSource=
 const neutronStar = (id,name,{mass,radius,spin,magneticField,tilt=30,source,note}) => ({id,name,key:'neutron-star',group:'Gwiazdy neutronowe',mass,radius,spin,magneticField,tilt,color:'#c9e9ff',source,note});
 export const catalog = [
  {id:'comet',key:'comet',name:'Kometa',group:'Obiekty ogólne',mass:1.1e-16,radius:4,spin:12,tilt:35,color:'#a1d6df',note:'Przykładowe jądro komety. Masę i promień możesz zmieniać niezależnie.'},
+ {id:'halley',key:'comet',name:'1P/Halley',group:'Obiekty ogólne',mass:2.2e14/SOLAR_MASS,radius:5.5,spin:52,tilt:162,color:'#292a27',note:'1P/Halley ma jądro około 15 × 8 km. Masa i promień są przybliżeniem dla nieregularnego, aktywnego jądra komety.'},
  {...blackHole('blackhole','Supermasywna czarna dziura',1e6),group:'Obiekty ogólne'},
  {...blackHole('custom-blackhole','Własna czarna dziura',10),group:'Obiekty ogólne',note:'Ustaw własną masę w kg lub masach Słońca, położenie i wektor ruchu. Horyzont wynika z masy. Model nierotującej czarnej dziury; bez efektów relatywistycznych.'},
  ...planets.map(p=>({id:p[1],name:p[0],key:p[1],group:'Układ Słoneczny',mass:p[5],radius:p[6],spin:p[7],tilt:p[8],color:p[9],note:'Przybliżona masa i średni promień planety. Nowa kopia powstaje we wskazanym miejscu.'})),
