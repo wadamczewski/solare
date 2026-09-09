@@ -38,3 +38,8 @@ test('a Halley-sized comet impact is a planetary catastrophe, not Earth annihila
  const event=resolveCollisions(bs)[0],survivor=bs.find(b=>b.id===earth.id);
  assert.equal(event.kind,'impact');assert.ok(survivor);assert.equal(bs.some(b=>b.id===halley.id),false);assert.equal(event.surface.targetSurvives,true);assert.ok(event.surface.disruptionRatio<1e-6);assert.ok(event.surface.energyJ>2e23);
 });
+test('Halley at the rendered scenario speed leaves an Earth-mass remnant',()=>{
+ const earth=body({key:'earth',mass:3.0035e-6,radius:6371}),halley=body({key:'comet',mass:2.2e14/1.98847e30,radius:5.5,p:[0,0,0],v:[61.309*86400/AU,0,0]}),bs=[earth,halley];
+ const event=resolveCollisions(bs)[0],survivor=bs.find(b=>b.id===earth.id);
+ assert.equal(event.kind,'impact');assert.ok(survivor);assert.equal(event.removed.includes(earth.id),false);assert.equal(event.added.length,0);assert.ok(event.binding.a.disruptionRatio<2e-9);
+});
