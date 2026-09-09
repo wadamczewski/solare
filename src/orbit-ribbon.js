@@ -17,9 +17,13 @@ export function createOrbitRibbon({segments=256,color='#7f9ec5',opacity=.28}={})
 }
 
 export function orbitRibbonHalfWidth(distance,fovDegrees,viewportHeight,{realScale=false}={}) {
- const pixels=realScale?.24:1.5;
+ // Width is fixed on screen, never in world units. A world-space cap that reads as
+ // a hairline near Earth is a small fraction of a pixel out at Neptune, and a
+ // sub-pixel strip rasterises into disconnected arcs that look like extra orbits.
+ const pixels=realScale?.7:1.5;
  const worldPerPixel=2*distance*Math.tan(fovDegrees*Math.PI/360)/Math.max(1,viewportHeight);
- return THREE.MathUtils.clamp(worldPerPixel*pixels,realScale?.000025:.0025,realScale?.0035:.055);
+ const halfWidth=worldPerPixel*pixels;
+ return realScale?Math.max(halfWidth,.000025):THREE.MathUtils.clamp(halfWidth,.0025,.055);
 }
 
 export function updateOrbitRibbon(ribbon,points,camera,viewportHeight,{realScale=false}={}) {
