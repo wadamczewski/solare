@@ -24,7 +24,7 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
   const blackhole=a.key==='blackhole'||b.key==='blackhole';
   const gas=a.gas||b.gas||['sun','jupiter','saturn','uranus','neptune'].includes(a.key)||['sun','jupiter','saturn','uranus','neptune'].includes(b.key);
   const primary=blackhole?(a.key==='blackhole'?a:b):(a.mass>=b.mass?a:b),secondary=primary===a?b:a;
-  const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],color:primary.color};
+  const event={kind:'merge',p:center,v:velocity,normal,radius:volumeRadius,energy:severity,removed:[],added:[],survivor:primary.id,sourceIds:[a.id,b.id],replacements:{},orphaned:[],color:primary.color};
   touched.add(a.id);touched.add(b.id);
   // Grazing rocky impact: dissipate normal kinetic energy, retain tangential motion.
   if(!blackhole&&!gas&&grazing>.72&&speed>1.3*escape&&severity<3&&distance>0){
@@ -34,21 +34,37 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
    const separation=contactTest?0:contact*1.002-distance;for(let k=0;k<3;k++){a.p[k]-=normal[k]*separation*b.mass/m;b.p[k]+=normal[k]*separation*a.mass/m}
    a.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal};b.damage={kind:'graze',strength:Math.min(.45,.08+severity*.15),direction:normal.map(x=>-x)};event.kind='graze';events.push(event);continue;
   }
-  let fraction=blackhole||gas||a.key==='fragment'||b.key==='fragment'||severity<.15?0:Math.min(.65,severity*.22);
-  const slots=Math.max(0,maxBodies-(bodies.length-1));const fragments=fraction>0?Math.min(6,Math.floor(slots/2)*2):0;
+  // Above this regime the impact energy is many times the combined binding
+  // energy: neither precursor survives as a coherent object. Lower-energy
+  // impacts retain a remnant and release a bounded resolved ejecta component.
+  const totalDisruption=!blackhole&&!gas&&a.key!=='fragment'&&b.key!=='fragment'&&severity>=7&&maxBodies-(bodies.length-2)>=2;
+  let fraction=blackhole||gas||a.key==='fragment'||b.key==='fragment'||severity<.15?0:totalDisruption?1:Math.min(.65,severity*.22);
+  const slots=Math.max(0,maxBodies-(bodies.length-(totalDisruption?2:1)));
+  const fragments=fraction>0?Math.min(totalDisruption?10:6,totalDisruption?slots:Math.floor(slots/2)*2):0;
   if(!fragments)fraction=0;
   const remnantMass=m*(1-fraction),fragmentMass=m*fraction/Math.max(1,fragments);
   const remnantRadius=volumeRadius*Math.cbrt(1-fraction),fragmentRadius=volumeRadius*Math.cbrt(fraction/Math.max(1,fragments));
   const surface=surfaceImpact(a,b,speed);const hitDirection=primary===a?normal:normal.map(x=>-x);
   event.surface=surface;event.impactSpeed=speed;
-  const primaryDelta=primary===a?delta:delta.map(x=>-x),primaryVelocity=primary===a?rel:rel.map(x=>-x),spinState=collisionSpinState(primary,primaryDelta,primaryVelocity,escape,severity);primary.spin=spinState.period;primary.tilt=spinState.tilt;
-  primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
-  if(blackhole){primary.accretion=accretionStateFor(primary,secondary);event.accretion=primary.accretion;}
-  if(!blackhole)primary.damage={kind:gas?'accrete':fraction>.25?'disrupt':'crater',strength:Math.min(.85,.12+Math.max(severity*.25,surface.globalHeat*.6)),surface,direction:hitDirection};
-  primary.radius=blackhole?collisionRadius(primary)*AU:remnantRadius;
-  if(primary.parent===secondary.id)delete primary.parent;
-  for(const child of bodies)if(child.parent===secondary.id)child.parent=primary.id;
-  bodies.splice(bodies.indexOf(secondary),1);event.removed.push(secondary.id);
+  const primaryDelta=primary===a?delta:delta.map(x=>-x),primaryVelocity=primary===a?rel:rel.map(x=>-x),spinState=collisionSpinState(primary,primaryDelta,primaryVelocity,escape,severity);
+  if(!totalDisruption){
+   primary.spin=spinState.period;primary.tilt=spinState.tilt;
+   primary.p=[...center];primary.v=[...velocity];primary.mass=remnantMass;
+   if(blackhole){primary.accretion=accretionStateFor(primary,secondary);event.accretion=primary.accretion;}
+   if(!blackhole)primary.damage={kind:gas?'accrete':fraction>.25?'disrupt':'crater',strength:Math.min(.85,.12+Math.max(severity*.25,surface.globalHeat*.6)),surface,direction:hitDirection};
+   primary.radius=blackhole?collisionRadius(primary)*AU:remnantRadius;
+   if(primary.parent===secondary.id)delete primary.parent;
+   // A moon retains its instantaneous state when its primary disappears. It
+   // cannot be reassigned to an absorber or merger remnant: that would invent
+   // a new Kepler orbit and violate the velocity it had at the impact instant.
+   for(const child of bodies)if(child.parent===secondary.id){delete child.parent;event.orphaned.push(child.id)}
+   bodies.splice(bodies.indexOf(secondary),1);event.removed.push(secondary.id);
+   event.replacements[secondary.id]=null;
+  }else{
+   event.survivor=null;event.removed.push(a.id,b.id);
+   for(const child of bodies)if(child.parent===a.id||child.parent===b.id){delete child.parent;event.orphaned.push(child.id)}
+   const aIndex=bodies.indexOf(a),bIndex=bodies.indexOf(b);bodies.splice(Math.max(aIndex,bIndex),1);bodies.splice(Math.min(aIndex,bIndex),1);
+  }
   // Symmetric equal-mass pairs conserve total mass, linear momentum and barycenter.
   // At most 20% of impact energy is converted to ejecta kinetic energy.
   const launch=fraction?Math.sqrt(.4*specificEnergy/fraction):0;
@@ -57,11 +73,14 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
    const tangent=Math.abs(normal[1])<.9?[normal[2],0,-normal[0]]:[0,-normal[2],normal[1]],length=norm(tangent);
    const side=tangent.map(x=>x/length),cross=[normal[1]*side[2]-normal[2]*side[1],normal[2]*side[0]-normal[0]*side[2],normal[0]*side[1]-normal[1]*side[0]];
    const direction=normal.map((x,i)=>sign*(.8*x+.6*(Math.cos(t)*side[i]+Math.sin(t)*cross[i])));
-   const offset=(remnantRadius+fragmentRadius)*2.5/AU;
-   const fragment=body({name:`Odłamek · ${primary.name}`,key:'fragment',irregular:true,mass:fragmentMass,radius:fragmentRadius,spin:primary.spin,tilt:primary.tilt,color:primary.color,p:center.map((x,k)=>x+direction[k]*offset),v:velocity.map((x,k)=>x+direction[k]*launch)});
+   const offset=(Math.max(remnantRadius,fragmentRadius)+fragmentRadius)*2.5/AU;
+   const fragment=body({name:`Odłamek · ${a.name} + ${b.name}`,key:'fragment',irregular:true,fragmentOf:[a.id,b.id],mass:fragmentMass,radius:fragmentRadius,spin:spinState.period,tilt:spinState.tilt,color:primary.color,p:center.map((x,k)=>x+direction[k]*offset),v:velocity.map((x,k)=>x+direction[k]*launch)});
    bodies.push(fragment);touched.add(fragment.id);event.added.push(fragment.id);
   }
-  event.kind=blackhole?'absorb':gas?'accrete':fraction>.25?'disrupt':fraction>0?'eject':'merge';events.push(event);
+  const largest=event.added.map(id=>bodies.find(candidate=>candidate.id===id)).filter(Boolean).sort((left,right)=>right.mass-left.mass)[0];
+  if(totalDisruption){event.replacements[a.id]=largest?.id||null;event.replacements[b.id]=largest?.id||null;}
+  else if(largest)event.replacements[secondary.id]=largest.id;
+  event.kind=blackhole?'absorb':gas?'accrete':totalDisruption||fraction>.25?'disrupt':fraction>0?'eject':'merge';events.push(event);
   // Restart scanning after array removal; touched remnants are resolved next substep.
   i=-1;break;
  }
