@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
 import {body,AU,G,step,stableStep} from '../src/physics.js';
-import {resolveCollisions,collisionRadius} from '../src/collisions.js';
+import {resolveCollisions,collisionRadius,releaseSatellites} from '../src/collisions.js';
 const mass=bs=>bs.reduce((s,b)=>s+b.mass,0),momentum=bs=>[0,1,2].map(k=>bs.reduce((s,b)=>s+b.mass*b.v[k],0));
 function pair(speed=0,grazing=false){const r=6371/AU,m=3e-6;return [body({key:'earth',name:'Ziemia',mass:m,radius:6371,p:[-r,0,0],v:[speed/2,0,0]}),body({key:'mars',name:'Mars',mass:m,radius:6371,p:[r,0,0],v:grazing?[-speed*.05,speed,0]:[-speed/2,0,0]})]}
 function conserved(before,after){assert.ok(Math.abs(mass(before)-mass(after))/mass(before)<1e-12);const a=momentum(before),b=momentum(after);a.forEach((x,k)=>assert.ok(Math.abs(x-b[k])<1e-15))}
@@ -11,6 +11,8 @@ test('even a lighter black hole remains the absorber and grows its horizon',()=>
 test('gas giant accretes without creating rocky fragments',()=>{const bs=pair(.04);bs[0].key='jupiter';assert.equal(resolveCollisions(bs)[0].kind,'accrete');assert.equal(bs.length,1)});
 test('body limit retains unresolved ejecta mass in remnant',()=>{const bs=pair(.03),old=structuredClone(bs);resolveCollisions(bs,{maxBodies:2});assert.ok(bs.length<=2);conserved(old,bs)});
 test('a moon keeps its inertial state and becomes independent when its primary is destroyed',()=>{const bs=pair();bs[0].mass=1e-6;const child=body({mass:1e-15,radius:1,p:[1,0,0],v:[.01,.02,.03],parent:bs[0].id});bs.push(child);const before={p:[...child.p],v:[...child.v]},e=resolveCollisions(bs);assert.equal(child.parent,undefined);assert.deepEqual(child.p,before.p);assert.deepEqual(child.v,before.v);assert.ok(e[0].orphaned.includes(child.id))});
+test('a moon is not attached to a black hole after its planet is absorbed',()=>{const planet=body({key:'earth',mass:3e-6,radius:6371}),hole=body({key:'blackhole',mass:1e-6,radius:1}),moon=body({key:'moon',mass:1e-14,radius:100,parent:planet.id,p:[.002,0,0],v:[0,.004,0]}),bs=[planet,hole,moon],before={p:[...moon.p],v:[...moon.v]};resolveCollisions(bs);assert.equal(moon.parent,undefined);assert.deepEqual(moon.p,before.p);assert.deepEqual(moon.v,before.v);assert.ok(bs.some(b=>b.key==='blackhole'))});
+test('releasing several destroyed primaries cannot create a parent cycle',()=>{const a=body({name:'A'}),b=body({name:'B'}),ma=body({parent:a.id,p:[1,2,3],v:[4,5,6]}),mb=body({parent:b.id,p:[-1,-2,-3],v:[-4,-5,-6]}),event={orphaned:[]};releaseSatellites([a,b,ma,mb],[a.id,b.id],event);assert.deepEqual(event.orphaned.sort((x,y)=>x-y),[ma.id,mb.id].sort((x,y)=>x-y));for(const moon of [ma,mb])assert.equal(moon.parent,undefined)});
 test('fast approach is detected during adaptive integration',()=>{const bs=pair(.1);bs[0].p[0]*=3;bs[1].p[0]*=3;let found=false;for(let i=0;i<1000;i++){const events=resolveCollisions(bs);if(events.length){found=true;break}step(bs,stableStep(bs))}assert.ok(found)});
 test('coincident spawn resolves before singular gravitational integration',()=>{const bs=pair(.03);bs[1].p=[...bs[0].p];resolveCollisions(bs);step(bs,stableStep(bs));assert.ok(bs.every(b=>[...b.p,...b.v].every(Number.isFinite)))});
 

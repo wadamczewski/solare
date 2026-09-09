@@ -8,6 +8,17 @@ const sub=(a,b)=>a.map((x,k)=>x-b[k]);
 const norm=a=>Math.hypot(...a);
 export const collisionRadius=b=>b.key==='blackhole'?horizonRadius(b.mass*SOLAR_MASS)/AU:b.radius/AU;
 
+// A lost primary does not drag its satellites onto the collision remnant. Their
+// barycentric state is continuous at the impact instant; direct N-body gravity
+// then decides whether they escape, are captured, or form a new orbit.
+export function releaseSatellites(bodies,parentIds,event){
+ const removed=new Set(parentIds);
+ for(const candidate of bodies)if(removed.has(candidate.parent)){
+  delete candidate.parent;
+  event?.orphaned?.push(candidate.id);
+ }
+}
+
 // Reduced-order gravity-regime model, not hydrodynamics or fitted SPH scaling laws.
 export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
  const events=[],touched=new Set();
@@ -57,12 +68,12 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null}={}){
    // A moon retains its instantaneous state when its primary disappears. It
    // cannot be reassigned to an absorber or merger remnant: that would invent
    // a new Kepler orbit and violate the velocity it had at the impact instant.
-   for(const child of bodies)if(child.parent===secondary.id){delete child.parent;event.orphaned.push(child.id)}
+   releaseSatellites(bodies,[secondary.id],event);
    bodies.splice(bodies.indexOf(secondary),1);event.removed.push(secondary.id);
    event.replacements[secondary.id]=null;
   }else{
    event.survivor=null;event.removed.push(a.id,b.id);
-   for(const child of bodies)if(child.parent===a.id||child.parent===b.id){delete child.parent;event.orphaned.push(child.id)}
+   releaseSatellites(bodies,[a.id,b.id],event);
    const aIndex=bodies.indexOf(a),bIndex=bodies.indexOf(b);bodies.splice(Math.max(aIndex,bIndex),1);bodies.splice(Math.min(aIndex,bIndex),1);
   }
   // Symmetric equal-mass pairs conserve total mass, linear momentum and barycenter.
