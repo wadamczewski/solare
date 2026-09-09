@@ -13,7 +13,10 @@ export function keplerDrift(r,v,mu,dt){
  const c=Math.cos(E),s=Math.sin(E),q=Math.sqrt(1-e*e),rho=a*(1-e*c),factor=Math.sqrt(mu*a)/rho;
  return {r:x.map((n,k)=>a*((c-e)*n+q*s*y[k])),v:x.map((n,k)=>factor*(-s*n+q*c*y[k]))};
 }
-function satelliteStates(bs){const result=[];for(let i=0;i<bs.length;i++){const b=bs[i];if(!b.parent)continue;const j=bs.findIndex(p=>p.id===b.parent);if(j<0)continue;const r=sub(b.p,bs[j].p),v=sub(b.v,bs[j].v),mu=G*(b.mass+bs[j].mass);if(!keplerDrift(r,v,mu,0))return null;result.push({i,j,r,v,mu})}return result}
+function satelliteStates(bs){const result=[];for(let i=0;i<bs.length;i++){const b=bs[i];
+ // Ejecta are resolved N-body particles. A stale parent field must never turn
+ // them into a two-body Kepler approximation: they perturb and collide freely.
+ if(!b.parent||b.key==='fragment')continue;const j=bs.findIndex(p=>p.id===b.parent);if(j<0)continue;const r=sub(b.p,bs[j].p),v=sub(b.v,bs[j].v),mu=G*(b.mass+bs[j].mass);if(!keplerDrift(r,v,mu,0))return null;result.push({i,j,r,v,mu})}return result}
 export function fastStepSize(bs){
  const satellites=satelliteStates(bs);if(!satellites)return {dt:stableStep(bs),split:false,reason:'unbound'};let dt=.25;
  // Tight close approaches use the direct solver; tidal forces bound the split step.
