@@ -135,8 +135,8 @@ export function applyCometAppearance(material, profile = 'generic') {
   shader.fragmentShader = `uniform vec3 cometBase;uniform vec3 cometWarm;varying vec3 cometLocal;\n${shader.fragmentShader}`.replace('#include <map_fragment>', `#include <map_fragment>
    float coarse=sin(cometLocal.x*7.1+sin(cometLocal.z*5.7))*sin(cometLocal.y*9.3-cometLocal.z*4.1);
    float grit=sin(dot(cometLocal,vec3(41.7,27.1,36.3)))*.5+.5;
-   float patch=smoothstep(.20,.82,coarse*.5+.5)*(.20+.24*grit);
-   diffuseColor.rgb*=mix(cometBase,cometWarm,patch);
+   float mottle=smoothstep(.20,.82,coarse*.5+.5)*(.20+.24*grit);
+   diffuseColor.rgb*=mix(cometBase,cometWarm,mottle);
   `);
  };
  material.customProgramCacheKey = () => `comet-surface-${profile}-3`;

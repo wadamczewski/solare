@@ -40,15 +40,19 @@ export function attachSurfaceImpact(view,b,axis){
    shader.vertexShader='varying vec3 impactLocal;\n'+shader.vertexShader;
    shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nimpactLocal=normalize(position);');
    shader.fragmentShader='varying vec3 impactLocal;uniform vec3 impactAxis;uniform float impactHeat;uniform float impactAge;\n'+shader.fragmentShader;
-   shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+   // Local names here must dodge the GLSL ES 3.00 reserved list, which three
+  // compiles to on WebGL2 and which is longer than the WebGL1 one: a float
+  // called `patch` failed this fragment shader, and a material whose program
+  // will not link draws nothing, so Earth turned see-through after an impact.
+  shader.fragmentShader=shader.fragmentShader.replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
     float angle=acos(clamp(dot(normalize(impactLocal),impactAxis),-1.0,1.0));
     float spread=min(3.14159,0.3+impactAge*0.15);
     float affected=(1.0-smoothstep(spread-0.15,spread,angle))*impactHeat;
     vec3 terrain=texture2D(map,vMapUv).rgb;
     float land=smoothstep(-0.025,0.045,max(terrain.r,terrain.g)-terrain.b);
-    float patch=0.5+0.5*sin(impactLocal.x*233.0+sin(impactLocal.z*157.0)*3.0)*sin(impactLocal.y*193.0);
-    float fire=land*smoothstep(0.55,0.85,patch)*affected*exp(-impactAge/(3600.0+impactHeat*86400.0));
-    float pulse=0.8+0.2*sin(impactAge*4.0+patch*20.0);
+    float speckle=0.5+0.5*sin(impactLocal.x*233.0+sin(impactLocal.z*157.0)*3.0)*sin(impactLocal.y*193.0);
+    float fire=land*smoothstep(0.55,0.85,speckle)*affected*exp(-impactAge/(3600.0+impactHeat*86400.0));
+    float pulse=0.8+0.2*sin(impactAge*4.0+speckle*20.0);
     diffuseColor.rgb=mix(diffuseColor.rgb,diffuseColor.rgb*vec3(0.24,0.20,0.18),affected*land*0.85);
     float haze=affected*(1.0-exp(-impactAge/8.0))*0.65;
     diffuseColor.rgb=mix(diffuseColor.rgb,vec3(0.16,0.14,0.12),haze);
