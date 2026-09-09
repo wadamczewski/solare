@@ -16,8 +16,19 @@ export function collisionLaunchState(target,{durationDays,distanceAU,impactSpeed
   v:target.v.map((value,index)=>value-unit[index]*speedAUPerDay),
   impactDays:durationDays,
   distanceAU:plannedDistance,
-  speedKmS:speedAUPerDay*AU/86400
+  speedKmS:speedAUPerDay*AU/86400,
+  direction:unit
  };
+}
+
+// In readable scale, sizes and distances no longer share one physical scale.
+// Keep a scripted encounter legible, but converge exactly at the sum of the
+// two rendered radii. This avoids the apparent "impact at the core" caused by
+// freezing a geometrically oversized comet until its physical arrival time.
+export function scenarioVisualSeparation(scenario,elapsedDays,contactRadius){
+ const elapsed=Math.max(0,elapsedDays-scenario.launchElapsed);
+ const progress=Math.min(1,elapsed/Math.max(1e-9,scenario.minDurationDays));
+ return contactRadius+(scenario.visualApproachSpan||0)*(1-progress);
 }
 
 // Readable-scale bodies are deliberately enlarged for navigation. A scripted

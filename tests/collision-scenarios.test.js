@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {collisionLaunchState,collisionScenarios,scenarioCollisionReady} from '../src/collision-scenarios.js';
+import {collisionLaunchState,collisionScenarios,scenarioCollisionReady,scenarioVisualSeparation} from '../src/collision-scenarios.js';
 
 test('Halley launch is aimed at Earth and stays visible for at least 15 seconds at 2 days per second',()=>{
  const target={p:[1,0,0],v:[0,.017,0]},scenario=collisionScenarios[0],state=collisionLaunchState(target,scenario);
@@ -15,4 +15,10 @@ test('enlarged readable-scale silhouettes cannot end the scripted approach early
  assert.equal(scenarioCollisionReady(projectile,earth,41.99),false);
  assert.equal(scenarioCollisionReady(projectile,earth,42),true);
  assert.equal(scenarioCollisionReady(projectile,{id:3},10),true);
+});
+test('readable-scale approach ends at external visual contact after the planned duration',()=>{
+ const scenario={launchElapsed:10,minDurationDays:32,visualApproachSpan:2.6},contactRadius=.334;
+ assert.equal(scenarioVisualSeparation(scenario,10,contactRadius),2.934);
+ assert.equal(scenarioVisualSeparation(scenario,42,contactRadius),contactRadius);
+ assert.equal(scenarioVisualSeparation(scenario,100,contactRadius),contactRadius);
 });
