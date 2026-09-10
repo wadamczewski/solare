@@ -22,6 +22,8 @@ import {constellationNote,deepSkyNote} from './sky-descriptions.js';
 import {formatAngularSize,formatDeclination,formatRightAscension} from './sky-detail.js';
 import {applyCometAppearance,cometNucleusGeometry,createCometTails} from './comet.js';
 import {fastStepSize,splitStep} from './fast-step.js';
+import {STAR_SYSTEMS,orbitSpanAU,systemBodies,systemNote} from './star-systems.js';
+import {systemBodyKey,systemBodyRadius,systemCameraDistance,systemDrawnExtent,systemLayout,systemMaxDistance} from './system-view.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {G,AU,SOLAR_MASS,planets,initialSystem,body,relativeVelocity,step,stableStep,velocityKmPerSecond} from './physics.js';
@@ -48,7 +50,7 @@ const mount=document.querySelector('#universe'),panel=document.querySelector('#p
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: lot i sterowanie myszą. Q/E: dół/góra. Shift: szybciej. Escape: zwolnij mysz i zamknij panel. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza.');
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(43,innerWidth/innerHeight,.0000001,2000);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.minDistance=.00001;controls.maxDistance=maxViewDistance(true);controls.zoomToCursor=true;controls.enablePan=true;controls.panSpeed=.7;
 const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const SOLAR_BLOOM_STRENGTH=.65,SOLAR_LIGHT_INTENSITY=Math.PI;const solarBloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),SOLAR_BLOOM_STRENGTH,.45,2),blackHoleLensing=createBlackHoleLensingPass(ShaderPass);composer.addPass(solarBloom);composer.addPass(blackHoleLensing);composer.addPass(new OutputPass());
-const home=new THREE.Vector3(0,31,43).multiplyScalar(Math.max(1,1.15/(innerWidth/innerHeight)));camera.position.copy(home);controls.target.set(0,0,0);controls.update();scene.add(new THREE.AmbientLight('#ffffff',.035));const sunlight=new THREE.PointLight('#ffffff',SOLAR_LIGHT_INTENSITY,0,0);configureSolarShadow(sunlight,renderer);scene.add(sunlight);
+const home=new THREE.Vector3(0,31,43).multiplyScalar(Math.max(1,1.15/(innerWidth/innerHeight)));camera.position.copy(home);controls.target.set(0,0,0);controls.update();const ambient=new THREE.AmbientLight('#ffffff',.035);const AMBIENT_BASE=.035;scene.add(ambient);const sunlight=new THREE.PointLight('#ffffff',SOLAR_LIGHT_INTENSITY,0,0);configureSolarShadow(sunlight,renderer);scene.add(sunlight);
 const preview=createBodyPreview(),impactEffects=createImpactEffects(scene),tidalStreams=createTidalStreams(scene),solarInterior=createSolarInterior();
 const interiorHud=document.createElement('aside');interiorHud.id='solar-interior';interiorHud.hidden=true;interiorHud.innerHTML='<span>Model wnętrza Słońca</span><strong id=interior-zone></strong><div id=interior-values></div><p>Przekrój edukacyjny. Plazma jest nieprzezroczysta; rzeczywiste fotony rozpraszają się zamiast lecieć prostą.</p>';document.body.append(interiorHud);
 const sky=createSky(renderer.getPixelRatio());sky.setViewport(innerWidth,innerHeight);scene.add(sky.group);
@@ -57,6 +59,9 @@ const cometTails=createCometTails(scene);cometTails.setPixelRatio(renderer.getPi
 let skyInfo=null,showConstellations=false,showDeepSkyMarkers=false;
 let epoch=new Date(),bs=initialSystem(epoch),views=new Map(),selected=null,follow=null,paused=false,speed=2,elapsed=0,compressed=true,spawnAt=new THREE.Vector3(),restoreFocus=null;
 let lightFlight=null,flightPrevious=null,flightStops=[],flightTrueScale=false,solarBrightness=100,solarInfall=0;
+// A loaded star system replaces the Solar System entirely: `systemMode` holds
+// the preset and the widest orbit everything on screen is measured against.
+let systemMode=null;
 const flightLabels=document.createElement("div");flightLabels.id="flight-labels";document.body.append(flightLabels);
 const flightHud=document.createElement('div');flightHud.id='light-flight';flightHud.hidden=true;document.body.append(flightHud);
 const deathHud=document.createElement('div');deathHud.id='solar-death';deathHud.hidden=true;document.body.append(deathHud);
@@ -70,17 +75,23 @@ document.body.append(solarControl);setupBodySearch();document.querySelector('#co
 const solarBrightnessInput=document.querySelector('#solar-brightness'),solarBrightnessValue=document.querySelector('#solar-brightness-value'),centralStarInput=document.querySelector('#central-star');
 function applySolarBrightness(){
  const sun=bs.find(body=>body.key==='sun'),sunView=sun&&views.get(sun.id);
- const scale=solarBrightness/100*(1-solarInfall*.78),output=visualLuminosity(effectiveLuminosity(sun))*scale;
+ const scale=solarBrightness/100*(1-solarInfall*.78);
+ // Absolute luminosity sets the exposure for the one star of the Solar System.
+ // A star system is watched as a whole: its brightest member is the reference
+ // and the others are shown relative to it, so a B star and a red dwarf can
+ // share a frame without the B star washing it out.
+ const output=systemMode?scale:visualLuminosity(effectiveLuminosity(sun))*scale;
  sunlight.intensity=SOLAR_LIGHT_INTENSITY*output;
  sunlight.color.set(blackbodyColor(sun?.colorTemperature??5778));
  solarBloom.strength=SOLAR_BLOOM_STRENGTH*(.08+.92*Math.sqrt(output));
- if(sunView?.mesh.material?.color){sunView.mesh.material.color.set(blackbodyColor(sun?.colorTemperature??5778)).multiplyScalar(24*output);setSolarSpotBrightness(sunView.spots,solarBrightness)}
+ if(systemMode)paintSystem();
+ else if(sunView?.mesh.material?.color){sunView.mesh.material.color.set(blackbodyColor(sun?.colorTemperature??5778)).multiplyScalar(24*output);setSolarSpotBrightness(sunView.spots,solarBrightness)}
  solarBrightnessInput.value=String(solarBrightness);solarBrightnessValue.value=`${solarBrightness}%`;solarBrightnessValue.textContent=`${solarBrightness}%`;
  updateTemperatureReadout();
 }
 solarBrightnessInput.oninput=event=>{solarBrightness=Math.max(5,Math.min(100,Number(event.target.value)||100));applySolarBrightness()};
 function replaceCentralStar(id){
- const sun=bs.find(body=>body.key==='sun');if(!sun)return;
+ const sun=bs.find(body=>body.key==='sun');if(!sun||systemMode)return;
  const selectedSun=selected===sun.id,followSun=follow===sun.id,wasPanelVisible=!panel.hidden;
  applyCentralStarPreset(sun,starPreset(id),bs);disposeView(sun.id);addView(sun);clearTrails();updateOrbits();applySolarBrightness();centralStarInput.value=sun.starPresetId;
  if(followSun)focusBody(sun.id,{keepPanel:true});
@@ -113,8 +124,19 @@ document.querySelector('#dock-speed').onchange=e=>{if(lightFlight)lightFlight.se
 // Switching the mapping moves every body at once, so the camera has to move with
 // it: true scale spreads the system about sevenfold, and a camera left where it
 // was ends up somewhere inside Jupiter's orbit instead of viewing the whole thing.
+function setSystemScale(){if(!systemMode)return;systemMode.extent=systemDrawnExtent(systemMode.preset.root,systemMode.span,compressed);systemFrame=null;systemStamp=null;controls.maxDistance=systemMaxDistance(systemMode.extent);}
 function setScaleMode(next){
  if(next===compressed)return;
+ // A star system is measured against its own widest orbit, so switching the
+ // scale changes how large it is drawn by the ratio of the two drawn extents,
+ // not by the Solar System's mapping.
+ if(systemMode){const before=systemMode.extent;compressed=next;setSystemScale();
+  const zoom=camera.position.distanceTo(controls.target)/Math.max(1e-9,before);
+  const direction=camera.position.clone().sub(controls.target).normalize();
+  controls.target.set(0,0,0);camera.position.copy(direction.multiplyScalar(Math.max(systemMode.extent*.2,systemMode.extent*zoom)));
+  controls.update();clearTrails();updateOrbits();
+  const chooser=document.querySelector('#scale');if(chooser)chooser.value=compressed?'visual':'real';
+  document.querySelector('#dock-scale').checked=!compressed;return;}
  const offset=camera.position.clone().sub(controls.target);
  const ratio=scaleRatio(Math.max(controls.target.length(),camera.position.length()),compressed,next);
  const target=controls.target.clone().multiplyScalar(scaleRatio(controls.target.length(),compressed,next));
@@ -144,7 +166,7 @@ let solarDeath=null;
 function startSolarDeath(){
  if(solarDeath)return;
  const sun=bs.find(b=>b.key==='sun');
- if(!sun||sun.starPresetId&&sun.starPresetId!=='sun'){shell('Śmierć Słońca','<p class="muted">Ten przebieg jest na razie policzony wyłącznie dla naszej gwiazdy. Przywróć Słońce jako gwiazdę centralną i spróbuj ponownie.</p>');return}
+ if(systemMode||!sun||sun.starPresetId&&sun.starPresetId!=='sun'){shell('Śmierć Słońca','<p class="muted">Ten przebieg jest na razie policzony wyłącznie dla naszej gwiazdy. Przywróć Słońce jako gwiazdę centralną i spróbuj ponownie.</p>');return}
  if(lightFlight)stopLightFlight();
  closePanel();
  solarDeath={startedAt:performance.now(),paused:0,pausedAt:null,mass:sun.mass,swallowed:[]};
@@ -183,12 +205,28 @@ function updateSolarDeath(now){
  document.querySelector('#death-temperature').textContent=`${format(Math.round(state.temperature),0)} K`;
  document.querySelector('#death-mass').textContent=`${format(state.mass,3)} M☉`;
 }
-function syncTimeDock(){const state=`${paused}:${speed}:${lightFlight?.rate??0}:${compressed}:${!!solarDeath}`;document.querySelector('#dock-death').setAttribute('aria-pressed',String(!!solarDeath));document.body.classList.toggle('in-light-flight',!!lightFlight);if(state===dockState)return;dockState=state;document.querySelector('#dock-scale-label').hidden=!!lightFlight;document.querySelector('#dock-scale').checked=!compressed;const pauseButton=document.querySelector('#dock-pause');pauseButton.setAttribute('aria-label',paused?'Wznów symulację':'Wstrzymaj symulację');pauseButton.setAttribute('aria-pressed',String(paused));document.querySelector('#dock-pause-icon').textContent=paused?'▶':'Ⅱ';document.querySelector('#dock-pause-label').textContent=paused?'Wznów':'Pauza';const select=document.querySelector('#dock-speed');select.disabled=false;const mode=lightFlight?'flight':'normal';if(select.dataset.mode!==mode){select.dataset.mode=mode;select.innerHTML=(lightFlight?[1,10,60,300,1000]:[.02,.1,.5,2,10,50,100,200,365]).map(s=>`<option value="${s}">${s}${lightFlight?' ×':' dni / s'}</option>`).join('')}select.value=String(lightFlight?lightFlight.rate:speed);document.querySelector('#dock-flight-label').textContent=lightFlight?'Zakończ lot':'Lot światła';document.querySelector('#dock-flight').setAttribute('aria-pressed',String(!!lightFlight));timeDock.classList.toggle('in-flight',!!lightFlight);const panelPause=document.querySelector('#pause');if(panelPause)panelPause.textContent=paused?'▶':'Ⅱ';const panelSpeed=document.querySelector('#speed');if(panelSpeed){if(lightFlight)panelSpeed.options[0].textContent=`Lot · ${lightFlight.rate} ×`;else panelSpeed.value=String(speed);}}
+function syncTimeDock(){const state=`${paused}:${speed}:${lightFlight?.rate??0}:${compressed}:${!!solarDeath}:${systemMode?.id??''}`;
+ // The light flight, the collision courses and the Sun's death all describe
+ // the Solar System, and there is none while a star system is loaded.
+ for(const id of ['dock-flight','dock-death'])document.querySelector('#'+id).disabled=!!systemMode;
+ collisionCourseButton.disabled=!!systemMode;centralStarInput.disabled=!!systemMode;document.querySelector('#dock-death').setAttribute('aria-pressed',String(!!solarDeath));document.body.classList.toggle('in-light-flight',!!lightFlight);if(state===dockState)return;dockState=state;document.querySelector('#dock-scale-label').hidden=!!lightFlight;document.querySelector('#dock-scale').checked=!compressed;const pauseButton=document.querySelector('#dock-pause');pauseButton.setAttribute('aria-label',paused?'Wznów symulację':'Wstrzymaj symulację');pauseButton.setAttribute('aria-pressed',String(paused));document.querySelector('#dock-pause-icon').textContent=paused?'▶':'Ⅱ';document.querySelector('#dock-pause-label').textContent=paused?'Wznów':'Pauza';const select=document.querySelector('#dock-speed');select.disabled=false;const mode=lightFlight?'flight':'normal';if(select.dataset.mode!==mode){select.dataset.mode=mode;select.innerHTML=(lightFlight?[1,10,60,300,1000]:[.02,.1,.5,2,10,50,100,200,365]).map(s=>`<option value="${s}">${s}${lightFlight?' ×':' dni / s'}</option>`).join('')}select.value=String(lightFlight?lightFlight.rate:speed);document.querySelector('#dock-flight-label').textContent=lightFlight?'Zakończ lot':'Lot światła';document.querySelector('#dock-flight').setAttribute('aria-pressed',String(!!lightFlight));timeDock.classList.toggle('in-flight',!!lightFlight);const panelPause=document.querySelector('#pause');if(panelPause)panelPause.textContent=paused?'▶':'Ⅱ';const panelSpeed=document.querySelector('#speed');if(panelSpeed){if(lightFlight)panelSpeed.options[0].textContent=`Lot · ${lightFlight.rate} ×`;else panelSpeed.value=String(speed);}}
 const loader=new THREE.TextureLoader(),textures={},textureRequests=new Set(),moonMaps={};const textureManifest={mercury:'/textures/mercury.jpg',venus:'/textures/venus.jpg',earth:'/textures/earth.jpg',mars:'/textures/mars.jpg',jupiter:'/textures/jupiter.jpg',saturn:'/textures/saturn.jpg',uranus:'/textures/uranus.jpg',neptune:'/textures/neptune.jpg','proxima-centauri-b':'/textures/exoplanets/proxima-centauri-b.png','trappist-1-e':'/textures/exoplanets/trappist-1-e.png','51-pegasi-b':'/textures/exoplanets/51-pegasi-b.png','55-cancri-e':'/textures/exoplanets/55-cancri-e.png'};const textureAnisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());function configureTexture(map){map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=textureAnisotropy;map.wrapS=THREE.RepeatWrapping;map.generateMipmaps=true;map.minFilter=THREE.LinearMipmapLinearFilter;map.magFilter=THREE.LinearFilter;return map}function loadTexture(key,onLoad){if(textures[key]){onLoad?.(textures[key]);return textures[key]}const path=textureManifest[key];if(!path)return null;const map=loader.load(path,loaded=>onLoad?.(loaded));textures[key]=configureTexture(map);return map}function requestSurfaceTexture(b){const key=b.textureKey||b.key;if(!textureManifest[key]||textureRequests.has(key))return;textureRequests.add(key);loadTexture(key,map=>{textureRequests.delete(key);for(const candidate of bs)if((candidate.textureKey||candidate.key)===key){const material=views.get(candidate.id)?.mesh.material;if(material){material.map=map;material.color.set('#ffffff');material.needsUpdate=true}}})}function requestMoonTexture(b){const profile=moonAppearance[b.name],path=profile&&moonMapPath(profile);if(!profile||!path||moonMaps[profile.id]||textureRequests.has(path))return;textureRequests.add(path);const map=loader.load(path,loaded=>{textureRequests.delete(path);moonMaps[profile.id]=configureTexture(loaded);for(const candidate of bs)if(candidate.name===b.name){const material=views.get(candidate.id)?.mesh.material;if(material){applyMoonAppearance(material,candidate,moonMaps);material.needsUpdate=true}}});moonMaps[profile.id]=configureTexture(map)}function requestDetailTexture(b){if(b.key==='moon')requestMoonTexture(b);else requestSurfaceTexture(b)}
 const vector=(a)=>new THREE.Vector3(...a);
 function mapped(p){const v=vector(p),r=v.length();return r?v.multiplyScalar(sceneRadius(r,compressed)/r):v}
-function displayed(b){if(lightFlight){const stop=flightStops.find(s=>s.id===b.id);if(stop)return mapped(lightFlight.origin).addScaledVector(vector(lightFlight.direction),stop.distance*6);if(b.parent){const host=bs.find(x=>x.id===b.parent);if(host)return displayed(host).add(flightTrueScale?vector(b.p).sub(vector(host.p)).multiplyScalar(6):vector(b.p).sub(vector(host.p)).normalize().multiplyScalar(radius(host)*2.5))}if(b.key==='sun')return mapped(lightFlight.origin);}if(!compressed)return mapped(b.p);if(b.collisionScenario){const target=bs.find(candidate=>candidate.id===b.collisionScenario.targetId);if(target){const direction=vector(b.collisionScenario.visualDirection||[1,0,0]).normalize(),contactRadius=radius(b)+radius(target),separation=scenarioVisualSeparation(b.collisionScenario,elapsed,contactRadius);return displayed(target).addScaledVector(direction,separation)}}if(b.parent){const host=bs.find(x=>x.id===b.parent);if(host){const d=vector(b.p).sub(vector(host.p)),r=d.length();return displayed(host).add(d.multiplyScalar(r?((radius(host)*1.8+Math.pow(r*AU/200000,.55)*.8)/r):1))}}return mapped(b.p)}
+// A star system is laid out from its hierarchy rather than by mapping each
+// position independently, so the whole set is computed together and cached for
+// the frame. `systemStamp` is what invalidates it: the bodies move every step.
+let systemFrame=null,systemStamp=null;
+function systemPlacement(){
+ const stamp=`${elapsed}:${compressed}:${bs.length}`;
+ if(systemStamp===stamp&&systemFrame)return systemFrame;
+ const live=new Map(bs.map(b=>[b.name,b.p]));
+ systemFrame=systemLayout(systemMode.preset.root,name=>live.get(name),systemMode.span,compressed);
+ systemStamp=stamp;return systemFrame;
+}
+function displayed(b){if(systemMode){const place=systemPlacement().get(b.name);return place?vector(place.p):mapped(b.p)}if(lightFlight){const stop=flightStops.find(s=>s.id===b.id);if(stop)return mapped(lightFlight.origin).addScaledVector(vector(lightFlight.direction),stop.distance*6);if(b.parent){const host=bs.find(x=>x.id===b.parent);if(host)return displayed(host).add(flightTrueScale?vector(b.p).sub(vector(host.p)).multiplyScalar(6):vector(b.p).sub(vector(host.p)).normalize().multiplyScalar(radius(host)*2.5))}if(b.key==='sun')return mapped(lightFlight.origin);}if(!compressed)return mapped(b.p);if(b.collisionScenario){const target=bs.find(candidate=>candidate.id===b.collisionScenario.targetId);if(target){const direction=vector(b.collisionScenario.visualDirection||[1,0,0]).normalize(),contactRadius=radius(b)+radius(target),separation=scenarioVisualSeparation(b.collisionScenario,elapsed,contactRadius);return displayed(target).addScaledVector(direction,separation)}}if(b.parent){const host=bs.find(x=>x.id===b.parent);if(host){const d=vector(b.p).sub(vector(host.p)),r=d.length();return displayed(host).add(d.multiplyScalar(r?((radius(host)*1.8+Math.pow(r*AU/200000,.55)*.8)/r):1))}}return mapped(b.p)}
 function radius(b){
+ if(systemMode)return systemPlacement().get(b.name)?.r??systemBodyRadius(b.radius,systemMode.span,compressed);
  const stellarScale=Math.pow(Math.max(.01,b.radius/695700),.42);
  if(lightFlight){
   if(flightTrueScale)return b.radius/AU*6;
@@ -250,7 +288,7 @@ function updateExtendedSolarShadows(){
 let asteroidSeed=72831;const asteroidRandom=()=>{asteroidSeed=(asteroidSeed*1664525+1013904223)>>>0;return asteroidSeed/4294967296};
 const asteroidBelt=createAsteroidBelt({random:asteroidRandom});const asteroidDensity=()=>{const distance=camera.position.distanceTo(controls.target);return distance<9?1:distance<20?.62:.28};asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());scene.add(asteroidBelt.mesh);
 const selection=new THREE.Mesh(new THREE.RingGeometry(1.25,1.263,100),new THREE.MeshBasicMaterial({color:'#c7d9ef',transparent:true,opacity:.65,side:THREE.DoubleSide,depthTest:false}));selection.visible=false;scene.add(selection);
-function updateOrbits(){if(lightFlight){for(const v of views.values()){v.orbit.visible=false;v.trail.visible=false}return}for(const b of bs){const view=views.get(b.id),host=bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun');if(!host||host===b){view.orbit.visible=false;continue}const r=vector(b.p).sub(vector(host.p)),v=vector(b.v).sub(vector(host.v)),mu=G*(host.mass+b.mass),h=r.clone().cross(v),ev=v.clone().cross(h).divideScalar(mu).sub(r.clone().normalize()),e=ev.length(),p=h.lengthSq()/mu;if(!Number.isFinite(p)||p<1e-12){view.orbit.visible=false;continue}const x=e>.00001?ev.normalize():r.clone().normalize(),y=h.normalize().cross(x).normalize();const max=e<1?Math.PI:Math.acos(-1/e)*.96,path=[];for(let i=0;i<257;i++){const t=-max+i/256*max*2,rr=Math.min(200,p/(1+e*Math.cos(t))),pos=x.clone().multiplyScalar(rr*Math.cos(t)).addScaledVector(y,rr*Math.sin(t)).add(vector(host.p));let out;if(b.parent&&compressed){out=displayed(host).add(pos.sub(vector(host.p)).normalize().multiplyScalar(radius(host)*1.8+Math.pow(rr*AU/200000,.55)*.8))}else out=mapped(pos.toArray());path.push(out)}view.orbit.material.opacity=compressed?(b.parent?.13:.3):(b.parent?.035:.07);updateOrbitRibbon(view.orbit,path,camera,innerHeight,{realScale:!compressed});view.orbit.visible=true;}}
+function updateOrbits(){if(systemMode){for(const v of views.values()){v.orbit.visible=false}return}if(lightFlight){for(const v of views.values()){v.orbit.visible=false;v.trail.visible=false}return}for(const b of bs){const view=views.get(b.id),host=bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun');if(!host||host===b){view.orbit.visible=false;continue}const r=vector(b.p).sub(vector(host.p)),v=vector(b.v).sub(vector(host.v)),mu=G*(host.mass+b.mass),h=r.clone().cross(v),ev=v.clone().cross(h).divideScalar(mu).sub(r.clone().normalize()),e=ev.length(),p=h.lengthSq()/mu;if(!Number.isFinite(p)||p<1e-12){view.orbit.visible=false;continue}const x=e>.00001?ev.normalize():r.clone().normalize(),y=h.normalize().cross(x).normalize();const max=e<1?Math.PI:Math.acos(-1/e)*.96,path=[];for(let i=0;i<257;i++){const t=-max+i/256*max*2,rr=Math.min(200,p/(1+e*Math.cos(t))),pos=x.clone().multiplyScalar(rr*Math.cos(t)).addScaledVector(y,rr*Math.sin(t)).add(vector(host.p));let out;if(b.parent&&compressed){out=displayed(host).add(pos.sub(vector(host.p)).normalize().multiplyScalar(radius(host)*1.8+Math.pow(rr*AU/200000,.55)*.8))}else out=mapped(pos.toArray());path.push(out)}view.orbit.material.opacity=compressed?(b.parent?.13:.3):(b.parent?.035:.07);updateOrbitRibbon(view.orbit,path,camera,innerHeight,{realScale:!compressed});view.orbit.visible=true;}}
 updateOrbits();
 const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);let down=null,lastTouchTimer,hoveredConstellation=null,hoveredDeepSky=null;
 function pointRay(e){pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);ray.setFromCamera(pointer,camera)}
@@ -368,7 +406,92 @@ function showCollisionLauncher(){
  document.querySelector('#tools').onclick=showTools;
 }
 collisionCourseButton.onclick=showCollisionLauncher;
-function showTools(){selected=null;shell('Symulacja',`<div class="tools"><button id="pause" aria-label="Pauza">${paused?'▶':'Ⅱ'}</button><button id="zoom-in" aria-label="Przybliż">＋</button><button id="zoom-out" aria-label="Oddal">−</button><button id="home" aria-label="Domyślny widok">⌖</button></div>${row('Tempo',`<select id="speed">${lightFlight?`<option selected>Lot · ${lightFlight.rate} ×</option>`:''}${[.02,.1,.5,2,10,50,100,200,365].map(s=>`<option value="${s}" ${s===speed?'selected':''}>${s} dni / s</option>`).join('')}</select>`)}${row('Widok',`<select id="scale"><option value="visual" ${compressed?'selected':''}>Czytelny</option><option value="real" ${!compressed?'selected':''}>Rzeczywista skala</option></select>`)}<div class="actions"><button class="action" id="light-start">${lightFlight?'Zakończ lot światła':'Symulacja prędkości światła'}</button></div><div class="actions"><button class="action" id="add">Dodaj ciało</button><button class="action" id="custom-blackhole">Własna czarna dziura</button><button class="action danger" id="restart">Od nowa</button></div>`);document.querySelector('#pause').onclick=e=>{setPaused(!paused);e.target.textContent=paused?'▶':'Ⅱ'};document.querySelector('#light-start').onclick=()=>lightFlight?stopLightFlight():startLightFlight();for(const id of ['speed','scale','zoom-in','zoom-out','home'])document.getElementById(id).disabled=!!lightFlight;document.querySelector('#zoom-in').onclick=()=>camera.position.lerp(controls.target,.25);document.querySelector('#zoom-out').onclick=()=>camera.position.sub(controls.target).multiplyScalar(1.3).add(controls.target);document.querySelector('#home').onclick=resetView;document.querySelector('#speed').onchange=e=>setSimulationSpeed(e.target.value);document.querySelector('#scale').onchange=e=>setScaleMode(e.target.value==='visual');document.querySelector('#add').onclick=()=>{spawnAt.set(2,0,0);showSpawner()};document.querySelector('#custom-blackhole').onclick=()=>{spawnAt.set(2,0,0);showSpawner('custom-blackhole')};document.querySelector('#restart').onclick=restart;}
+// Star systems.
+//
+// A preset replaces the Solar System outright: the bodies are rebuilt from the
+// published orbital elements, the scale is remeasured against the system's own
+// widest orbit (see system-view.js) and the clock is set to a rate at which its
+// tightest orbit takes a second or so of screen time. Everything that belongs
+// to the Solar System alone - the light flight, the collision courses, the
+// Sun's death, the asteroid belt - is unavailable while one is loaded.
+const STELLAR_KINDS={'star':'Gwiazda','white-dwarf':'Biały karzeł','neutron-star':'Gwiazda neutronowa','blackhole':'Czarna dziura','planet':'Planeta'};
+// L/L☉ from the radius and the effective temperature, which is all the presets
+// carry: the Stefan-Boltzmann law with the Sun as the unit.
+const stellarLuminosity=(radiusKm,temperature)=>temperature>0?Math.pow(radiusKm/SOLAR_RADIUS_KM,2)*Math.pow(temperature/5772,4):0;
+function systemModeBody(item,preset,language){
+ const kind=item.kind||'star',key=systemBodyKey(kind),temperature=item.temperature||0;
+ const created=body({name:item.name,key,mass:item.mass,radius:item.radiusKm,p:[...item.p],v:[...item.v],
+  spin:kind==='neutron-star'?.0016:24,tilt:kind==='neutron-star'?32:0,systemKind:kind,
+  color:key==='sun'?blackbodyColor(temperature):item.colour||'#8d9199'});
+ if(key==='sun')Object.assign(created,{stellar:true,temperature,colorTemperature:temperature,
+  luminosity:stellarLuminosity(item.radiusKm,temperature),luminosityRadius:item.radiusKm,
+  spectralType:item.spectralType,galaxy:preset.name,note:systemNote(preset.id,language),source:preset.source});
+ return created;
+}
+// The point light sits on the brightest star, so a white dwarf lights its
+// companion when there is no main-sequence star to do it. A pair of neutron
+// stars has nothing luminous at all, and there the ambient term carries the
+// scene instead of leaving it black.
+// Emitted colour is set from each star's luminosity relative to the brightest
+// in its own system, on a fourth root so that a factor of two hundred in
+// luminosity is a factor of four on screen. Without it Algol's B8 primary is
+// two hundred times its companion and the bloom swallows the whole frame.
+const SYSTEM_EMISSION=9;
+function paintSystem(){
+ const stars=bs.filter(b=>b.key==='sun');
+ const brightest=Math.max(1e-12,...stars.map(b=>stellarLuminosity(b.radius,b.colorTemperature)));
+ const scale=solarBrightness/100;
+ for(const b of stars){
+  const view=views.get(b.id);if(!view?.mesh.material?.color)continue;
+  const share=Math.max(.3,Math.pow(stellarLuminosity(b.radius,b.colorTemperature)/brightest,.25));
+  view.mesh.material.color.set(blackbodyColor(b.colorTemperature||5772)).multiplyScalar(SYSTEM_EMISSION*share*scale);
+ }
+ // A pair of neutron stars emits nothing the renderer treats as light, so the
+ // ambient term has to carry the scene rather than leave it black.
+ ambient.intensity=stars.length?.09:.42;
+ solarBloom.strength=SOLAR_BLOOM_STRENGTH*.42*scale;
+}
+function startSystemMode(id){
+ const preset=STAR_SYSTEMS.find(item=>item.id===id);if(!preset)return;
+ if(lightFlight)stopLightFlight();
+ stopSolarDeath();follow=null;selected=null;down=null;clearTimeout(lastTouchTimer);tip.hidden=true;selection.visible=false;
+ preview.clear();impactEffects.clear();tidalStreams.clear();cometTails.clear();[...views.keys()].forEach(disposeView);
+ const span=orbitSpanAU(preset);
+ systemMode={id:preset.id,name:preset.name,preset,span,extent:systemDrawnExtent(preset.root,span,compressed)};
+ systemFrame=null;systemStamp=null;
+ bs=systemBodies(preset).map(item=>systemModeBody(item,preset,getLanguage()))
+  .sort((a,b)=>(b.key==='sun'?stellarLuminosity(b.radius,b.colorTemperature):-1)-(a.key==='sun'?stellarLuminosity(a.radius,a.colorTemperature):-1));
+ bs.forEach(addView);paintSystem();
+ elapsed=0;lag=0;last=performance.now();paused=false;speed=preset.daysPerSecond;solarBrightness=100;solarInfall=0;
+ document.body.classList.add('in-star-system');applySolarBrightness();clearTrails();updateOrbits();frameSystem();
+}
+function frameSystem(){
+ navigation.reset();camera.fov=43;camera.updateProjectionMatrix();
+ const extent=systemMode.extent;
+ controls.maxDistance=systemMaxDistance(extent);controls.enableDamping=false;
+ const distance=systemCameraDistance(extent);
+ camera.position.set(0,distance*.71,distance*.71);controls.target.set(0,0,0);controls.update();controls.enableDamping=true;
+}
+function stopSystemMode(){if(!systemMode)return;systemMode=null;document.body.classList.remove('in-star-system');ambient.intensity=AMBIENT_BASE;restart();}
+function showSystemLibrary(preselect){
+ selected=null;
+ const chosen=preselect||systemMode?.id||STAR_SYSTEMS[0].id;
+ const options=STAR_SYSTEMS.map(item=>`<option value="${item.id}"${item.id===chosen?' selected':''}>${item.name}</option>`).join('');
+ shell('Symulacja układów',`${row('Układ',`<select id="system-choice">${options}</select>`)}<p class="sky-note" id="system-note" data-no-translate></p><p class="muted" id="system-facts"></p><p class="muted"><a id="system-source" href="#" target="_blank" rel="noopener noreferrer">Źródło ↗</a></p><div class="actions"><button class="action primary" id="system-run">Uruchom</button>${systemMode?'<button class="action" id="system-exit">Wróć do Układu Słonecznego</button>':''}</div><div class="actions"><button class="action" id="tools">Symulacja</button></div>`);
+ const describe=()=>{
+  const preset=STAR_SYSTEMS.find(item=>item.id===document.querySelector('#system-choice').value);
+  document.querySelector('#system-note').textContent=systemNote(preset.id,getLanguage());
+  const parts=systemBodies(preset).map(item=>`${item.name} · ${translate(STELLAR_KINDS[item.kind]||STELLAR_KINDS.star)}`);
+  document.querySelector('#system-facts').textContent=`${parts.join(' · ')} · ${formatNumber(preset.daysPerSecond,2)} ${translate('dni / s')}`;
+  document.querySelector('#system-source').href=preset.source;
+ };
+ describe();
+ document.querySelector('#system-choice').onchange=describe;
+ document.querySelector('#system-run').onclick=()=>{startSystemMode(document.querySelector('#system-choice').value);showSystemLibrary(systemMode?.id)};
+ document.querySelector('#system-exit')?.addEventListener('click',()=>{stopSystemMode();closePanel()});
+ document.querySelector('#tools').onclick=showTools;
+}
+function showTools(){selected=null;shell('Symulacja',`<div class="tools"><button id="pause" aria-label="Pauza">${paused?'▶':'Ⅱ'}</button><button id="zoom-in" aria-label="Przybliż">＋</button><button id="zoom-out" aria-label="Oddal">−</button><button id="home" aria-label="Domyślny widok">⌖</button></div>${row('Tempo',`<select id="speed">${lightFlight?`<option selected>Lot · ${lightFlight.rate} ×</option>`:''}${[.02,.1,.5,2,10,50,100,200,365].map(s=>`<option value="${s}" ${s===speed?'selected':''}>${s} dni / s</option>`).join('')}</select>`)}${row('Widok',`<select id="scale"><option value="visual" ${compressed?'selected':''}>Czytelny</option><option value="real" ${!compressed?'selected':''}>Rzeczywista skala</option></select>`)}<div class="actions"><button class="action" id="light-start">${lightFlight?'Zakończ lot światła':'Symulacja prędkości światła'}</button><button class="action" id="systems">Symulacja układów</button></div><div class="actions"><button class="action" id="add">Dodaj ciało</button><button class="action" id="custom-blackhole">Własna czarna dziura</button><button class="action danger" id="restart">Od nowa</button></div>`);document.querySelector('#pause').onclick=e=>{setPaused(!paused);e.target.textContent=paused?'▶':'Ⅱ'};document.querySelector('#light-start').onclick=()=>lightFlight?stopLightFlight():startLightFlight();document.querySelector('#systems').onclick=()=>showSystemLibrary();for(const id of ['speed','scale','zoom-in','zoom-out','home'])document.getElementById(id).disabled=!!lightFlight;document.querySelector('#light-start').disabled=!!systemMode;document.querySelector('#zoom-in').onclick=()=>camera.position.lerp(controls.target,.25);document.querySelector('#zoom-out').onclick=()=>camera.position.sub(controls.target).multiplyScalar(1.3).add(controls.target);document.querySelector('#home').onclick=resetView;document.querySelector('#speed').onchange=e=>setSimulationSpeed(e.target.value);document.querySelector('#scale').onchange=e=>setScaleMode(e.target.value==='visual');document.querySelector('#add').onclick=()=>{spawnAt.set(2,0,0);showSpawner()};document.querySelector('#custom-blackhole').onclick=()=>{spawnAt.set(2,0,0);showSpawner('custom-blackhole')};document.querySelector('#restart').onclick=restart;}
 function setConstellationsVisible(visible){showConstellations=visible;sky.setConstellations(visible);const checkbox=document.querySelector('#constellations');if(checkbox)checkbox.checked=visible;}
 function setDeepSkyMarkersVisible(visible){showDeepSkyMarkers=visible;sky.setDeepSkyMarkers(visible);const checkbox=document.querySelector('#deep-sky-markers');if(checkbox)checkbox.checked=visible;}
 function focusSkyTarget(direction){if(lightFlight)stopLightFlight();follow=null;const target=camera.position.clone().add(direction.clone().normalize().multiplyScalar(100));controls.target.copy(target);controls.update();}
@@ -427,7 +550,7 @@ function resetView(){navigation.reset();camera.fov=43;camera.updateProjectionMat
 function clearTrails(){for(const v of views.values()){v.history=[];v.trail.geometry.setDrawRange(0,0)}}
 // Rebuild the system at a given instant. Restart uses now; a listed collision
 // scenario uses the date it is staged from, so the encounter is repeatable.
-function resetSystem(at){stopSolarDeath();lightFlight=null;flightPrevious=null;flightStops=[];flightTrueScale=false;document.body.classList.remove('in-light-flight');flightRail.hidden=true;flightLabels.replaceChildren();flightHud.hidden=true;controls.enabled=true;lag=0;last=performance.now();spawnAt.set(0,0,0);selected=null;follow=null;down=null;clearTimeout(lastTouchTimer);tip.hidden=true;selection.visible=false;preview.clear();impactEffects.clear();tidalStreams.clear();[...views.keys()].forEach(disposeView);epoch=at;bs=initialSystem(epoch);bs.forEach(addView);centralStarInput.value='sun';solarBrightness=100;solarInfall=0;applySolarBrightness();cometTails.clear();elapsed=0;paused=false;speed=2;compressed=true;updateOrbits();}
+function resetSystem(at){stopSolarDeath();systemMode=null;document.body.classList.remove('in-star-system');ambient.intensity=AMBIENT_BASE;solarBloom.strength=SOLAR_BLOOM_STRENGTH;controls.maxDistance=maxViewDistance(true);lightFlight=null;flightPrevious=null;flightStops=[];flightTrueScale=false;document.body.classList.remove('in-light-flight');flightRail.hidden=true;flightLabels.replaceChildren();flightHud.hidden=true;controls.enabled=true;lag=0;last=performance.now();spawnAt.set(0,0,0);selected=null;follow=null;down=null;clearTimeout(lastTouchTimer);tip.hidden=true;selection.visible=false;preview.clear();impactEffects.clear();tidalStreams.clear();[...views.keys()].forEach(disposeView);epoch=at;bs=initialSystem(epoch);bs.forEach(addView);centralStarInput.value='sun';solarBrightness=100;solarInfall=0;applySolarBrightness();cometTails.clear();elapsed=0;paused=false;speed=2;compressed=true;updateOrbits();}
 function restart(){resetSystem(new Date());resetView()}
 document.querySelector('#logo').onclick=()=>panel.hidden?showTools():closePanel();document.querySelector('#reset').onclick=restart;
 window.addEventListener('keydown',e=>{if(e.target.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='Space'&&e.target.tagName==='BUTTON')return;if(e.code==='Space'){e.preventDefault();setPaused(!paused);if(!panel.hidden)showTools()}if(e.key==='Escape'){if(lightFlight)stopLightFlight();closePanel()};if(e.key.toLowerCase()==='r')restart();if(e.key.toLowerCase()==='n'){spawnAt.set(2,0,0);showSpawner()}if(e.key.toLowerCase()==='t')showTools()});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);sky.setViewport(innerWidth,innerHeight);layoutRail()});
@@ -435,7 +558,7 @@ window.addEventListener('keydown',e=>{if(e.target.isContentEditable||['INPUT','S
 document.addEventListener("visibilitychange",()=>{last=performance.now()});
 function setPaused(value){const now=performance.now();if(lightFlight){if(value)lightFlight.pause(now);else lightFlight.resume(now)}paused=value;last=now;}
 function startLightFlight(){
- if(lightFlight)return;
+ if(lightFlight||systemMode)return;
  const sun=bs.find(b=>b.key==='sun');if(!sun){shell('Brak Słońca','<p class="muted">Użyj Reset, aby przywrócić Słońce i rozpocząć lot.</p>');return}
  flightPrevious={speed,compressed,paused,camera:camera.position.clone(),target:controls.target.clone()};
  const direction=new THREE.Vector3(1,0,0);
@@ -497,25 +620,38 @@ function updateCometDust(now){
  });
 }
 let last=performance.now(),frame=0,lag=0;
-function handleCollisions(previous){const oldSelected=selected,oldFollow=follow,wasPanelVisible=!panel.hidden;const visual=compressed?captureCollisionView(bs,displayed,radius):null;const events=resolveCollisions(bs,{contactTest:visual?(a,b)=>viewContact(a,b,visual,previous):null,contactNormal:scenarioContactNormal,contactSpeed:scenarioContactSpeed,contactVeto:(a,b)=>!scenarioCollisionReady(a,b,elapsed)});if(!events.length)return;preview.clear();for(const event of events){const survivorVisual=visual?.get(event.survivor),otherVisual=visual&&event.sourceIds.map(id=>visual.get(id)).find(item=>item&&item!==survivorVisual),planetaryImpact=event.kind==='impact'&&event.surface?.targetSurvives;const size=planetaryImpact?Math.max(.018,(survivorVisual?.r||.12)*.2):compressed?Math.max(.12,...event.sourceIds.map(id=>views.get(id)?.mesh.scale.x||.12)):event.radius/AU*6;const impactPosition=survivorVisual&&otherVisual?vector(survivorVisual.p).lerp(vector(otherVisual.p),survivorVisual.r/(survivorVisual.r+otherVisual.r)):mapped(event.p);for(const id of event.sourceIds){const body=bs.find(b=>b.id===id),view=views.get(id);if(body&&view){if(!view.irregular&&!view.hasDamageGeometry){view.mesh.geometry=shapeGeometry('high');view.lodLevel='high'}applyImpactDamage(view,body)}}const survivorView=views.get(event.survivor);impactEffects.add(event,impactPosition,size,planetaryImpact&&survivorView?{surfaceMesh:survivorView.mesh,surfaceAxis:survivorView.lastImpactAxis,surfaceRadius:survivorVisual?.r}:undefined);const selectedReplacement=collisionFocusTransfer(event,oldSelected),followReplacement=collisionFocusTransfer(event,oldFollow);event.removed.forEach(disposeView);for(const id of event.added)addView(bs.find(b=>b.id===id));selected=selectedReplacement;
+function handleCollisions(previous){const oldSelected=selected,oldFollow=follow,wasPanelVisible=!panel.hidden;
+ // Algol's pair is semi-detached and is drawn all but touching, so in a star
+ // system only the physical radii decide contact, never the rendered discs.
+ const visual=compressed&&!systemMode?captureCollisionView(bs,displayed,radius):null;const events=resolveCollisions(bs,{contactTest:visual?(a,b)=>viewContact(a,b,visual,previous):null,contactNormal:scenarioContactNormal,contactSpeed:scenarioContactSpeed,contactVeto:(a,b)=>!scenarioCollisionReady(a,b,elapsed)});if(!events.length)return;preview.clear();for(const event of events){const survivorVisual=visual?.get(event.survivor),otherVisual=visual&&event.sourceIds.map(id=>visual.get(id)).find(item=>item&&item!==survivorVisual),planetaryImpact=event.kind==='impact'&&event.surface?.targetSurvives;const size=planetaryImpact?Math.max(.018,(survivorVisual?.r||.12)*.2):compressed?Math.max(.12,...event.sourceIds.map(id=>views.get(id)?.mesh.scale.x||.12)):event.radius/AU*6;const impactPosition=survivorVisual&&otherVisual?vector(survivorVisual.p).lerp(vector(otherVisual.p),survivorVisual.r/(survivorVisual.r+otherVisual.r)):mapped(event.p);for(const id of event.sourceIds){const body=bs.find(b=>b.id===id),view=views.get(id);if(body&&view){if(!view.irregular&&!view.hasDamageGeometry){view.mesh.geometry=shapeGeometry('high');view.lodLevel='high'}applyImpactDamage(view,body)}}const survivorView=views.get(event.survivor);impactEffects.add(event,impactPosition,size,planetaryImpact&&survivorView?{surfaceMesh:survivorView.mesh,surfaceAxis:survivorView.lastImpactAxis,surfaceRadius:survivorVisual?.r}:undefined);const selectedReplacement=collisionFocusTransfer(event,oldSelected),followReplacement=collisionFocusTransfer(event,oldFollow);event.removed.forEach(disposeView);for(const id of event.added)addView(bs.find(b=>b.id===id));selected=selectedReplacement;
  // The camera inherits the projectile's close-up distance, which for a comet is
  // a fraction of the planet it just struck; pull back far enough to see what
  // survived, keeping the viewing direction the impact was watched from.
  if(followReplacement!==oldFollow&&followReplacement!=null){const survivor=bs.find(item=>item.id===followReplacement);if(survivor){const target=displayed(survivor),offset=camera.position.clone().sub(controls.target);const wanted=framingDistance(radius(survivor),camera.fov);if(offset.lengthSq()>0&&wanted>offset.length())offset.setLength(wanted);controls.target.copy(target);camera.position.copy(target).add(offset);}}
  follow=followReplacement;}clearTrails();updateOrbits();if(selected&&wasPanelVisible)showBody();}
-function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed;const realDelta=Math.max(0,(now-last)/1000),delta=Math.min(realDelta,.05);last=now;if(!lightFlight&&!paused&&!document.hidden){lag+=realDelta*speed;let steps=0;const deadline=performance.now()+24;handleCollisions();while(lag>1e-12&&steps<4096){const previous=compressed?captureCollisionView(bs,displayed,radius):null;const config=fastStepSize(bs),dt=Math.min(lag,config.dt);if(config.split)splitStep(bs,dt,config.states);else step(bs,dt);lag-=dt;elapsed+=dt;steps++;handleCollisions(previous);if(steps%8===0&&performance.now()>deadline)break}}
+function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed;const realDelta=Math.max(0,(now-last)/1000),delta=Math.min(realDelta,.05);last=now;if(!lightFlight&&!paused&&!document.hidden){lag+=realDelta*speed;let steps=0;const deadline=performance.now()+24;handleCollisions();while(lag>1e-12&&steps<4096){const previous=compressed&&!systemMode?captureCollisionView(bs,displayed,radius):null;const config=fastStepSize(bs),dt=Math.min(lag,config.dt);if(config.split)splitStep(bs,dt,config.states);else step(bs,dt);lag-=dt;elapsed+=dt;steps++;handleCollisions(previous);if(steps%8===0&&performance.now()>deadline)break}}
  const blackHoles=bs.filter(body=>body.key==='blackhole'),tidalFlows=[];let nextSolarInfall=0;
  for(const b of bs){const v=views.get(b.id);updateSurfaceImpact(v,elapsed-beforeElapsed);v.group.position.copy(displayed(b));const baseRadius=radius(b);v.mesh.scale.setScalar(baseRadius);let strongestTide=0;for(const hole of blackHoles)if(hole!==b){const distance=vector(b.p).distanceTo(vector(hole.p)),tide=tidalStretch(b,hole,distance),stream=tidalStreamStrength(b,hole,distance);strongestTide=Math.max(strongestTide,tide);if(stream>.012)tidalFlows.push({id:`${b.id}:${hole.id}`,start:v.group.position.clone(),end:views.get(hole.id).group.position.clone(),strength:stream,color:b.key==='sun'?'#fff1c2':b.color||'#d9b38a'})}if(strongestTide){v.mesh.scale.set(baseRadius*(1+strongestTide*3.5),baseRadius*(1-strongestTide*.34),baseRadius*(1-strongestTide*.34));if(b.key==='sun')nextSolarInfall=Math.max(nextSolarInfall,strongestTide)}if(v.blackHoleVisual){const accretion=b.accretion;if(accretion){accretion.age=(accretion.age||0)+delta;accretion.fuel=Math.max(0,accretion.fuel-delta*.018)}v.blackHoleVisual.update(now*.001,accretion?.fuel||0,!!accretion?.jets,camera)}if(v.neutronStarVisual)v.neutronStarVisual.update(now*.001);updateShapeLod(v,camera,innerHeight);v.axis.rotation.z=b.tilt*Math.PI/180;v.mesh.rotation.y=((elapsed+(lightFlight?lightFlight.seconds(now)/86400:0))*24/b.spin*Math.PI*2)%(Math.PI*2);if(v.halo){v.halo.quaternion.copy(camera.quaternion);v.halo.scale.setScalar(baseRadius/1.02)};if(frame%8===0&&!paused&&!lightFlight){v.history.push(v.group.position.clone());if(v.history.length>512)v.history.shift();const a=v.trail.geometry.attributes.position;v.history.forEach((p,i)=>a.setXYZ(i,p.x,p.y,p.z));a.needsUpdate=true;v.trail.geometry.setDrawRange(0,v.history.length);v.trail.visible=!b.parent;}}
  tidalStreams.update(tidalFlows,now*.001);
  if(Math.abs(nextSolarInfall-solarInfall)>.002){solarInfall=nextSolarInfall;applySolarBrightness()}
  const sun=bs.find(b=>b.key==='sun');sunlight.visible=!!sun;if(sun)sunlight.position.copy(displayed(sun));if(follow){const b=bs.find(x=>x.id===follow);if(b){const p=displayed(b),offset=camera.position.clone().sub(controls.target);controls.target.copy(p);camera.position.copy(p).add(offset)}}
  selection.visible=!!selected;const chosen=bs.find(x=>x.id===selected);if(chosen){selection.position.copy(displayed(chosen));selection.scale.setScalar(radius(chosen));selection.quaternion.copy(camera.quaternion)}
- if(frame%3===0)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}syncTimeDock();if(solarDeath)updateSolarDeath(now);if(lightFlight)updateLightFlight(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}camera.updateMatrixWorld();updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect)}else composer.render();frame++}
+ asteroidBelt.mesh.visible=!systemMode;if(frame%3===0&&!systemMode)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}syncTimeDock();if(solarDeath)updateSolarDeath(now);if(lightFlight)updateLightFlight(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}camera.updateMatrixWorld();updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect)}else composer.render();frame++}
 installLanguageUI();
 document.addEventListener('languagechange',()=>{dateFormat=new Intl.DateTimeFormat(getLocale(),{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});timeFormat=new Intl.DateTimeFormat(getLocale(),{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'UTC'});clockShown='';updateClock();layoutRail();if(!panel.hidden&&selected)showBody()});
 requestAnimationFrame(animate);
 // Exposed only as an explicit automation surface; no network or persistence.
-window.solare={getState:()=>({paused,speed,elapsed,pendingDays:lag,compressed,lightFlight:lightFlight?{rate:lightFlight.rate,seconds:lightFlight.seconds(performance.now()),distanceAU:lightFlight.distance(performance.now())}:null,bodies:bs.map(b=>({id:b.id,name:b.name,mass:b.mass,p:[...b.p],v:[...b.v]}))}),reset:restart,pause:()=>setPaused(true),resume:()=>setPaused(false),startLightFlight,stopLightFlight};
+window.solare={
+ // Where each body actually lands on screen and how large it is drawn, so a
+ // headless run can check that a loaded system is framed and visible rather
+ // than judging it from a screenshot.
+ getView:()=>{camera.updateMatrixWorld();return {mode:systemMode?.id??null,compressed,fov:camera.fov,
+  distance:camera.position.distanceTo(controls.target),
+  bodies:bs.map(b=>{const p=displayed(b),screen=p.clone().project(camera),r=radius(b);
+   return {name:b.name,key:b.key,x:(screen.x+1)*innerWidth/2,y:(1-screen.y)*innerHeight/2,
+    inFront:screen.z>-1&&screen.z<1,
+    pixels:r*innerHeight/(2*p.distanceTo(camera.position)*Math.tan(camera.fov*Math.PI/360))};})};},
+ getState:()=>({paused,speed,elapsed,pendingDays:lag,compressed,lightFlight:lightFlight?{rate:lightFlight.rate,seconds:lightFlight.seconds(performance.now()),distanceAU:lightFlight.distance(performance.now())}:null,bodies:bs.map(b=>({id:b.id,name:b.name,mass:b.mass,p:[...b.p],v:[...b.v]}))}),reset:restart,pause:()=>setPaused(true),resume:()=>setPaused(false),startLightFlight,stopLightFlight};
 const modelContext=document.modelContext;
 if(modelContext?.registerTool){const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});for(const tool of [{name:'read_simulation',description:'Read current bodies, positions in AU and velocities in AU/day.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>window.solare.getState()},{name:'set_simulation_paused',description:'Pause or resume the current gravitational simulation.',inputSchema:{type:'object',properties:{paused:{type:'boolean'}},required:['paused'],additionalProperties:false},annotations:{readOnlyHint:false},execute:input=>{if(typeof input?.paused!=='boolean')throw new Error('paused must be a boolean');setPaused(input.paused);if(!panel.hidden)showTools();return {paused}}}]){try{Promise.resolve(modelContext.registerTool(tool,{signal:lifecycle.signal})).catch(()=>{})}catch{}}}
 

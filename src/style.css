@@ -57,3 +57,8 @@ canvas.mouse-steering{cursor:none}
 .death-note{margin:0 0 10px;font-size:.82rem;line-height:1.5;color:#c7d3e4}
 #dock-death .dock-c{font-size:15px;margin-right:7px;vertical-align:-1px}
 @media(max-width:600px){#solar-death{left:16px;right:16px;width:auto;top:auto;bottom:96px;max-height:38dvh}}
+
+/* A loaded star system has no Sun to swap out and no belt of its own: the
+   central-star chooser would offer to replace a star that is not there. */
+body.in-star-system #solar-control #central-star,
+body.in-star-system #solar-control > label[for='central-star'] { display: none; }

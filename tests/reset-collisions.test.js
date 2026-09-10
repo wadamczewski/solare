@@ -7,7 +7,7 @@ const {initialSystem,AU}=await import(root+'src/physics.js');const {fastStepSize
 // Fixed epoch: planets now load at their real positions, so an unpinned date
 // would make this scenario depend on the day the suite happens to run.
 const EPOCH=new Date('2026-09-08T00:00:00Z');
-const bs=initialSystem(EPOCH),s=fs.readFileSync(root+'src/main.js','utf8');const code=s.slice(s.indexOf('function mapped('),s.indexOf('const sphere='));const {displayed,radius}=new Function('THREE','bs','AU','sceneRadius','const lightFlight=null,compressed=true,vector=a=>new THREE.Vector3(...a);'+code+';return {displayed,radius}')(THREE,bs,AU,sceneRadius);
+const bs=initialSystem(EPOCH),s=fs.readFileSync(root+'src/main.js','utf8');const code=s.slice(s.indexOf('function mapped('),s.indexOf('const sphere='));const {displayed,radius}=new Function('THREE','bs','AU','sceneRadius','const lightFlight=null,systemMode=null,compressed=true,vector=a=>new THREE.Vector3(...a);'+code+';return {displayed,radius}')(THREE,bs,AU,sceneRadius);
 test('compressed scale keeps a visible but ordered size hierarchy',()=>{
  const earth=bs.find(b=>b.key==='earth'),moon=bs.find(b=>b.name==='Księżyc'),jupiter=bs.find(b=>b.key==='jupiter');
  const halley={key:'comet',radius:5.5},dimorphos={key:'asteroid',radius:.0755};
