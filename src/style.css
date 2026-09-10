@@ -62,3 +62,16 @@ canvas.mouse-steering{cursor:none}
    central-star chooser would offer to replace a star that is not there. */
 body.in-star-system #solar-control #central-star,
 body.in-star-system #solar-control > label[for='central-star'] { display: none; }
+
+/* The star-system library sits with the sky toggles, under the same rule that
+   separates them from the star controls above. */
+.sky-explorer .sky-mode {
+ display: block; width: 100%; margin: 13px 0 0; padding: 8px 9px;
+ background: #ffffff0d; border: 1px solid #ffffff24; border-radius: 7px;
+ color: #dce7f5; font: inherit; font-size: 11px; letter-spacing: .01em;
+ cursor: pointer; transition: background .16s, border-color .16s, color .16s;
+}
+.sky-explorer .sky-mode:hover { background: #ffffff16; border-color: #ffffff3d; color: #fff; }
+.sky-explorer .sky-mode:focus-visible { outline: 2px solid #b4d9ef; outline-offset: 2px; }
+.sky-explorer .sky-mode[aria-pressed='true'] { background: #7ba6cd2e; border-color: #cce6ff55; color: #eaf4ff; }
+@media(max-width:600px){ .sky-explorer .sky-mode { font-size: 10px; } }
