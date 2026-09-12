@@ -13,7 +13,7 @@ import {naturalColorMaterial} from './natural-color.js';
 import {applyImpactDamage} from './impact-damage.js';
 import {createNavigation} from './navigation.js';
 import {applyCentralStarPreset,blackbodyColor,centralStarDetails,centralStars,effectiveLuminosity,starPreset,visualLuminosity} from './central-stars.js';
-import {SOLAR_EVOLUTION_SECONDS,SOLAR_PHASES,SOLAR_RADIUS_KM,adiabaticExpansion,solarEvolutionState,solarPhaseNote} from './solar-evolution.js';
+import {SOLAR_EVOLUTION_SECONDS,SOLAR_PHASES,SOLAR_RADIUS_KM,adiabaticExpansion,solarEvolutionBodyState,solarEvolutionState,solarPhaseNote} from './solar-evolution.js';
 import {captureCollisionView,collisionFocusTransfer,framingDistance,viewContact} from './collision-view.js';
 import {catalog,createCatalogBody,horizonRadius,validDimensions} from './catalog.js';
 import {bodyKind} from './body-search.js';
@@ -192,9 +192,7 @@ function updateSolarDeath(now){
   b.v=b.v.map((value,axis)=>sun.v[axis]+(value-sun.v[axis])*factor.velocity);
  }
  solarDeath.mass=state.mass;
- Object.assign(sun,{mass:state.mass,radius:state.radiusSolar*SOLAR_RADIUS_KM,luminosity:state.luminosity,
-  temperature:state.temperature,colorTemperature:state.temperature,spectralType:state.spectralType,
-  color:blackbodyColor(state.temperature)});
+ Object.assign(sun,solarEvolutionBodyState(state),{color:blackbodyColor(state.temperature)});
  applySolarBrightness();
  const format=(value,digits=2)=>formatNumber(value,digits);
  document.querySelector('#death-phase').textContent=state.name;

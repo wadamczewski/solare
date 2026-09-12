@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SOLAR_EVOLUTION_SECONDS, SOLAR_PHASES, adiabaticExpansion, engulfed, solarEvolutionState, solarPhaseNote} from '../src/solar-evolution.js';
+import {effectiveLuminosity} from '../src/central-stars.js';
+import {SOLAR_EVOLUTION_SECONDS, SOLAR_PHASES, adiabaticExpansion, engulfed, solarEvolutionBodyState, solarEvolutionState, solarPhaseNote, solarLuminosity} from '../src/solar-evolution.js';
 
 const AU_IN_SOLAR_RADII = 149597870.7 / 695700;
 
@@ -38,7 +39,7 @@ test('the endpoints are the published ones', () => {
  assert.ok(Math.abs(rgb.radiusSolar - 256) < 1, rgb.radiusSolar);
  assert.ok(Math.abs(rgb.luminosity - 2730) < 10, rgb.luminosity);
  assert.ok(Math.abs(rgb.mass - .668) < .001, rgb.mass);
- assert.ok(Math.abs(agb.radiusSolar - 213) < 1, agb.radiusSolar);
+ assert.ok(Math.abs(agb.radiusSolar - 179) < 1, agb.radiusSolar);
  assert.ok(Math.abs(agb.luminosity - 4170) < 20, agb.luminosity);
 
  // A 0.5405 M☉ carbon-oxygen white dwarf, Earth-sized, cooling towards nothing.
@@ -107,4 +108,44 @@ test('a phase note answers in the requested language and falls back to English',
  assert.ok(solarPhaseNote('white-dwarf', 'de').length > 40);
  assert.ok(solarPhaseNote('agb', 'es').length > 40);
  assert.equal(solarPhaseNote('not-a-phase', 'pl'), null);
+});
+
+
+test('phase anchors are continuous and obey Stefan–Boltzmann', () => {
+ for (let index = 0; index < SOLAR_PHASES.length; index++) {
+  const current = SOLAR_PHASES[index];
+  for (const anchor of [current.from, current.to]) {
+   const expected = solarLuminosity(anchor.radius, anchor.temperature);
+   assert.ok(Math.abs(anchor.luminosity / expected - 1) < .012,
+    `${current.id}: ${anchor.luminosity} L☉ vs ${expected} L☉`);
+  }
+  if (index) {
+   const previous = SOLAR_PHASES[index - 1].to;
+   for (const key of ['mass', 'radius', 'luminosity', 'temperature'])
+    assert.ok(Math.abs(current.from[key] / previous[key] - 1) < 1e-12,
+     `${current.id} jumps in ${key}`);
+  }
+ }
+});
+
+test('the planetary nebula has a ten-thousand-year physical age span', () => {
+ const nebula = SOLAR_PHASES.find(item => item.id === 'planetary-nebula');
+ assert.ok(Math.abs((nebula.endGyr - nebula.startGyr) * 1e9 - 10000) < 1e-3);
+});
+
+
+test('the renderer receives bolometric luminosity once, never radius squared twice', () => {
+ for (let at = 0; at <= SOLAR_EVOLUTION_SECONDS; at += .5) {
+  const state = solarEvolutionState(at), bodyState = solarEvolutionBodyState(state);
+  assert.equal(bodyState.radius, state.radiusSolar * 695700);
+  assert.ok(Math.abs(effectiveLuminosity(bodyState) / state.luminosity - 1) < 1e-12,
+   `${state.phase} must heat by its stated luminosity`);
+ }
+});
+
+
+test('the application imports the evolution body-state adapter it calls', async () => {
+ const source = await (await import('node:fs/promises')).readFile(new URL('../src/main.js', import.meta.url), 'utf8');
+ assert.match(source, /solarEvolutionBodyState/);
+ assert.match(source, /import \{[^}]*solarEvolutionBodyState[^}]*\} from '\.\/solar-evolution\.js'/);
 });

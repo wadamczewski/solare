@@ -12,6 +12,13 @@
 // thousand, a ratio of half a million to one. Each phase is given the time it
 // needs to be watched, and the readout always shows the real age.
 export const SOLAR_RADIUS_KM = 695700;
+export const SOLAR_EFFECTIVE_TEMPERATURE_K = 5772;
+
+// Stefan–Boltzmann law in solar units. Every phase anchor uses this relation,
+// so the stated radius, effective temperature and bolometric luminosity cannot
+// disagree with one another.
+export const solarLuminosity = (radiusSolar, temperatureK) =>
+ Math.pow(radiusSolar, 2) * Math.pow(temperatureK / SOLAR_EFFECTIVE_TEMPERATURE_K, 4);
 
 // `note` is a [pl, en, de, es] row: the interface translator substitutes single
 // phrases inside arbitrary text and would mangle a sentence, so prose is keyed
@@ -29,32 +36,32 @@ export function solarPhaseNote(id, language = 'en') {
 export const SOLAR_PHASES = Object.freeze([
  phase('main-sequence', 'Ciąg główny', 18, 0, 5.4,
   {mass: 1, radius: 1, luminosity: 1, temperature: 5772},
-  {mass: 1, radius: 1.4, luminosity: 1.84, temperature: 5670}, 'G2 V',
+  {mass: 1, radius: 1.4, luminosity: 1.84, temperature: 5682}, 'G2 V',
   ['Wodór spala się w jądrze. Słońce jaśnieje o około 10% na miliard lat — na długo przed końcem tej fazy Ziemia straci oceany.','Hydrogen burns in the core. The Sun brightens by about 10% per billion years, and Earth will lose its oceans long before this phase ends.','Im Kern brennt Wasserstoff. Die Sonne wird pro Milliarde Jahre etwa 10% heller; die Erde verliert ihre Ozeane lange vor dem Ende dieser Phase.','El hidrógeno arde en el núcleo. El Sol se aviva un 10% cada mil millones de años, y la Tierra perderá sus océanos mucho antes del final de esta fase.']),
  phase('subgiant', 'Podolbrzym', 8, 5.4, 6.9,
-  {mass: 1, radius: 1.4, luminosity: 1.84, temperature: 5670},
-  {mass: .999, radius: 2.3, luminosity: 2.7, temperature: 5000}, 'G8 IV',
+  {mass: 1, radius: 1.4, luminosity: 1.84, temperature: 5682},
+  {mass: .999, radius: 2.3, luminosity: 2.7, temperature: 4879}, 'G8 IV',
   ['Jądro wodorowe wyczerpane. Spalanie przenosi się do otoczki wokół obojętnego jądra helowego, gwiazda puchnie i chłodnieje.','The hydrogen core is spent. Burning moves to a shell around the inert helium core, and the star swells and cools.','Der Wasserstoffkern ist erschöpft. Das Brennen wandert in eine Schale um den inerten Heliumkern, der Stern bläht sich auf und kühlt ab.','El núcleo de hidrógeno se agota. La combustión pasa a una capa en torno al núcleo inerte de helio, y la estrella se hincha y se enfría.']),
  phase('red-giant', 'Gałąź czerwonych olbrzymów', 20, 6.9, 7.585,
-  {mass: .999, radius: 2.3, luminosity: 2.7, temperature: 5000},
-  {mass: .668, radius: 256, luminosity: 2730, temperature: 2602}, 'M0 III',
+  {mass: .999, radius: 2.3, luminosity: 2.7, temperature: 4879},
+  {mass: .668, radius: 256, luminosity: 2730, temperature: 2608}, 'M0 III',
   ['Otoczka rozdyma się do 256 promieni słonecznych — 1,19 AU, czyli poza orbitę Wenus. Wiatr gwiazdowy zabiera jedną trzecią masy Słońca.','The envelope swells to 256 solar radii — 1.19 AU, past the orbit of Venus. The stellar wind carries off a third of the Sun’s mass.','Die Hülle dehnt sich auf 256 Sonnenradien aus — 1,19 AU, über die Venusbahn hinaus. Der Sternwind trägt ein Drittel der Sonnenmasse fort.','La envoltura se dilata hasta 256 radios solares — 1,19 UA, más allá de la órbita de Venus. El viento estelar se lleva un tercio de la masa del Sol.']),
  phase('horizontal-branch', 'Błysk helowy i spalanie helu', 8, 7.585, 7.72,
-  {mass: .668, radius: 10, luminosity: 44, temperature: 4700},
-  {mass: .66, radius: 12, luminosity: 54, temperature: 4600}, 'K0 III',
-  ['Hel w jądrze zapala się gwałtownie i gwiazda kurczy się dziesięciokrotnie. Ta spokojna faza trwa około 130 milionów lat.','Helium ignites in the core in a flash and the star shrinks tenfold. This quiet phase lasts about 130 million years.','Im Kern zündet Helium schlagartig und der Stern schrumpft um das Zehnfache. Diese ruhige Phase dauert rund 130 Millionen Jahre.','El helio se enciende de golpe en el núcleo y la estrella se encoge diez veces. Esta fase tranquila dura unos 130 millones de años.']),
+  {mass: .668, radius: 256, luminosity: 2730, temperature: 2608},
+  {mass: .66, radius: 12, luminosity: 54, temperature: 4517}, 'K0 III',
+  ['Hel w jądrze zapala się gwałtownie, a gwiazda kurczy się z rozmiaru olbrzyma do stabilnej gałęzi poziomej. Ta spokojna faza trwa około 130 milionów lat.','Helium ignites in the core in a flash and the star contracts from giant dimensions to the stable horizontal branch. This quiet phase lasts about 130 million years.','Im Kern zündet Helium schlagartig und der Stern schrumpft von Riesendimensionen auf den stabilen horizontalen Ast. Diese ruhige Phase dauert rund 130 Millionen Jahre.','El helio se enciende de golpe en el núcleo y la estrella se contrae desde dimensiones gigantes a la rama horizontal estable. Esta fase tranquila dura unos 130 millones de años.']),
  phase('agb', 'Asymptotyczna gałąź olbrzymów', 12, 7.72, 7.748,
-  {mass: .66, radius: 12, luminosity: 54, temperature: 4600},
-  {mass: .546, radius: 213, luminosity: 4170, temperature: 2860}, 'M5 III',
+  {mass: .66, radius: 12, luminosity: 54, temperature: 4517},
+  {mass: .546, radius: 179, luminosity: 4170, temperature: 3467}, 'M5 III',
   ['Spalanie w dwóch otoczkach naraz, pulsy termiczne i najsilniejszy wiatr. Słońce świeci ponad cztery tysiące razy jaśniej niż dziś.','Two burning shells at once, thermal pulses, and the strongest wind of all. The Sun shines over four thousand times brighter than today.','Zwei brennende Schalen zugleich, thermische Pulse und der stärkste Wind. Die Sonne leuchtet über viertausendmal heller als heute.','Dos capas ardiendo a la vez, pulsos térmicos y el viento más intenso. El Sol brilla más de cuatro mil veces más que hoy.']),
- phase('planetary-nebula', 'Mgławica planetarna', 12, 7.748, 7.758,
-  {mass: .546, radius: 40, luminosity: 3500, temperature: 6000},
-  {mass: .5405, radius: .1, luminosity: 300, temperature: 120000}, 'jądro mgławicy',
+ phase('planetary-nebula', 'Mgławica planetarna', 12, 7.748, 7.74801,
+  {mass: .546, radius: 179, luminosity: 4170, temperature: 3467},
+  {mass: .5405, radius: .0126, luminosity: 14.3, temperature: 100000}, 'jądro mgławicy',
   ['Otoczka zostaje odrzucona i odsłania gorące jądro, które ją jonizuje. Cały ten spektakl trwa około dziesięciu tysięcy lat.','The envelope is cast off, exposing the hot core that ionises it. The whole spectacle lasts about ten thousand years.','Die Hülle wird abgestoßen und gibt den heißen Kern frei, der sie ionisiert. Das ganze Schauspiel dauert etwa zehntausend Jahre.','La envoltura es expulsada y deja al descubierto el núcleo caliente que la ioniza. Todo el espectáculo dura unos diez mil años.']),
- phase('white-dwarf', 'Biały karzeł', 14, 7.758, 13,
-  {mass: .5405, radius: .0126, luminosity: 100, temperature: 100000},
-  {mass: .5405, radius: .0126, luminosity: 1e-5, temperature: 4000}, 'DA',
-  ['Zostaje jądro węglowo-tlenowe o masie 0,54 Słońca upakowanej w kuli wielkości Ziemi. Nie produkuje już energii — tylko stygnie, przez dziesiątki miliardów lat.','What remains is a carbon-oxygen core, 0.54 solar masses packed into a sphere the size of Earth. It makes no more energy: it only cools, for tens of billions of years.','Zurück bleibt ein Kohlenstoff-Sauerstoff-Kern, 0,54 Sonnenmassen in einer erdgroßen Kugel. Er erzeugt keine Energie mehr, sondern kühlt nur noch ab — über zig Milliarden Jahre.','Queda un núcleo de carbono y oxígeno, 0,54 masas solares en una esfera del tamaño de la Tierra. Ya no produce energía: solo se enfría, durante decenas de miles de millones de años.'])
+ phase('white-dwarf', 'Biały karzeł', 14, 7.74801, 13,
+  {mass: .5405, radius: .0126, luminosity: 14.3, temperature: 100000},
+  {mass: .5405, radius: .0126, luminosity: 3.65e-5, temperature: 4000}, 'DA',
+  ['Zostaje jądro węglowo-tlenowe o masie 0,54 Słońca upakowanej w kuli wielkości Ziemi. Nie produkuje już energii — tylko stygnie, przez miliardy lat.','What remains is a carbon-oxygen core, 0.54 solar masses packed into a sphere the size of Earth. It makes no more energy: it only cools, for billions of years.','Zurück bleibt ein Kohlenstoff-Sauerstoff-Kern, 0,54 Sonnenmassen in einer erdgroßen Kugel. Er erzeugt keine Energie mehr, sondern kühlt nur noch ab — über Milliarden Jahre.','Queda un núcleo de carbono y oxígeno, 0,54 masas solares en una esfera del tamaño de la Tierra. Ya no produce energía: solo se enfría, durante miles de millones de años.'])
 ]);
 
 export const SOLAR_EVOLUTION_SECONDS = SOLAR_PHASES.reduce((total, item) => total + item.seconds, 0);
@@ -65,6 +72,15 @@ export const SOLAR_EVOLUTION_SECONDS = SOLAR_PHASES.reduce((total, item) => tota
 const geometric = (from, to, t) => Math.exp(Math.log(from) + (Math.log(to) - Math.log(from)) * t);
 const linear = (from, to, t) => from + (to - from) * t;
 const clamp01 = value => Math.max(0, Math.min(1, value));
+
+// Exact body fields used by the renderer and the thermal model. `luminosity`
+// remains a bolometric L☉ value; keeping the same value as its reference radius
+// prevents a second R² multiplier in effectiveLuminosity.
+export function solarEvolutionBodyState(state) {
+ const radius = state.radiusSolar * SOLAR_RADIUS_KM;
+ return {mass: state.mass, radius, luminosity: state.luminosity, luminosityRadius: radius,
+  temperature: state.temperature, colorTemperature: state.temperature, spectralType: state.spectralType};
+}
 
 export function solarEvolutionState(seconds) {
  const at = Math.max(0, Number(seconds) || 0);
