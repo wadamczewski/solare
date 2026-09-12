@@ -9,7 +9,7 @@ test('every selectable exoplanet has a dedicated local simulation texture and re
  assert.equal(new Set(exoplanets.map(body=>body.textureKey)).size,exoplanets.length);
  const sources=JSON.parse(readFileSync(new URL('../public/textures/exoplanets/sources.json',import.meta.url)));
  for(const body of exoplanets){
-  assert.ok(existsSync(new URL(`../public/textures/exoplanets/${body.textureKey}.png`,import.meta.url)),body.name);
+  assert.ok(existsSync(new URL(`../public/textures/exoplanets/${body.textureKey}.webp`,import.meta.url)),body.name);
   assert.match(body.visualSource,/^https:\/\//,body.name);
   assert.equal(sources[body.textureKey].reference,body.visualSource,body.name);
  }

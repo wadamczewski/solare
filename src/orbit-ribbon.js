@@ -26,10 +26,10 @@ export function orbitRibbonHalfWidth(distance,fovDegrees,viewportHeight,{realSca
  return realScale?Math.max(halfWidth,.000025):THREE.MathUtils.clamp(halfWidth,.0025,.055);
 }
 
+const tangent=new THREE.Vector3(),viewDirection=new THREE.Vector3(),side=new THREE.Vector3(),fallback=new THREE.Vector3(0,1,0);
+
 export function updateOrbitRibbon(ribbon,points,camera,viewportHeight,{realScale=false}={}) {
  const positions=ribbon.geometry.attributes.position;
- const tangent=new THREE.Vector3(),viewDirection=new THREE.Vector3(),side=new THREE.Vector3();
- const fallback=new THREE.Vector3(0,1,0);
  for(let index=0;index<points.length;index++){
   const point=points[index],previous=points[Math.max(0,index-1)],next=points[Math.min(points.length-1,index+1)];
   tangent.subVectors(next,previous).normalize();
@@ -43,5 +43,4 @@ export function updateOrbitRibbon(ribbon,points,camera,viewportHeight,{realScale
   positions.setXYZ(vertex+1,point.x-side.x*halfWidth,point.y-side.y*halfWidth,point.z-side.z*halfWidth);
  }
  positions.needsUpdate=true;
- ribbon.geometry.computeBoundingSphere();
 }

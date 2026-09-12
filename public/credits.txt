@@ -4,8 +4,8 @@ Planetary and Moon texture maps: Solar System Scope / INOVE.
 Source: https://www.solarsystemscope.com/textures/
 License: Creative Commons Attribution 4.0 International
 https://creativecommons.org/licenses/by/4.0/
-Files: textures/earth.jpg, jupiter.jpg, mars.jpg, mercury.jpg, moon.jpg,
-neptune.jpg, saturn.jpg, sun.jpg, uranus.jpg, venus.jpg.
+Files: textures/earth.webp, jupiter.webp, mars.webp, mercury.jpg, moon.jpg,
+neptune.webp, saturn.webp, uranus.jpg, venus.webp.
 Original 2K maps are rendered with lighting, exposure and, for satellite
 approximations, color tints. Venus uses the atmosphere map.
 No external website code or copy was incorporated.
@@ -14,7 +14,7 @@ Reference physical parameters:
 https://ssd.jpl.nasa.gov/planets/phys_par.html
 https://ssd.jpl.nasa.gov/astro_par.html
 
-Celestial sphere data (sky/stars.bin, sky/milkyway.bin, sky/milkyway.png,
+Celestial sphere data (sky/stars.bin, sky/milkyway.bin, sky/milkyway.webp,
 sky/deepsky.json, sky/constellations.bin, sky/starnames.json):
 derived from the d3-celestial data set.
 Copyright (c) 2015, Olaf Frohn. All rights reserved.
@@ -51,8 +51,8 @@ https://ssd.jpl.nasa.gov/planets/approx_pos.html
 Third-party software: Three.js (MIT), Vite (MIT).
 
 2026-09-07 visible-light appearance audit:
-Original illustration maps remain unchanged on disk. Sun map is no longer
-rendered; white photosphere replaces its false-color appearance. Venus,
+Original illustration maps remain unchanged on disk. The white solar photosphere
+is procedural, so its unused source map is not shipped. Venus,
 Uranus and Neptune use documented approximate visible-light display profiles;
 Mars saturation is reduced. These are not spectrally calibrated products.
 Sources and limitations: COLOR-AUDIT.md in the source repository.

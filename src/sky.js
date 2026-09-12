@@ -376,7 +376,7 @@ export function createSky(dpr) {
   await waitForIdle();
   const [glowBuffer,bandTexture]=await Promise.all([
    grab('/sky/milkyway.bin'),
-   new Promise((resolve,reject)=>new THREE.TextureLoader().load('/sky/milkyway.png',resolve,undefined,()=>reject(new Error('milkyway.png'))))
+   new Promise((resolve,reject)=>new THREE.TextureLoader().load('/sky/milkyway.webp',resolve,undefined,()=>reject(new Error('milkyway.webp'))))
   ]);
   bandTexture.flipY=false;bandTexture.wrapS=THREE.RepeatWrapping;bandTexture.minFilter=THREE.LinearFilter;bandTexture.magFilter=THREE.LinearFilter;bandTexture.generateMipmaps=false;bandTexture.colorSpace=THREE.NoColorSpace;
   layers.band=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,64,32),new THREE.ShaderMaterial({uniforms:{map:{value:bandTexture},strength:{value:.34},tint:{value:new THREE.Color(1,.965,.92)}},vertexShader:BAND_VERTEX,fragmentShader:BAND_FRAGMENT,side:THREE.BackSide,transparent:true,...skyLayerDepthState,blending:THREE.AdditiveBlending}));layers.band.frustumCulled=false;layers.band.renderOrder=-2;group.add(layers.band);

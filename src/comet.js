@@ -216,14 +216,15 @@ export function createCometTails(scene, particlesPerComet = 5200) {
 
  const nucleus = new THREE.Vector3(), antisun = new THREE.Vector3();
  const motion = new THREE.Vector3(), lateralA = new THREE.Vector3(), lateralB = new THREE.Vector3();
- const grain = new THREE.Vector3();
+ const grain = new THREE.Vector3(), source = new THREE.Vector3(), up = new THREE.Vector3(0,1,0);
 
  return {
   points,
   setPixelRatio(value) { material.uniforms.dpr.value = value; },
   // context: {comets, sunDisplayed, displayed, velocityOf, distanceOf, radiusOf, scale, time}
   update(context) {
-   const {comets, sunDisplayed, displayed, velocityOf, distanceOf, radiusOf, span, time} = context;
+   const {comets, sunDisplayed, displayed, velocityOf, distanceOf, radiusOf, span, time, quality=1} = context;
+   const samples=Math.min(particlesPerComet,Math.max(192,Math.round(particlesPerComet*Math.min(1,Math.max(.05,quality)))));
    let cursor = 0;
    for (const comet of comets.slice(0, maxComets)) {
     nucleus.copy(displayed(comet));
@@ -236,31 +237,32 @@ export function createCometTails(scene, particlesPerComet = 5200) {
     // give it a slightly stronger coma and tails than a dormant generic core.
     const strength = Math.min(1, activity(distanceOf(comet)) * (halley ? 1.22 : 1));
     motion.copy(velocityOf(comet));
-    if (motion.lengthSq() < 1e-18) motion.copy(antisun).cross(new THREE.Vector3(0, 1, 0));
+    if (motion.lengthSq() < 1e-18) motion.copy(antisun).cross(up);
     motion.normalize();
     // A frame across the tail: one axis in the sun-motion plane, one normal to it.
-    lateralA.copy(motion).sub(antisun.clone().multiplyScalar(motion.dot(antisun)));
+    lateralA.copy(motion).addScaledVector(antisun,-motion.dot(antisun));
     if (lateralA.lengthSq() < 1e-12) lateralA.set(0, 1, 0);
     lateralA.normalize();
     lateralB.copy(antisun).cross(lateralA).normalize();
 
     const ionLength = span * (0.9 + 2.6 * strength) * (halley ? 1.35 : 1);
     const dustLength = span * (0.5 + 1.5 * strength) * (halley ? 1.22 : 1);
-    for (let i = 0; i < particlesPerComet; i++, cursor++) {
+    for (let i = 0; i < samples; i++, cursor++) {
+     const sampleIndex=Math.min(particlesPerComet-1,Math.floor(i*particlesPerComet/samples));
      // A resolved coma is one object, not a handful of oversized jet sprites.
      // Solar-facing jets live inside its slightly asymmetric envelope; the two
      // distinct large-scale structures remain the ion and dust tails.
-     const coma = i < particlesPerComet * 0.16;
-     const ion = !coma && i < particlesPerComet * 0.56;
-     const age = draw[i * 4], beta = draw[i * 4 + 1];
-     const angle = draw[i * 4 + 2] * Math.PI * 2, spread = draw[i * 4 + 3];
+     const coma = i < samples * 0.16;
+     const ion = !coma && i < samples * 0.56;
+     const age = draw[sampleIndex * 4], beta = draw[sampleIndex * 4 + 1];
+     const angle = draw[sampleIndex * 4 + 2] * Math.PI * 2, spread = draw[sampleIndex * 4 + 3];
      let alpha, width, tone, brightness, radius;
      if (coma) {
       // Gas expands around the nucleus but is brighter on the Sun-facing side.
       // It begins outside the opaque solid so the 15 × 8 km Halley core stays
       // readable at every camera distance.
       const u = Math.sqrt(age), comaRadius = clearRadius + u * span * (.032 + .028 * strength);
-      const source = lateralA.clone().multiplyScalar(Math.cos(angle)).addScaledVector(lateralB, Math.sin(angle));
+      source.copy(lateralA).multiplyScalar(Math.cos(angle)).addScaledVector(lateralB, Math.sin(angle));
       source.addScaledVector(antisun, -.22 * (1 - u) + (beta - .5) * .08).normalize();
       grain.copy(nucleus).addScaledVector(source, comaRadius);
       alpha = .20 + (1 - u) * .28; width = .7 + (1 - u) * 1.35; tone = COMA_TINT; brightness = halley ? 1.05 : .82;
@@ -302,13 +304,14 @@ export function createCometTails(scene, particlesPerComet = 5200) {
      tint[cursor * 3] = tone[0]; tint[cursor * 3 + 1] = tone[1]; tint[cursor * 3 + 2] = tone[2];
     }
    }
-   for (; cursor < total; cursor++) { size[cursor] = 0; intensity[cursor] = 0; }
+   geometry.setDrawRange(0,cursor);
    geometry.attributes.position.needsUpdate = true;
    geometry.attributes.size.needsUpdate = true;
    geometry.attributes.intensity.needsUpdate = true;
    geometry.attributes.tint.needsUpdate = true;
   },
   clear() {
+   geometry.setDrawRange(0,0);
    size.fill(0); intensity.fill(0);
    geometry.attributes.size.needsUpdate = true;
    geometry.attributes.intensity.needsUpdate = true;

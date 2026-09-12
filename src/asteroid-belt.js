@@ -24,8 +24,13 @@ export function createAsteroidBelt({count=ASTEROID_COUNT,random=Math.random}={})
  }
  if(mesh.instanceColor)mesh.instanceColor.needsUpdate=true;
  const position=new THREE.Vector3(),quaternion=new THREE.Quaternion(),scale=new THREE.Vector3(),matrix=new THREE.Matrix4();
+ let lastElapsed=NaN,lastCompressed=null,lastActive=-1;
  const update=(elapsed,mapped,compressed=true,density=1)=>{
   const active=Math.min(count,Math.max(1,Math.round(count*density)));
+  // A paused map can still change density while the camera moves, but it does
+  // not need to rewrite every instance when neither the camera tier nor time changed.
+  if(lastCompressed===compressed&&lastActive===active&&Math.abs(lastElapsed-elapsed)<1e-12)return;
+  lastElapsed=elapsed;lastCompressed=compressed;lastActive=active;
   // The belt remains a recognisable population at map scale; close inspection
   // restores every instance without rebuilding geometry or losing detail.
   mesh.count=active;
