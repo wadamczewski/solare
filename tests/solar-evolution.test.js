@@ -149,3 +149,14 @@ test('the application imports the evolution body-state adapter it calls', async 
  assert.match(source, /solarEvolutionBodyState/);
  assert.match(source, /import \{[^}]*solarEvolutionBodyState[^}]*\} from '\.\/solar-evolution\.js'/);
 });
+
+test('solar-death mode reserves the left rail for its own panel', async () => {
+ const fs = await import('node:fs/promises');
+ const [source, css] = await Promise.all([
+  fs.readFile(new URL('../src/main.js', import.meta.url), 'utf8'),
+  fs.readFile(new URL('../src/style.css', import.meta.url), 'utf8')
+ ]);
+ assert.match(source, /classList\.toggle\('in-solar-death',!!solarDeath\)/);
+ assert.match(css, /body\.in-solar-death #solar-control/);
+ assert.match(css, /body\.in-solar-death #solar-death\{top:116px\}/);
+});

@@ -40,7 +40,7 @@ button:disabled{opacity:.35;cursor:default}#light-flight{position:fixed;bottom:2
    the planet or the Sun. This is a frosted pane, not an opaque modal. */
 #light-flight:not([hidden]),#time-dock.in-flight{background:rgba(7,11,24,.48);backdrop-filter:blur(18px) saturate(135%);-webkit-backdrop-filter:blur(18px) saturate(135%);border-color:rgba(220,235,255,.28);box-shadow:0 14px 42px rgba(0,0,0,.24);color:#e7eef9}
 #solar-control{transition:opacity .2s ease,transform .2s ease,visibility .2s step-end}
-body.in-light-flight #solar-control{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease,visibility .2s step-start}
+body.in-light-flight #solar-control,body.in-solar-death #solar-control{opacity:0;visibility:hidden;pointer-events:none;transform:translateY(-8px);transition:opacity .2s ease,transform .2s ease,visibility .2s step-start}
 
 canvas.mouse-steering{cursor:none}
 
@@ -49,6 +49,7 @@ canvas.mouse-steering{cursor:none}
    selected on the other. */
 #solar-death{position:fixed;left:34px;top:364px;bottom:104px;width:320px;overflow:auto;padding:20px;background:rgba(10,13,25,.88);border:1px solid #ffffff13;backdrop-filter:blur(24px);border-radius:12px;box-shadow:0 20px 70px #0006;font-size:12px;animation:appear .22s ease-out}
 #solar-death[hidden]{display:none}
+body.in-solar-death #solar-death{top:116px}
 .death-head{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:12px}
 .death-head strong{font-size:15px;font-weight:400;letter-spacing:-.2px}
 .death-track{height:2px;background:#ffffff18;border-radius:2px;overflow:hidden}
@@ -56,7 +57,7 @@ canvas.mouse-steering{cursor:none}
 .death-values{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;margin:14px 0 10px;color:#eef5ff;font-variant-numeric:tabular-nums}
 .death-note{margin:0 0 10px;font-size:.82rem;line-height:1.5;color:#c7d3e4}
 #dock-death .dock-c{font-size:15px;margin-right:7px;vertical-align:-1px}
-@media(max-width:600px){#solar-death{left:16px;right:16px;width:auto;top:auto;bottom:96px;max-height:38dvh}}
+@media(max-width:600px){#solar-death{left:16px;right:16px;width:auto;top:auto;bottom:96px;max-height:38dvh}body.in-solar-death #solar-death{top:auto}}
 
 /* A loaded star system has no Sun to swap out and no belt of its own: the
    central-star chooser would offer to replace a star that is not there. */
