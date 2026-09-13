@@ -32,3 +32,14 @@ test('moving a body farther from the Sun lowers its temperature',()=>{
  const far={...earth,p:[2,0,0]};
  assert.ok(surfaceTemperatures(far,[sun,far],100).litC<surfaceTemperatures(earth,[sun,earth],100).litC);
 });
+
+test('airless Mercury and the Moon use day/night values rather than planetary means',()=>{
+ const mercury={id:3,key:'mercury',a:.3871,p:[.3871,0,0]};
+ const moon={id:4,key:'moon',parent:earth.id,p:[1,0,0]};
+ const mercuryTemperature=surfaceTemperatures(mercury,[sun,mercury],100);
+ const moonTemperature=surfaceTemperatures(moon,[sun,earth,moon],100);
+ assert.ok(Math.abs(mercuryTemperature.litC-(700-273.15))<.01);
+ assert.ok(Math.abs(mercuryTemperature.darkC-(100-273.15))<.01);
+ assert.ok(Math.abs(moonTemperature.litC-(384-273.15))<.01);
+ assert.ok(Math.abs(moonTemperature.darkC-(102-273.15))<.01);
+});

@@ -9,9 +9,12 @@ const CMB_K=2.725;
 // They are intentionally separate for day and night so a slider can show the
 // thermal contrast instead of treating a whole body as one uniform surface.
 const profiles={
- mercury:[440,100],venus:[735,735],earth:[290.72,286.08],mars:[253,160],
+ // These are illuminated and dark-side representative temperatures, not the
+ // planetary means.  NASA gives Mercury about 700 K by day and 100 K at
+ // night; Apollo thermal measurements put the Moon near 384 K and 102 K.
+ mercury:[700,100],venus:[735,735],earth:[290.72,286.08],mars:[253,160],
  jupiter:[165,110],saturn:[134,85],uranus:[76,50],neptune:[72,45],
- moon:[260,100],comet:[230,85],fragment:[230,85]
+ moon:[384,102],comet:[230,85],fragment:[230,85]
 };
 
 const profileFor=body=>profiles[body.key]||profiles.moon;
