@@ -18,7 +18,7 @@ export const moons=[
  ['Księżyc','earth',384400,7.342e22,1737.4,27.322,false],
  ['Fobos','mars',9376,1.0659e16,11.267,.3189,true],['Deimos','mars',23463,1.4762e15,6.2,1.263,true],
  ['Io','jupiter',421700,8.932e22,1821.6,1.769,false],['Europa','jupiter',671034,4.8e22,1560.8,3.551,false],['Ganimedes','jupiter',1070412,1.4819e23,2634.1,7.155,false],['Kallisto','jupiter',1882709,1.0759e23,2410.3,16.689,false],
- ['Mimas','saturn',185539,3.75e19,198.2,.942,false],['Enceladus','saturn',238042,1.08e20,252.1,1.37,false],['Tetyda','saturn',294672,6.175e20,531.1,1.888,false],['Dione','saturn',377415,1.095e21,561.4,2.737,false],['Rea','saturn',527068,2.307e21,763.8,4.518,false],['Tytan','saturn',1221870,1.3452e23,2574.7,15.945,false],['Japet','saturn',3560820,1.8056e21,734.5,79.321,false],['Hyperion','saturn',1481000,5.6e18,135,21.277,true],
+ ['Mimas','saturn',185539,3.75e19,198.2,.942,false],['Enceladus','saturn',238042,1.08e20,252.1,1.37,false],['Tetyda','saturn',294672,6.175e20,531.1,1.888,false],['Dione','saturn',377415,1.095e21,561.4,2.737,false],['Rea','saturn',527068,2.307e21,763.8,4.518,false],['Tytan','saturn',1221870,1.3452e23,2574.7,15.945,false],['Japet','saturn',3560820,1.8056e21,734.5,79.321,false],['Hyperion','saturn',1481000,5.6e18,135,21.277,true,13*24],
  ['Miranda','uranus',129390,6.59e19,235.8,1.413,false],['Ariel','uranus',190900,1.353e21,578.9,2.52,false],['Umbriel','uranus',266000,1.172e21,584.7,4.144,false],['Tytania','uranus',436300,3.527e21,788.9,8.706,false],['Oberon','uranus',583500,3.014e21,761.4,13.463,false],
  ['Tryton','neptune',354759,2.139e22,1353.4,-5.877,false],['Proteusz','neptune',117647,4.4e19,210,1.122,true],['Nereida','neptune',5513400,3.1e19,170,360.13,true]
 ];
@@ -35,10 +35,10 @@ export function initialSystem(date=new Date()){
   const state=planetState(key,date);
   result.push(body({name,key,a,e,mass,radius,spin,tilt,color,p:toSceneFrame(state.p),v:toSceneFrame(state.v)}));
  }
- moons.forEach(([name,parent,dist,kg,radius,days,irregular],i)=>{
+ moons.forEach(([name,parent,dist,kg,radius,days,irregular,rotationHours],i)=>{
   const host=result.find(b=>b.key===parent),r=dist/AU,t=i*2.399,speed=Math.sqrt(G*host.mass/r)*Math.sign(days),incl=parent==='uranus'?1.706:parent==='neptune'?-0.41:.08;
   const off=[r*Math.cos(t),r*Math.sin(t)*Math.sin(incl),r*Math.sin(t)*Math.cos(incl)];
-  result.push(body({name,key:'moon',parent:host.id,mass:kg/SOLAR_MASS,radius,spin:days*24,tilt:incl*180/Math.PI,irregular,color:name==='Io'?'#d8c67d':name==='Tytan'?'#d6a668':'#b8b8b6',p:host.p.map((x,k)=>x+off[k]),v:host.v.map((x,k)=>x+[-speed*Math.sin(t),speed*Math.cos(t)*Math.sin(incl),speed*Math.cos(t)*Math.cos(incl)][k])}));
+  result.push(body({name,key:'moon',parent:host.id,mass:kg/SOLAR_MASS,radius,spin:rotationHours??days*24,tilt:incl*180/Math.PI,irregular,color:name==='Io'?'#d8c67d':name==='Tytan'?'#d6a668':'#b8b8b6',p:host.p.map((x,k)=>x+off[k]),v:host.v.map((x,k)=>x+[-speed*Math.sin(t),speed*Math.cos(t)*Math.sin(incl),speed*Math.cos(t)*Math.cos(incl)][k])}));
  });
  const total=result.reduce((s,b)=>s+b.mass,0),com=[0,0,0],mom=[0,0,0];result.forEach(b=>b.p.forEach((x,k)=>{com[k]+=x*b.mass/total;mom[k]+=b.v[k]*b.mass/total}));result.forEach(b=>b.p.forEach((_,k)=>{b.p[k]-=com[k];b.v[k]-=mom[k]}));return result;
 }
