@@ -61,5 +61,8 @@ export function createBlackHoleVisual(){
 export function accretionStateFor(absorber,absorbed){
  const gas=absorbed.gas||['sun','jupiter','saturn','uranus','neptune'].includes(absorbed.key);
  const fuel=Math.min(1,.34+(gas?.46:.16)+Math.log10(1+absorbed.mass/Math.max(absorber.mass,1e-30))*2);
- return {fuel:Math.max(.12,fuel),jets:gas&&absorber.mass>=1e5&&Math.abs(absorber.spin)<=48,age:0};
+ // Relativistic jets are observed from stellar-mass X-ray binaries as well as
+ // galactic nuclei.  Fuel and a rotating accretor are the visual condition;
+ // mass alone cannot distinguish a jet-capable black hole.
+ return {fuel:Math.max(.12,fuel),jets:gas&&Number.isFinite(absorber.spin),age:0};
 }

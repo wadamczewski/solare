@@ -4,9 +4,11 @@ import {accretionStateFor,createBlackHoleVisual} from '../src/black-hole.js';
 import {blackHoleScreenRadius} from '../src/black-hole-lensing.js';
 import {tidalRadiusAU,tidalStretch} from '../src/tidal-disruption.js';
 
-test('accreting supermassive black holes only form jets with gaseous fuel',()=>{
- const hole={mass:1e6,spin:24},sun={mass:1,key:'sun',gas:true},rock={mass:1e-6,key:'earth'};
- assert.equal(accretionStateFor(hole,sun).jets,true);assert.equal(accretionStateFor(hole,rock).jets,false);
+test('gaseous accretion can form jets around stellar and supermassive black holes',()=>{
+ const supermassive={mass:1e6,spin:24},stellar={mass:21,spin:24},sun={mass:1,key:'sun',gas:true},rock={mass:1e-6,key:'earth'};
+ assert.equal(accretionStateFor(supermassive,sun).jets,true);
+ assert.equal(accretionStateFor(stellar,sun).jets,true);
+ assert.equal(accretionStateFor(stellar,rock).jets,false);
 });
 test('tidal stretch grows toward the disruption radius',()=>{
  const target={key:'earth',mass:3e-6,radius:6371},hole={mass:1e6};const r=tidalRadiusAU(target,hole);
