@@ -150,3 +150,13 @@ rows.push(
  ['Model Schwarzschilda bez obrotu: obraz jest edukacyjną aproksymacją geodezyjnych światła, nie pełnym ray tracingiem ogólnej teorii względności.','Non-rotating Schwarzschild model: this image is an educational approximation of light geodesics, not full general-relativistic ray tracing.','Nicht rotierendes Schwarzschild-Modell: Das Bild ist eine didaktische Näherung der Lichtgeodäten, kein vollständiges Raytracing der allgemeinen Relativitätstheorie.','Modelo de Schwarzschild sin rotación: la imagen es una aproximación educativa de las geodésicas de la luz, no un trazado de rayos completo de relatividad general.']
  ,['1 s / s','1 s / s','1 s / s','1 s / s'],['1 min / s','1 min / s','1 Min / s','1 min / s']
 );
+rows.push(
+ ['Sterowanie swobodnym lotem','Free-flight controls','Steuerung des freien Flugs','Controles de vuelo libre'],
+ ['Swobodny lot','Free flight','Freier Flug','Vuelo libre'],
+ ['WASD · ruch','WASD · move','WASD · Bewegung','WASD · movimiento'],
+ ['Q / E · dół / góra','Q / E · down / up','Q / E · runter / hoch','Q / E · abajo / arriba'],
+ ['Shift · szybciej','Shift · faster','Shift · schneller','Mayús · más rápido'],
+ ['Mysz · rozglądanie','Mouse · look around','Maus · umsehen','Ratón · mirar alrededor'],
+ ['Prawy przycisk lub WASD aktywuje mysz','Right mouse button or WASD activates mouse look','Rechte Maustaste oder WASD aktiviert die Maussteuerung','El botón derecho o WASD activa la vista con ratón'],
+ ['Escape · zwolnij mysz','Escape · release mouse','Escape · Maus freigeben','Escape · liberar ratón']
+);

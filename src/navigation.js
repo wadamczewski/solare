@@ -37,7 +37,7 @@ export function createNavigation({camera,controls,element,blocked,onMove,pace}){
  // PointerEvent handler above for the unlocked right-button fallback.
  document.addEventListener('mousemove',e=>{if(pointerLocked)steer(e)},true);
  for(const event of ['pointerup','pointercancel','lostpointercapture'])element.addEventListener(event,e=>{if(!pointerLocked&&looking&&e.pointerId===pointerId){e.stopImmediatePropagation();release()}},true);
- return {reset:release,update(dt){
+ return {reset:release,active:()=>looking||pointerLocked||[...keys].some(key=>movement.has(key)),update(dt){
   if(blocked()){release();return}if(![...keys].some(k=>movement.has(k)))return;
   onMove();camera.getWorldDirection(direction);right.setFromMatrixColumn(camera.matrixWorld,0);up.setFromMatrixColumn(camera.matrixWorld,1);
   offset.set(0,0,0).addScaledVector(direction,Number(keys.has('KeyW'))-Number(keys.has('KeyS'))).addScaledVector(right,Number(keys.has('KeyD'))-Number(keys.has('KeyA'))).addScaledVector(up,Number(keys.has('KeyE'))-Number(keys.has('KeyQ')));
