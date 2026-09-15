@@ -97,6 +97,7 @@ body.in-star-system #solar-control > label[for='central-star'] { display: none; 
 #surface-view .surface-row input[type='range'] { width: 100%; margin: 0; accent-color: #e9f5ff; cursor: pointer; }
 #surface-view .surface-row output { color: #fff; text-align: right; font-variant-numeric: tabular-nums; }
 #surface-view .surface-note { margin: 10px 0 0; font-size: 10px; line-height: 1.45; }
+#surface-view .surface-location { margin: 8px 0 0; font-size: 10px; line-height: 1.4; color: #bfd7ee; font-variant-numeric: tabular-nums; }
 #surface-view .surface-objects { margin-top: 11px; padding-top: 9px; border-top: 1px solid #ffffff14; }
 #surface-view .surface-object { display: flex; justify-content: space-between; gap: 10px; padding: 3px 0; }
 #surface-view .surface-object-name { color: #dbe6f4; }

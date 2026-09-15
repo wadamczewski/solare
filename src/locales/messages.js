@@ -160,3 +160,9 @@ rows.push(
  ['Prawy przycisk lub WASD aktywuje mysz','Right mouse button or WASD activates mouse look','Rechte Maustaste oder WASD aktiviert die Maussteuerung','El botón derecho o WASD activa la vista con ratón'],
  ['Escape · zwolnij mysz','Escape · release mouse','Escape · Maus freigeben','Escape · liberar ratón']
 );
+rows.push(
+ ['Lokalizacja urządzenia','Device location','Gerätestandort','Ubicación del dispositivo'],
+ ['Pobieranie lokalizacji urządzenia…','Getting device location…','Gerätestandort wird ermittelt…','Obteniendo la ubicación del dispositivo…'],
+ ['Lokalizacja urządzenia niedostępna','Device location unavailable','Gerätestandort nicht verfügbar','Ubicación del dispositivo no disponible'],
+ ['czas lokalny','local time','Ortszeit','hora local']
+);

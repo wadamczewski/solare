@@ -25,6 +25,7 @@ import {fastStepSize,splitStep} from './fast-step.js';
 import {STAR_SYSTEMS,orbitSpanAU,systemBodies,systemNote} from './star-systems.js';
 import {systemBodyKey,systemBodyRadius,systemCameraDistance,systemDrawnExtent,systemLayout,systemMaxDistance} from './system-view.js';
 import {angularDiameter,horizontal,rotatingBodies,skyObjects,surfaceFrame,synchronousFrame} from './surface-frame.js';
+import {earthObserverCoordinates,isEarthSurface} from './surface-observer.js';
 import {moonIllumination,moonPhaseName} from './lunar-theory.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -126,8 +127,15 @@ centralStarInput.onchange=event=>replaceCentralStar(event.target.value);
 const clock=document.createElement('div');clock.id='sim-clock';clock.setAttribute('role','status');clock.setAttribute('aria-live','off');
 clock.innerHTML='<span id="sim-date"></span><span class="clock-dash">-</span><span id="sim-time"></span><span class="clock-zone">UTC</span>';
 document.body.append(clock);
-let dateFormat=new Intl.DateTimeFormat(getLocale(),{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
-let timeFormat=new Intl.DateTimeFormat(getLocale(),{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'UTC'});
+let dateFormat, timeFormat, localDateFormat, localTimeFormat;
+function refreshClockFormats(){
+ const locale=getLocale();
+ dateFormat=new Intl.DateTimeFormat(locale,{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});
+ timeFormat=new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'UTC'});
+ localDateFormat=new Intl.DateTimeFormat(locale,{day:'numeric',month:'long',year:'numeric'});
+ localTimeFormat=new Intl.DateTimeFormat(locale,{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false});
+}
+refreshClockFormats();
 let clockShown='';
 function simulatedDate(){return new Date(epoch.getTime()+elapsed*86400000)}
 function updateClock(){
@@ -135,12 +143,15 @@ function updateClock(){
  const at=simulatedDate();
  if(!Number.isFinite(at.getTime())){clock.hidden=true;return}
  clock.hidden=false;
- const stamp=dateFormat.format(at)+'|'+timeFormat.format(at);
+ const deviceLocalTime=surfaceView?.deviceLocalTime===true;
+ const zone=deviceLocalTime?translate('czas lokalny'):'UTC';
+ const stamp=(deviceLocalTime?localDateFormat:dateFormat).format(at)+'|'+(deviceLocalTime?localTimeFormat:timeFormat).format(at)+'|'+zone;
  if(stamp===clockShown)return;
  clockShown=stamp;
- const [date,time]=stamp.split('|');
+ const [date,time,clockZone]=stamp.split('|');
  document.querySelector('#sim-date').textContent=date;
  document.querySelector('#sim-time').textContent=time;
+ document.querySelector('.clock-zone').textContent=clockZone;
 }
 document.querySelector('#dock-pause').onclick=()=>setPaused(!paused);
 function setSimulationSpeed(nextRate){const next=changeSimulationRate(speed,lag,nextRate);speed=next.speed;lag=next.pendingDays;last=performance.now();}
@@ -526,23 +537,45 @@ function startSurfaceView(bodyId){
  if(lightFlight)stopLightFlight();
  stopSolarDeath();
  if(!surfaceView)surfaceReturn={compressed,camera:camera.position.clone(),target:controls.target.clone(),fov:camera.fov,follow,speed};
- surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start};
+ surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null};
+ if(isEarthSurface(body))beginEarthSurfaceContext();
  aimAtSomethingWorthSeeing(body);
  follow=null;selected=null;closePanel();
  compressed=false;controls.maxDistance=maxViewDistance(false);controls.enabled=false;
  speed=REAL_TIME;lag=0;last=performance.now();
  document.body.classList.add('on-a-surface');
  clearTrails();updateOrbits();surfaceHud.hidden=false;buildSurfaceHud();updateSurfaceView();
+ if(isEarthSurface(body))requestEarthObserverLocation();
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
- const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;
+ const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
  document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;releaseSurfaceOrientation();
  controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
  if(previous){compressed=previous.compressed;follow=previous.follow;speed=previous.speed??2;lag=0;last=performance.now();
   controls.maxDistance=maxViewDistance(compressed);controls.enableDamping=false;
   camera.position.copy(previous.camera);controls.target.copy(previous.target);controls.update();controls.enableDamping=true;}
  clearTrails();updateOrbits();
+}
+// An Earth surface session starts at the user's present instant. The physics
+// sandbox stays intact, while the local horizon, Moon phase and displayed
+// clock all begin at the same moment as the device clock.
+function beginEarthSurfaceContext(){
+ epoch=new Date();elapsed=0;lag=0;last=performance.now();clockShown='';
+}
+function requestEarthObserverLocation(){
+ if(!surfaceView||surfaceView.key!=='earth')return;
+ if(!navigator.geolocation){surfaceView.locationState='unavailable';paintEarthLocation();return}
+ navigator.geolocation.getCurrentPosition(position=>{
+  if(!surfaceView||surfaceView.key!=='earth')return;
+  const point=earthObserverCoordinates(position.coords);
+  if(!point){surfaceView.locationState='unavailable';paintEarthLocation();return}
+  surfaceView.latitude=point.latitude;surfaceView.longitude=point.longitude;surfaceView.locationAccuracy=point.accuracy;surfaceView.locationState='granted';
+  const body=surfaceBody();aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();
+ },()=>{
+  if(!surfaceView||surfaceView.key!=='earth')return;
+  surfaceView.locationState='unavailable';paintEarthLocation();
+ },{enableHighAccuracy:false,maximumAge:300000,timeout:10000});
 }
 // Direction of gaze in the local frame, from the azimuth and altitude the
 // viewer has turned to.
@@ -651,19 +684,32 @@ function layoutSurfaceHud(){
 function buildSurfaceHud(){
  const options=surfaceCandidates().map(b=>`<option value="${b.id}"${b.id===surfaceView.bodyId?' selected':''}>${b.name}</option>`).join('');
  const tabulated=!!surfaceRotationKey(bs.find(b=>b.id===surfaceView.bodyId)||{});
- surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="1" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="1" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p><div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
+ const earthLocation=surfaceView.key==='earth'?'<p id="surface-location" class="muted surface-location"></p>':'';
+ surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="1" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="1" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}<div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;surfaceView.bodyId=id;
-  surfaceView.key=bs.find(b=>b.id===id)?.key;releaseSurfaceOrientation();aimAtSomethingWorthSeeing(bs.find(b=>b.id===id));buildSurfaceHud();updateSurfaceView();};
+  const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;
+  if(isEarthSurface(body))beginEarthSurfaceContext();else clockShown='';
+  releaseSurfaceOrientation();aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
  document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;updateSurfaceView()};
  document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;updateSurfaceView()};
  requestAnimationFrame(layoutSurfaceHud);
+}
+function paintEarthLocation(){
+ const location=document.querySelector('#surface-location');if(!location||!surfaceView)return;
+ if(surfaceView.locationState==='granted'){
+  const point=`${formatNumber(surfaceView.latitude,4)}°, ${formatNumber(surfaceView.longitude,4)}°`;
+  const accuracy=surfaceView.locationAccuracy==null?'':` · ±${formatNumber(surfaceView.locationAccuracy,0)} m`;
+  location.textContent=`${translate('Lokalizacja urządzenia')}: ${point}${accuracy}`;
+ }else if(surfaceView.locationState==='requesting')location.textContent=translate('Pobieranie lokalizacji urządzenia…');
+ else if(surfaceView.locationState==='unavailable')location.textContent=translate('Lokalizacja urządzenia niedostępna');
 }
 const compass=azimuth=>{const names=['N','NE','E','SE','S','SW','W','NW'];return names[Math.round(((azimuth%360)+360)%360/45)%8]};
 function paintSurfaceHud(body,frame){
  document.querySelector('#surface-title').textContent=body.name;
  document.querySelector('#surface-latitude-value').textContent=`${formatNumber(surfaceView.latitude,0)}°`;
  document.querySelector('#surface-longitude-value').textContent=`${formatNumber(surfaceView.longitude,0)}°`;
+ paintEarthLocation();
  const above=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).filter(item=>item.altitude>-1);
  const host=bs.find(b=>b.id===body.parent);
  const rows=above.slice(0,7).map(item=>{
@@ -952,7 +998,7 @@ function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed
  selection.visible=!!selected;const chosen=bs.find(x=>x.id===selected);if(chosen){selection.position.copy(displayed(chosen));selection.scale.setScalar(radius(chosen));selection.quaternion.copy(camera.quaternion)}
  asteroidBelt.mesh.visible=!systemMode&&!blackHoleFall;if(frame%3===0&&!systemMode)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight||blackHoleFall?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden&&(frame&1)===0){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}syncTimeDock();if(solarDeath)updateSolarDeath(now);if(blackHoleFall)updateBlackHoleFall(now);else if(surfaceView)updateSurfaceView(frame);else if(lightFlight)updateLightFlight(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}freeFlightHelp.hidden=!!(lightFlight||surfaceView||solarDeath||blackHoleFall||!navigation.active());camera.updateMatrixWorld();if((frame&1)===0)updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}if(blackHoleLensing.enabled)updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);if(blackHoleFall){const hole=bs.find(b=>b.id===blackHoleFall.holeId),projected=hole?displayed(hole).project(camera):new THREE.Vector3();updateBlackHoleFallPass(blackHoleFallPass,blackHoleFallState(blackHoleFall.seconds(now),hole?.mass),new THREE.Vector2(projected.x*.5+.5,projected.y*.5+.5))}else updateBlackHoleFallPass(blackHoleFallPass,null,new THREE.Vector2(.5,.5));for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect)}else composer.render();frame++}
 installLanguageUI();
-document.addEventListener('languagechange',()=>{dateFormat=new Intl.DateTimeFormat(getLocale(),{day:'numeric',month:'long',year:'numeric',timeZone:'UTC'});timeFormat=new Intl.DateTimeFormat(getLocale(),{hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false,timeZone:'UTC'});clockShown='';updateClock();layoutRail();if(!panel.hidden&&selected)showBody()});
+document.addEventListener('languagechange',()=>{refreshClockFormats();clockShown='';updateClock();layoutRail();if(surfaceView)buildSurfaceHud();if(!panel.hidden&&selected)showBody()});
 requestAnimationFrame(animate);
 // Exposed only as an explicit automation surface; no network or persistence.
 window.solare={
