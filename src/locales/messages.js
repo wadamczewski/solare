@@ -133,3 +133,18 @@ rows.push(
  ,['Kurs kolizyjny','Collision course','Kollisionskurs','Curso de colisión'],['Ustaw scenariusz zderzenia','Set up an impact scenario','Einschlagszenario einrichten','Configurar un escenario de impacto'],['Prędkość zderzenia · km/s','Impact speed · km/s','Einschlaggeschwindigkeit · km/s','Velocidad de impacto · km/s'],['Scenariusz','Scenario','Szenario','Escenario'],['Pole magnetyczne · T','Magnetic field · T','Magnetfeld · T','Campo magnético · T'],['Dodatkowe opcje','More options','Weitere Optionen','Más opciones']
  ,['Otwórz bibliotekę układów gwiazdowych','Open the star-system library','Bibliothek der Sternsysteme öffnen','Abrir la biblioteca de sistemas estelares']
 );
+rows.push(
+ ['Wpadanie','Falling in','Hineinsturz','Caída'],
+ ['Uruchom symulację wpadania do czarnej dziury','Start a black-hole fall simulation','Simulation eines Falls in ein Schwarzes Loch starten','Iniciar una simulación de caída a un agujero negro'],
+ ['Zakończ wpadanie','End fall','Fall beenden','Terminar caída'],
+ ['Swobodny spadek','Free fall','Freier Fall','Caída libre'],
+ ['Zbliżanie do horyzontu','Approaching the horizon','Annäherung an den Horizont','Acercamiento al horizonte'],
+ ['Po horyzoncie zdarzeń','Beyond the event horizon','Hinter dem Ereignishorizont','Más allá del horizonte de sucesos'],
+ ['Czas własny','Proper time','Eigenzeit','Tiempo propio'],
+ ['Promień radialny','Radial radius','Radialer Radius','Radio radial'],
+ ['Przesunięcie ku czerwieni','Redshift','Rotverschiebung','Corrimiento al rojo'],
+ ['Widoczność kosmosu','Visible sky','Sichtbarer Kosmos','Cosmos visible'],
+ ['W lokalnej perspektywie nie ma ściany na horyzoncie: kierunki prowadzące do zewnętrznego kosmosu kurczą się wraz z dalszym spadaniem.','In the local view there is no wall at the horizon: directions leading to the outside universe contract as the fall continues.','In der lokalen Perspektive gibt es keine Wand am Horizont: Richtungen zum äußeren Universum ziehen sich mit dem weiteren Fall zusammen.','En la perspectiva local no hay pared en el horizonte: las direcciones hacia el universo exterior se contraen mientras continúa la caída.'],
+ ['Soczewkowanie oraz czerwienienie dotyczą światła dochodzącego z zewnątrz; czas własny obserwatora biegnie normalnie.','Lensing and reddening affect incoming exterior light; the observer’s proper time proceeds normally.','Linseneffekt und Rotverschiebung betreffen einfallendes äußeres Licht; die Eigenzeit des Beobachters läuft normal weiter.','El lente gravitatorio y el enrojecimiento afectan a la luz exterior entrante; el tiempo propio del observador transcurre normalmente.'],
+ ['Model Schwarzschilda bez obrotu: obraz jest edukacyjną aproksymacją geodezyjnych światła, nie pełnym ray tracingiem ogólnej teorii względności.','Non-rotating Schwarzschild model: this image is an educational approximation of light geodesics, not full general-relativistic ray tracing.','Nicht rotierendes Schwarzschild-Modell: Das Bild ist eine didaktische Näherung der Lichtgeodäten, kein vollständiges Raytracing der allgemeinen Relativitätstheorie.','Modelo de Schwarzschild sin rotación: la imagen es una aproximación educativa de las geodésicas de la luz, no un trazado de rayos completo de relatividad general.']
+);
