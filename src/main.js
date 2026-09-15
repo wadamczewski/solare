@@ -26,6 +26,7 @@ import {STAR_SYSTEMS,orbitSpanAU,systemBodies,systemNote} from './star-systems.j
 import {systemBodyKey,systemBodyRadius,systemCameraDistance,systemDrawnExtent,systemLayout,systemMaxDistance} from './system-view.js';
 import {angularDiameter,horizontal,rotatingBodies,skyObjects,surfaceFrame,synchronousFrame} from './surface-frame.js';
 import {earthObserverCoordinates,isEarthSurface} from './surface-observer.js';
+import {equirectangularSurfaceBasis} from './surface-texture-frame.js';
 import {moonIllumination,moonPhaseName} from './lunar-theory.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -83,7 +84,7 @@ const flightTextureKeys=new Set();
 // turned. The camera is driven directly while this is set, so the orbit
 // controls are switched off and the scale is forced to real - a horizon is
 // meaningless against radii that have been enlarged to be seen from outside.
-let surfaceView=null,surfaceReturn=null;
+let surfaceView=null,surfaceReturn=null,earthLocationWatch=null;
 const flightLabels=document.createElement("div");flightLabels.id="flight-labels";document.body.append(flightLabels);
 const flightHud=document.createElement('div');flightHud.id='light-flight';flightHud.hidden=true;document.body.append(flightHud);
 const deathHud=document.createElement('div');deathHud.id='solar-death';deathHud.hidden=true;document.body.append(deathHud);
@@ -549,6 +550,7 @@ function startSurfaceView(bodyId){
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
+ clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
  document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;releaseSurfaceOrientation();
  controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
@@ -563,19 +565,35 @@ function stopSurfaceView(){
 function beginEarthSurfaceContext(){
  epoch=new Date();elapsed=0;lag=0;last=performance.now();clockShown='';
 }
+function clearEarthObserverLocation(){
+ if(earthLocationWatch!==null&&navigator.geolocation)navigator.geolocation.clearWatch(earthLocationWatch);
+ earthLocationWatch=null;
+}
+function applyEarthObserverLocation(position){
+ if(!surfaceView||surfaceView.key!=='earth')return;
+ const point=earthObserverCoordinates(position.coords);
+ if(!point){surfaceView.locationState='unavailable';paintEarthLocation();return}
+ const firstLocation=surfaceView.locationState!=='granted';
+ surfaceView.latitude=point.latitude;surfaceView.longitude=point.longitude;surfaceView.locationAccuracy=point.accuracy;surfaceView.locationState='granted';
+ const latitudeInput=document.querySelector('#surface-latitude'),longitudeInput=document.querySelector('#surface-longitude');
+ if(latitudeInput)latitudeInput.value=String(point.latitude);
+ if(longitudeInput)longitudeInput.value=String(point.longitude);
+ if(firstLocation)aimAtSomethingWorthSeeing(surfaceBody());
+ updateSurfaceView();
+}
+function markEarthObserverLocationUnavailable(){
+ if(!surfaceView||surfaceView.key!=='earth')return;
+ surfaceView.locationState='unavailable';paintEarthLocation();
+}
 function requestEarthObserverLocation(){
  if(!surfaceView||surfaceView.key!=='earth')return;
- if(!navigator.geolocation){surfaceView.locationState='unavailable';paintEarthLocation();return}
- navigator.geolocation.getCurrentPosition(position=>{
-  if(!surfaceView||surfaceView.key!=='earth')return;
-  const point=earthObserverCoordinates(position.coords);
-  if(!point){surfaceView.locationState='unavailable';paintEarthLocation();return}
-  surfaceView.latitude=point.latitude;surfaceView.longitude=point.longitude;surfaceView.locationAccuracy=point.accuracy;surfaceView.locationState='granted';
-  const body=surfaceBody();aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();
- },()=>{
-  if(!surfaceView||surfaceView.key!=='earth')return;
-  surfaceView.locationState='unavailable';paintEarthLocation();
- },{enableHighAccuracy:false,maximumAge:300000,timeout:10000});
+ clearEarthObserverLocation();
+ if(!navigator.geolocation){markEarthObserverLocationUnavailable();return}
+ // A zero maximum age requests a new device fix every time Earth is opened.
+ // The watch then keeps sliders and the observer point in step if the device
+ // moves while its surface view stays open.
+ earthLocationWatch=navigator.geolocation.watchPosition(applyEarthObserverLocation,markEarthObserverLocationUnavailable,
+  {enableHighAccuracy:true,maximumAge:0,timeout:15000});
 }
 // Direction of gaze in the local frame, from the azimuth and altitude the
 // viewer has turned to.
@@ -622,15 +640,14 @@ function updateSurfaceView(tick=0){
 // from a composed phase, which has nothing to do with the measured prime
 // meridian: the camera stands still in space, correctly, while the ground
 // rotates underneath it and the landscape slides away. Three.js builds a
-// sphere with its poles on +y and the texture seam on -x, so the body-fixed
-// axes go in as the columns [-prime, pole, quarter], which is a proper
-// rotation because quarter is pole x prime.
+// sphere with its poles on +y and the texture seam on -x. A geographic map's
+// centre is local +x, therefore Greenwich must follow `prime`, and the map's
+// eastward direction (local -z) must follow `quarter`.
 const surfaceOrientation=new THREE.Matrix4();
 function orientSurfaceBody(body,horizon){
  const view=views.get(body.id);if(!view)return;
- const prime=new THREE.Vector3(...horizon.prime),pole=new THREE.Vector3(...horizon.pole);
- const quarter=new THREE.Vector3(...horizon.quarter);
- surfaceOrientation.makeBasis(prime.clone().negate(),pole,quarter);
+ const basis=equirectangularSurfaceBasis(horizon);
+ surfaceOrientation.makeBasis(new THREE.Vector3(...basis.x),new THREE.Vector3(...basis.y),new THREE.Vector3(...basis.z));
  view.axis.quaternion.setFromRotationMatrix(surfaceOrientation);
  view.axis.rotation.order='XYZ';
  view.mesh.rotation.set(0,0,0);
@@ -684,11 +701,12 @@ function layoutSurfaceHud(){
 function buildSurfaceHud(){
  const options=surfaceCandidates().map(b=>`<option value="${b.id}"${b.id===surfaceView.bodyId?' selected':''}>${b.name}</option>`).join('');
  const tabulated=!!surfaceRotationKey(bs.find(b=>b.id===surfaceView.bodyId)||{});
+ const coordinateStep=surfaceView.key==='earth'?'.0001':'1';
  const earthLocation=surfaceView.key==='earth'?'<p id="surface-location" class="muted surface-location"></p>':'';
- surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="1" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="1" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}<div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
+ surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}<div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;surfaceView.bodyId=id;
-  const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;
+  clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;
   if(isEarthSurface(body))beginEarthSurfaceContext();else clockShown='';
   releaseSurfaceOrientation();aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
  document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;updateSurfaceView()};
