@@ -30,9 +30,14 @@ const COS_E = Math.cos(OBLIQUITY), SIN_E = Math.sin(OBLIQUITY);
 // Equatorial J2000 RA/Dec (degrees) to a unit vector in the renderer's frame,
 // where the ecliptic lies in XZ and +Y is the ecliptic north pole.
 export function skyDirection(raDeg, decDeg) {
- const ra = raDeg * DEG, dec = decDeg * DEG;
- const cd = Math.cos(dec);
- const xe = cd * Math.cos(ra), ye = cd * Math.sin(ra), ze = Math.sin(dec);
+ const ra = raDeg * DEG, dec = decDeg * DEG, cd = Math.cos(dec);
+ return equatorialToScene([cd * Math.cos(ra), cd * Math.sin(ra), Math.sin(dec)]);
+}
+
+// The same rotation applied to a vector rather than to a pair of angles, for
+// callers that build a direction in equatorial coordinates themselves - a spin
+// axis, say, or a local horizon.
+export function equatorialToScene([xe, ye, ze]) {
  return [xe, -ye * SIN_E + ze * COS_E, ye * COS_E + ze * SIN_E];
 }
 
