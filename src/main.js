@@ -116,6 +116,7 @@ function replaceCentralStar(id){
  const sun=bs.find(body=>body.key==='sun');if(!sun||systemMode)return;
  const selectedSun=selected===sun.id,followSun=follow===sun.id,wasPanelVisible=!panel.hidden;
  applyCentralStarPreset(sun,starPreset(id),bs);disposeView(sun.id);addView(sun);clearTrails();updateOrbits();applySolarBrightness();centralStarInput.value=sun.starPresetId;
+ if(surfaceView)updateSurfaceView();
  if(followSun)focusBody(sun.id,{keepPanel:true});
  if(selectedSun&&wasPanelVisible){selected=sun.id;showBody()}
 }
@@ -231,7 +232,7 @@ function syncTimeDock(){const special=lightFlight||blackHoleFall;const state=`${
  // describe the Solar System seen from outside: none of them has a meaning
  // while a star system is loaded or the camera is standing on the ground.
  for(const id of ['dock-flight','dock-death','dock-black-hole'])document.querySelector('#'+id).disabled=!!systemMode||!!surfaceView;
- collisionCourseButton.disabled=!!systemMode||!!surfaceView;centralStarInput.disabled=!!systemMode||!!surfaceView;
+ collisionCourseButton.disabled=!!systemMode||!!surfaceView;centralStarInput.disabled=!!systemMode;
  document.querySelector('#systems').setAttribute('aria-pressed',String(!!systemMode));
  const surfaceButton=document.querySelector('#surface');
  surfaceButton.setAttribute('aria-pressed',String(!!surfaceView));surfaceButton.disabled=!!systemMode||!!lightFlight||!!blackHoleFall;document.querySelector('#dock-death').setAttribute('aria-pressed',String(!!solarDeath));document.body.classList.toggle('in-light-flight',!!lightFlight);document.body.classList.toggle('in-solar-death',!!solarDeath);document.body.classList.toggle('in-black-hole-fall',!!blackHoleFall);if(state===dockState)return;dockState=state;
@@ -637,6 +638,15 @@ function surfaceLookHandlers(element){
 }
 surfaceLookHandlers(renderer.domElement);
 const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';surfaceHud.hidden=true;document.body.append(surfaceHud);
+// Keep the horizon readout in the left column, directly after the controls
+// that open it.  Its height changes with the active locale and selected body,
+// so a fixed offset would either overlap the controls or waste usable space.
+function layoutSurfaceHud(){
+ if(innerWidth<=600){surfaceHud.style.removeProperty('--surface-view-top');return}
+ const controlsBox=solarControl.getBoundingClientRect();
+ const top=Math.min(Math.round(controlsBox.bottom+14),Math.max(88,innerHeight-196));
+ surfaceHud.style.setProperty('--surface-view-top',`${top}px`);
+}
 function buildSurfaceHud(){
  const options=surfaceCandidates().map(b=>`<option value="${b.id}"${b.id===surfaceView.bodyId?' selected':''}>${b.name}</option>`).join('');
  const tabulated=!!surfaceRotationKey(bs.find(b=>b.id===surfaceView.bodyId)||{});
@@ -646,6 +656,7 @@ function buildSurfaceHud(){
   surfaceView.key=bs.find(b=>b.id===id)?.key;releaseSurfaceOrientation();aimAtSomethingWorthSeeing(bs.find(b=>b.id===id));buildSurfaceHud();updateSurfaceView();};
  document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;updateSurfaceView()};
  document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;updateSurfaceView()};
+ requestAnimationFrame(layoutSurfaceHud);
 }
 const compass=azimuth=>{const names=['N','NE','E','SE','S','SW','W','NW'];return names[Math.round(((azimuth%360)+360)%360/45)%8]};
 function paintSurfaceHud(body,frame){
