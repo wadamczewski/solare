@@ -51,7 +51,8 @@ import {createAsteroidBelt} from './asteroid-belt.js';
 import {DEFAULT_IMPACT_SPEED_KMS,buildCustomScenario,clampImpactSpeed,collisionScenarios,collisionLaunchState,findScenarioTarget,scenarioCollisionReady,scenarioContactNormal,scenarioContactSpeed,scenarioVisualSeparation} from './collision-scenarios.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: lot i sterowanie myszą. Q/E: dół/góra. Shift: szybciej. Escape: zwolnij mysz i zamknij panel. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza.');
-const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(43,innerWidth/innerHeight,.0000001,2000);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.minDistance=.00001;controls.maxDistance=maxViewDistance(true);controls.zoomToCursor=true;controls.enablePan=true;controls.panSpeed=.7;
+const CAMERA_NEAR=.0000001;
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(43,innerWidth/innerHeight,CAMERA_NEAR,2000);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.minDistance=.00001;controls.maxDistance=maxViewDistance(true);controls.zoomToCursor=true;controls.enablePan=true;controls.panSpeed=.7;
 const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const SOLAR_BLOOM_STRENGTH=.65,SOLAR_LIGHT_INTENSITY=Math.PI;const solarBloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),SOLAR_BLOOM_STRENGTH,.45,2),blackHoleLensing=createBlackHoleLensingPass(ShaderPass),blackHoleFallPass=createBlackHoleFallPass(ShaderPass);composer.addPass(solarBloom);composer.addPass(blackHoleLensing);composer.addPass(blackHoleFallPass);composer.addPass(new OutputPass());
 const home=new THREE.Vector3(0,31,43).multiplyScalar(Math.max(1,1.15/(innerWidth/innerHeight)));camera.position.copy(home);controls.target.set(0,0,0);controls.update();const ambient=new THREE.AmbientLight('#ffffff',.035);const AMBIENT_BASE=.035;scene.add(ambient);const sunlight=new THREE.PointLight('#ffffff',SOLAR_LIGHT_INTENSITY,0,0);configureSolarShadow(sunlight,renderer);scene.add(sunlight);
 const preview=createBodyPreview(),impactEffects=createImpactEffects(scene),tidalStreams=createTidalStreams(scene),solarInterior=createSolarInterior();
@@ -320,7 +321,7 @@ const selection=new THREE.Mesh(new THREE.RingGeometry(1.25,1.263,100),new THREE.
 const orbitR=new THREE.Vector3(),orbitV=new THREE.Vector3(),orbitH=new THREE.Vector3(),orbitE=new THREE.Vector3(),orbitX=new THREE.Vector3(),orbitY=new THREE.Vector3(),orbitHostP=new THREE.Vector3(),orbitHostV=new THREE.Vector3(),orbitHostDisplay=new THREE.Vector3(),orbitPosition=new THREE.Vector3(),orbitDisplay=new THREE.Vector3();
 function updateOrbits(){
  if(systemMode){for(const v of views.values())v.orbit.visible=false;return}
- if(lightFlight){for(const v of views.values()){v.orbit.visible=false;v.trail.visible=false}return}
+ if(lightFlight||surfaceView){for(const v of views.values()){v.orbit.visible=false;v.trail.visible=false}return}
  for(const b of bs){const view=views.get(b.id),host=bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun');if(!host||host===b){view.orbit.visible=false;continue}
   orbitHostP.fromArray(host.p);orbitHostV.fromArray(host.v);orbitR.fromArray(b.p).sub(orbitHostP);orbitV.fromArray(b.v).sub(orbitHostV);
   const mu=G*(host.mass+b.mass);orbitH.crossVectors(orbitR,orbitV);orbitE.crossVectors(orbitV,orbitH).divideScalar(mu).sub(orbitX.copy(orbitR).normalize());
@@ -462,7 +463,13 @@ const SURFACE_TABULATED = new Set(rotatingBodies());
 // Hyperion tumbles chaotically and has no fixed face to stand on, which is the
 // one thing that would make a horizon meaningless there.
 const SURFACE_EXCLUDED = new Set(['Hyperion']);
-const SURFACE_EYE = 1.0008;               // the eye, a fraction of a radius up
+// The eye, as a fraction of a radius up. An irregular body is drawn as a
+// deformed icosahedron reaching half again its nominal radius in places, so an
+// observer placed a thousandth of a radius up on Phobos stands inside the mesh
+// and looks out through its culled back faces: the ground disappears and the
+// sky shows through the body. The lumpy ones get an eye outside that envelope.
+const SURFACE_EYE = 1.0008, SURFACE_EYE_IRREGULAR = 1.6;
+const surfaceEyeFactor = body => body.irregular ? SURFACE_EYE_IRREGULAR : SURFACE_EYE;
 const SURFACE_FOV = {min: 14, max: 100, start: 70};
 
 function surfaceCandidates(){
@@ -518,7 +525,7 @@ function stopSurfaceView(){
  if(!surfaceView)return;
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;
  document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;
- controls.enabled=true;camera.fov=previous?.fov??43;camera.updateProjectionMatrix();
+ controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
  if(previous){compressed=previous.compressed;follow=previous.follow;
   controls.maxDistance=maxViewDistance(compressed);controls.enableDamping=false;
   camera.position.copy(previous.camera);controls.target.copy(previous.target);controls.update();controls.enableDamping=true;}
@@ -538,8 +545,16 @@ function updateSurfaceView(tick=0){
  const horizon=surfaceFrameNow(body);if(!horizon){stopSurfaceView();return}
  surfaceView.horizon=horizon;
  const centre=displayed(body),up=new THREE.Vector3(...horizon.zenith);
- const eye=centre.clone().addScaledVector(up,radius(body)*SURFACE_EYE);
+ const height=radius(body)*(surfaceEyeFactor(body)-1);
+ const eye=centre.clone().addScaledVector(up,radius(body)*surfaceEyeFactor(body));
  camera.position.copy(eye);camera.up.copy(up);
+ // The near plane has to come down with the eye. It is a fixed distance for
+ // the rest of the application, and an observer on the ground stands a
+ // thousandth of a radius above it: on anything smaller than the Earth the
+ // ground falls behind that plane and is clipped away, so the view looks
+ // straight through the body at the sky on the other side. Phobos was the
+ // worst of them, standing 277 near-planes too low.
+ camera.near=Math.max(1e-12,height/20);
  camera.fov=surfaceView.fov;camera.updateProjectionMatrix();
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));
@@ -560,7 +575,7 @@ function surfaceEntries(body){
   ||other.parent===body.id||(body.parent&&other.parent===body.parent)))
   .map(other=>({id:other.id,name:other.name,key:other.key,position:other.p,radiusKm:other.radius}));
 }
-const surfaceEye=(body,horizon)=>body.p.map((value,axis)=>value+horizon.zenith[axis]*body.radius/AU);
+const surfaceEye=(body,horizon)=>body.p.map((value,axis)=>value+horizon.zenith[axis]*body.radius*surfaceEyeFactor(body)/AU);
 // Looking around from the ground. The orbit controls are disabled while a
 // surface view is up, so dragging turns the head instead of the system, and
 // the wheel changes the field of view the way a pair of binoculars would.
@@ -884,7 +899,7 @@ function handleCollisions(previous){const oldSelected=selected,oldFollow=follow,
  follow=followReplacement;}clearTrails();updateOrbits();if(selected&&wasPanelVisible)showBody();}
 function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed;const realDelta=Math.max(0,(now-last)/1000),delta=Math.min(realDelta,.05);last=now;if(!lightFlight&&!blackHoleFall&&!paused&&!document.hidden){lag+=realDelta*speed;let steps=0;const deadline=performance.now()+24;handleCollisions();while(lag>1e-12&&steps<4096){const previous=compressed&&!systemMode?captureCollisionView(bs,displayed,radius):null;const config=fastStepSize(bs),dt=Math.min(lag,config.dt);if(config.split)splitStep(bs,dt,config.states);else step(bs,dt);lag-=dt;elapsed+=dt;steps++;handleCollisions(previous);if(steps%8===0&&performance.now()>deadline)break}}
  const blackHoles=bs.filter(body=>body.key==='blackhole'),tidalFlows=[];let nextSolarInfall=0;
- for(const b of bs){const v=views.get(b.id);updateSurfaceImpact(v,elapsed-beforeElapsed);v.group.position.copy(displayed(b));const baseRadius=radius(b);v.mesh.scale.setScalar(baseRadius);let strongestTide=0;for(const hole of blackHoles)if(hole!==b){const distance=vector(b.p).distanceTo(vector(hole.p)),tide=tidalStretch(b,hole,distance),stream=tidalStreamStrength(b,hole,distance);strongestTide=Math.max(strongestTide,tide);if(stream>.012)tidalFlows.push({id:`${b.id}:${hole.id}`,start:v.group.position.clone(),end:views.get(hole.id).group.position.clone(),strength:stream,color:b.key==='sun'?'#fff1c2':b.color||'#d9b38a'})}if(strongestTide){v.mesh.scale.set(baseRadius*(1+strongestTide*3.5),baseRadius*(1-strongestTide*.34),baseRadius*(1-strongestTide*.34));if(b.key==='sun')nextSolarInfall=Math.max(nextSolarInfall,strongestTide)}if(v.blackHoleVisual){const accretion=b.accretion;if(accretion){accretion.age=(accretion.age||0)+delta;accretion.fuel=Math.max(0,accretion.fuel-delta*.018)}v.blackHoleVisual.update(now*.001,accretion?.fuel||0,!!accretion?.jets,camera)}if(v.neutronStarVisual)v.neutronStarVisual.update(now*.001);if((frame&3)===((Number(b.id)||0)&3))updateShapeLod(v,camera,innerHeight);v.axis.rotation.z=b.tilt*Math.PI/180;v.mesh.rotation.y=((elapsed+(lightFlight?lightFlight.seconds(now)/86400:0))*24/b.spin*Math.PI*2)%(Math.PI*2);if(v.halo){v.halo.quaternion.copy(camera.quaternion);v.halo.scale.setScalar(baseRadius/1.02)};if(frame%8===0&&!paused&&!lightFlight&&!blackHoleFall){v.history.push(v.group.position.clone());if(v.history.length>512)v.history.shift();const a=v.trail.geometry.attributes.position;v.history.forEach((p,i)=>a.setXYZ(i,p.x,p.y,p.z));a.needsUpdate=true;v.trail.geometry.setDrawRange(0,v.history.length);v.trail.visible=!b.parent;}}
+ for(const b of bs){const v=views.get(b.id);updateSurfaceImpact(v,elapsed-beforeElapsed);v.group.position.copy(displayed(b));const baseRadius=radius(b);v.mesh.scale.setScalar(baseRadius);let strongestTide=0;for(const hole of blackHoles)if(hole!==b){const distance=vector(b.p).distanceTo(vector(hole.p)),tide=tidalStretch(b,hole,distance),stream=tidalStreamStrength(b,hole,distance);strongestTide=Math.max(strongestTide,tide);if(stream>.012)tidalFlows.push({id:`${b.id}:${hole.id}`,start:v.group.position.clone(),end:views.get(hole.id).group.position.clone(),strength:stream,color:b.key==='sun'?'#fff1c2':b.color||'#d9b38a'})}if(strongestTide){v.mesh.scale.set(baseRadius*(1+strongestTide*3.5),baseRadius*(1-strongestTide*.34),baseRadius*(1-strongestTide*.34));if(b.key==='sun')nextSolarInfall=Math.max(nextSolarInfall,strongestTide)}if(v.blackHoleVisual){const accretion=b.accretion;if(accretion){accretion.age=(accretion.age||0)+delta;accretion.fuel=Math.max(0,accretion.fuel-delta*.018)}v.blackHoleVisual.update(now*.001,accretion?.fuel||0,!!accretion?.jets,camera)}if(v.neutronStarVisual)v.neutronStarVisual.update(now*.001);if((frame&3)===((Number(b.id)||0)&3))updateShapeLod(v,camera,innerHeight);v.axis.rotation.z=b.tilt*Math.PI/180;v.mesh.rotation.y=((elapsed+(lightFlight?lightFlight.seconds(now)/86400:0))*24/b.spin*Math.PI*2)%(Math.PI*2);if(v.halo){v.halo.quaternion.copy(camera.quaternion);v.halo.scale.setScalar(baseRadius/1.02)};if(frame%8===0&&!paused&&!lightFlight&&!blackHoleFall&&!surfaceView){v.history.push(v.group.position.clone());if(v.history.length>512)v.history.shift();const a=v.trail.geometry.attributes.position;v.history.forEach((p,i)=>a.setXYZ(i,p.x,p.y,p.z));a.needsUpdate=true;v.trail.geometry.setDrawRange(0,v.history.length);v.trail.visible=!b.parent;}}
  tidalStreams.update(blackHoleFall?[]:tidalFlows,now*.001);
  if(Math.abs(nextSolarInfall-solarInfall)>.002){solarInfall=nextSolarInfall;applySolarBrightness()}
  const sun=bs.find(b=>b.key==='sun');sunlight.visible=!!sun;solarBloom.enabled=!!sun;blackHoleLensing.enabled=blackHoles.length>0&&!blackHoleFall;blackHoleFallPass.enabled=!!blackHoleFall;if(sun)sunlight.position.copy(displayed(sun));if(follow){const b=bs.find(x=>x.id===follow);if(b){const p=displayed(b),offset=camera.position.clone().sub(controls.target);controls.target.copy(p);camera.position.copy(p).add(offset)}}
@@ -898,7 +913,11 @@ window.solare={
  // Where each body actually lands on screen and how large it is drawn, so a
  // headless run can check that a loaded system is framed and visible rather
  // than judging it from a screenshot.
- getView:()=>{camera.updateMatrixWorld();return {mode:systemMode?.id??null,compressed,fov:camera.fov,
+ getView:()=>{camera.updateMatrixWorld();return {mode:systemMode?.id??null,compressed,fov:camera.fov,near:camera.near,
+  surface:surfaceView?{body:surfaceView.name,latitude:surfaceView.latitude,longitude:surfaceView.longitude,
+   azimuth:surfaceView.azimuth,altitude:surfaceView.altitude}:null,
+  aim:(value)=>{if(!surfaceView)return null;surfaceView.altitude=Math.max(-89,Math.min(89,value.altitude??surfaceView.altitude));
+   surfaceView.azimuth=value.azimuth??surfaceView.azimuth;updateSurfaceView();return true},
   distance:camera.position.distanceTo(controls.target),
   bodies:bs.map(b=>{const p=displayed(b),screen=p.clone().project(camera),r=radius(b);
    return {name:b.name,key:b.key,x:(screen.x+1)*innerWidth/2,y:(1-screen.y)*innerHeight/2,
