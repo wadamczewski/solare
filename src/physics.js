@@ -1,5 +1,6 @@
 // AU, solar masses, days. G = Gaussian gravitational constant squared.
 import {planetState,toSceneFrame} from './ephemeris.js';
+import {earthMoonSplit} from './lunar-theory.js';
 import {centralStars} from './central-stars.js';
 export const G=0.0002959122082855911, AU=149597870.7, SOLAR_MASS=1.98847e30;
 // name, key, semi-major axis AU, eccentricity, inclination deg, mass M☉, radius km, rotation h, axial tilt deg, colour
@@ -26,17 +27,27 @@ let nextId=0;
 export function body(o){return {id:++nextId,p:[0,0,0],v:[0,0,0],mass:1,radius:1,spin:24,tilt:0,color:'#bab9b4',...o};}
 export const relativeVelocity=(body,reference)=>body.v.map((value,index)=>value-reference.v[index]);
 export const velocityKmPerSecond=velocity=>Math.hypot(...velocity)*AU/86400;
-// Planets are placed at their true heliocentric state for `date`; moons keep
-// composed phases (see moons table) because no satellite theory is modelled.
+// Planets are placed at their true heliocentric state for `date`. The Moon is
+// placed from a real theory (lunar-theory.js); every other satellite keeps a
+// composed phase (see moons table), because none of them has one.
 export function initialSystem(date=new Date()){
  const star=centralStars[0];
  const result=[body({...star,key:'sun',stellar:true,starPresetId:star.id,color:'#fff6ec'})];
+ let lunar=null;
  for(const [name,key,a,e,inc,mass,radius,spin,tilt,color] of planets){
-  const state=planetState(key,date);
+  let state=planetState(key,date);
+  // JPL's approximate elements are fitted to the Earth-Moon barycentre rather
+  // than to the Earth, and the Earth used to be placed there - 4671 km from
+  // where it is. Knowing where the Moon is lets the pair be split properly.
+  if(key==='earth'){const split=earthMoonSplit(state.p,state.v,date);state=split.earth;lunar=split.moon;}
   result.push(body({name,key,a,e,mass,radius,spin,tilt,color,p:toSceneFrame(state.p),v:toSceneFrame(state.v)}));
  }
  moons.forEach(([name,parent,dist,kg,radius,days,irregular,rotationHours],i)=>{
   const host=result.find(b=>b.key===parent),r=dist/AU,t=i*2.399,speed=Math.sqrt(G*host.mass/r)*Math.sign(days),incl=parent==='uranus'?1.706:parent==='neptune'?-0.41:.08;
+  if(parent==='earth'&&lunar){
+   result.push(body({name,key:'moon',parent:host.id,mass:kg/SOLAR_MASS,radius,spin:days*24,tilt:incl*180/Math.PI,irregular,color:'#b8b8b6',p:toSceneFrame(lunar.p),v:toSceneFrame(lunar.v)}));
+   return;
+  }
   const off=[r*Math.cos(t),r*Math.sin(t)*Math.sin(incl),r*Math.sin(t)*Math.cos(incl)];
   result.push(body({name,key:'moon',parent:host.id,mass:kg/SOLAR_MASS,radius,spin:rotationHours??days*24,tilt:incl*180/Math.PI,irregular,color:name==='Io'?'#d8c67d':name==='Tytan'?'#d6a668':'#b8b8b6',p:host.p.map((x,k)=>x+off[k]),v:host.v.map((x,k)=>x+[-speed*Math.sin(t),speed*Math.cos(t)*Math.sin(incl),speed*Math.cos(t)*Math.cos(incl)][k])}));
  });

@@ -25,9 +25,19 @@ Fizyka pracuje w AU, masach słonecznych i dniach, niezależnie od wizualnego po
 
 Po wczytaniu (oraz po Reset) planety stoją tam, gdzie faktycznie są w tym momencie. `src/ephemeris.js` liczy je z tabeli elementów keplerowskich i ich wiekowych tempo zmian, [JPL Solar System Dynamics](https://ssd.jpl.nasa.gov/planets/approx_pos.html), dopasowanie na lata 1800-2050. Rozwiązujemy równanie Keplera Newtonem, a prędkość bierzemy z ruchu średniego wynikającego z tabelarycznego tempa długości średniej, więc położenie i prędkość są wzajemnie spójne.
 
-Porównanie z niezależną biblioteką opartą na VSOP87 daje dla tej samej chwili różnice rzędu kilku do kilkudziesięciu sekund łuku dla planet wewnętrznych i do około 9 minut łuku dla Saturna - czyli dokładnie tyle, ile JPL deklaruje dla tego dopasowania. To nie jest pełna efemeryda pokroju DE440. Poza zakresem 1800-2050 elementy tracą ważność. Ziemia jest stawiana w barycentrum układu Ziemia-Księżyc (rozbieżność około 4700 km). Czas traktujemy jako UTC, bez poprawki TT (około 69 s).
+Porównanie z niezależną biblioteką opartą na VSOP87 daje dla tej samej chwili różnice rzędu kilku do kilkudziesięciu sekund łuku dla planet wewnętrznych i do około 9 minut łuku dla Saturna - czyli dokładnie tyle, ile JPL deklaruje dla tego dopasowania. To nie jest pełna efemeryda pokroju DE440. Poza zakresem 1800-2050 elementy tracą ważność. Czas na zegarze traktujemy jako UTC.
 
-Księżyce nie mają teorii ruchu: ich fazy początkowe pozostają skomponowane, a jedynie towarzyszą planetom na ich prawdziwych pozycjach. Zegar nad dolnym paskiem pokazuje moment symulacji; podczas lotu światła jest ukryty, bo całkowanie grawitacji jest wtedy wstrzymane.
+## Księżyc
+
+Księżyc jest jedynym satelitą z prawdziwą teorią ruchu. `src/lunar-theory.js` liczy jego pozycję ze skróconego szeregu ELP-2000/82 w wydaniu Meeusa (*Astronomical Algorithms*, rozdz. 47, tablice 47.A i 47.B): 60 wyrazów okresowych dla długości i odległości, 60 dla szerokości. Meeus podaje dokładność około 10″ w długości i 4″ w szerokości, czyli 20 i 8 km.
+
+Dwie poprawki, których reszta aplikacji nie potrzebuje, są tu konieczne, bo przy prędkości kątowej pół stopnia na godzinę przekraczają błąd samego szeregu: redukcja z średniego równika daty do J2000 (rozdz. 21; do 2026 roku to 0,36°, czyli 1400 km) oraz różnica między czasem dynamicznym a UTC (dziś około 69 s, czyli 38″).
+
+Sprawdzenie: przykład 47.a Meeusa odtwarzamy co do ostatniej publikowanej cyfry (λ = 133,162655°, β = −3,229126°, Δ = 368409,7 km). Wobec niezależnej implementacji zwalidowanej na efemerydach JPL największa rozbieżność na 120 próbkach z lat 1900-2050 to 16″, czyli 31 km. Miesiąc synodyczny wychodzi z samego szeregu jako 29,5306 dnia, choć nigdzie nie jest w nim zapisany.
+
+Dzięki temu Ziemia stoi tam, gdzie jest, a nie w barycentrum układu Ziemia-Księżyc: tablice JPL są dopasowane do barycentrum, a znajomość pozycji Księżyca pozwala rozdzielić parę i odsunąć Ziemię o należne 4671 km. Usuwa to około 19% średniego błędu pozycji Ziemi; reszta to błąd samego dopasowania JPL.
+
+Pozostałe księżyce nadal nie mają teorii ruchu: ich fazy początkowe są skomponowane, a jedynie towarzyszą planetom na ich prawdziwych pozycjach. Zegar nad dolnym paskiem pokazuje moment symulacji; podczas lotu światła jest ukryty, bo całkowanie grawitacji jest wtedy wstrzymane.
 
 To nie jest kompletna symulacja wszystkich rzeczywistych warunków. Brak OTW, pływów, ewolucji termicznej, deformacji, momentów sił, pełnej dynamiki osi oraz perturbacji relatywistycznych. Czarna dziura jest masą punktową z promieniem Schwarzschilda jako granicą pochłaniania; pierścień jest ilustracją, nie modelem akrecji ani soczewkowania. Orientacje obrotu mają zadany okres i nachylenie, nie ewoluują od momentów sił. Przy bardzo ekstremalnych masach dokładność jest ograniczona.
 
