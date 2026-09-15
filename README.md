@@ -17,6 +17,18 @@ Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` 
 - Spacja: pauza; A: dodawanie; R / Reset: pełne przywrócenie początkowego układu, ustawień i kamery; Escape: zamknięcie panelu.
 - „Zamień orbitę” przenosi także księżyce wraz z pozycją i prędkością ich planety.
 
+## Widok z powierzchni
+
+Przycisk pod przełącznikami nieba stawia kamerę na powierzchni wybranego ciała. Niebo jest prawdziwe: gwiazdy z katalogu, planety z efemerydy, Księżyc z własnej teorii, a horyzont z mierzonego bieguna i południka zerowego danego ciała.
+
+`src/surface-frame.js` bierze elementy obrotowe z raportu IAU WGCCRE (Archinal i in. 2018), z wyrazami libracyjnymi Księżyca — regresja jego węzła obraca biegunem po okręgu o promieniu 1,54°. Ziemia jest wyjątkiem: jej tablicowa stała południka zerowego odbiega o jedną piątą stopnia od czasu gwiazdowego, czyli o pięćdziesiąt sekund zegara, więc liczymy z GMST i precesujemy horyzont z równika daty do J2000.
+
+Sprawdzenie wobec astronomy-engine (walidowanej na JPL Horizons): 150 porównań gwiazd stałych z pięciu miejsc, pięciu dat i czterdziestu lat zgadza się do 9″, a sam zenit do 0,1′ względem wektora obserwatora. Tablicowe tempa obrotu odtwarzają doby gwiazdowe: 23h56m dla Ziemi, 24h37m dla Marsa, 9h55m dla Jowisza, 243 dni wstecz dla Wenus.
+
+Satelita zwrócony stale ku planecie nie ma własnego obrotu do stablicowania: jego biegun to normalna orbity, a południk zerowy leży pod planetą. Dzięki temu Jowisz wisi w zenicie Europy niezależnie od tego, co symulacja zrobiła z jej fazą orbitalną. Zmierzone rozmiary kątowe zgadzają się z rzeczywistymi: Jowisz z Europy 12°, z Io 19,2°, Saturn z Tytana 5,5°, Mars z Fobosa 42,4°, Ziemia z Księżyca 1,9°, Słońce z Ziemi 32,1′.
+
+Widok wymusza rzeczywistą skalę — powiększony promień wyniósłby oko obserwatora dziesiątki tysięcy kilometrów w górę i paralaksa wszystkiego w pobliżu byłaby fałszywa. Hyperion jest pominięty, bo koziołkuje chaotycznie i nie ma stałej strony, na której można stanąć.
+
 ## Model i granice dokładności
 
 Fizyka pracuje w AU, masach słonecznych i dniach, niezależnie od wizualnego powiększenia planet. Wszystkie 32 domyślne ciała (Słońce, osiem planet, 23 wybrane księżyce) i dodane obiekty wzajemnie oddziałują według grawitacji Newtona. Velocity Verlet z krokiem ograniczanym przez czas dynamiczny i zbliżenia. Kolizje przy rzeczywistych promieniach rozróżniają łączenie, wyrzut odłamków, rozbijające uderzenie, skośne zderzenie i pochłanianie. Masa i pęd liniowy są zachowane. Początkowy układ jest barycentryczny. Parametry planet bazują na tabelach JPL.

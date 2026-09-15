@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {angularDiameter, daysSinceJ2000, horizontal, poleAltitude, precessionMatrix, rotationState,
- rotatingBodies, siderealTime, surfaceFrame, synchronousFrame} from '../src/surface-frame.js';
+ rotatingBodies, siderealTime, skyObjects, surfaceFrame, synchronousFrame} from '../src/surface-frame.js';
 import {skyDirection} from '../src/sky.js';
 
 const at = iso => new Date(iso);
@@ -188,4 +188,35 @@ test('angular sizes are the ones people quote', () => {
  assert.ok(Math.abs(angularDiameter(11.267, 9376 - 3389.5) - .2157) < .01);
  assert.equal(angularDiameter(0, 1000), 0);
  assert.equal(angularDiameter(100, 50), 0);
+});
+
+test('what is above the horizon is sorted, sized and parallax-corrected', () => {
+ const AU = 149597870.7;
+ const frame = surfaceFrame('earth', 0, 0, at('2026-09-11T12:00:00Z'));
+ // Put three objects along the zenith, the horizon and below it.
+ const eye = [0, 0, 0];
+ const place = (direction, distanceAU) => direction.map(value => value * distanceAU);
+ const entries = [
+  {name: 'overhead', position: place(frame.zenith, .01), radiusKm: 1737.4},
+  {name: 'rising', position: place(frame.east, .01), radiusKm: 1737.4},
+  {name: 'set', position: place(frame.zenith.map(x => -x), .01), radiusKm: 1737.4}
+ ];
+ const seen = skyObjects(entries, eye, frame);
+ assert.deepEqual(seen.map(item => item.name), ['overhead', 'rising', 'set']);
+ assert.ok(Math.abs(seen[0].altitude - 90) < 1e-9);
+ assert.ok(Math.abs(seen[1].altitude) < 1e-9 && Math.abs(seen[1].azimuth - 90) < 1e-9);
+ assert.ok(seen[2].altitude < -89);
+ for (const item of seen) assert.ok(Math.abs(item.distanceKm - .01 * AU) < 1e-6);
+ assert.ok(Math.abs(seen[0].diameter - angularDiameter(1737.4, .01 * AU)) < 1e-12);
+
+ // Standing on the surface rather than at the centre is a real difference:
+ // the Moon shifts by up to a degree between the two, which is two of its own
+ // diameters, and it is why this takes an eye position at all.
+ const earthRadius = 6371 / AU;
+ const moon = {name: 'moon', position: place(frame.north, 384400 / AU), radiusKm: 1737.4};
+ const fromCentre = skyObjects([moon], [0, 0, 0], frame)[0];
+ const fromGround = skyObjects([moon], frame.zenith.map(value => value * earthRadius), frame)[0];
+ const shift = Math.abs(fromCentre.altitude - fromGround.altitude);
+ assert.ok(shift > .9 && shift < 1, `parallax came out as ${shift} degrees`);
+ assert.equal(skyObjects([], [0, 0, 0], frame).length, 0);
 });

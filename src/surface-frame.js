@@ -199,3 +199,21 @@ export function angularDiameter(radiusKm, distanceKm) {
 // Direction of the celestial pole as an altitude: the one number that says
 // where on the body you are standing, and equal to the latitude by definition.
 export const poleAltitude = frame => Math.asin(Math.max(-1, Math.min(1, dot(frame.pole, frame.zenith)))) / DEG;
+
+// What is above the horizon, seen from a point on a body.
+//
+// `entries` are the other bodies as the scene holds them - a name, a position
+// in scene AU and a physical radius in km - and `eye` is where the observer
+// stands, also in scene AU. Everything is geometry from there: the direction
+// is the real one, so the parallax of standing on the surface rather than at
+// the centre is included for free, which for the Moon seen from the Earth is
+// up to a degree.
+export function skyObjects(entries, eye, frame) {
+ const AU = 149597870.7;
+ return entries.map(item => {
+  const offset = item.position.map((value, axis) => value - eye[axis]);
+  const distanceKm = Math.hypot(...offset) * AU;
+  return {...item, ...horizontal(offset, frame), distanceKm,
+   diameter: angularDiameter(item.radiusKm, distanceKm)};
+ }).sort((one, two) => two.altitude - one.altitude);
+}

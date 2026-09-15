@@ -62,6 +62,10 @@ test('no Polish sentence is hardcoded into the interface without a translation',
  for (const match of source.matchAll(/(['"`])((?:(?!\1)[^\\]|\\.)*?)\1/g)) {
   const raw = match[2];
   if (!POLISH.test(raw) || raw.length < 12) continue;
+  // A quote character inside a template literal pairs with an unrelated one
+  // further down the file and swallows the code between them. An interface
+  // string is one line and carries no backtick, so those matches are not one.
+  if (raw.includes('\n') || raw.includes('`')) continue;
   if (NOT_INTERFACE_TEXT.some(allowed => raw.includes(allowed))) continue;
   // Strip interpolations and markup: what is left is what a viewer reads.
   const text = raw.replace(/\$\{[^}]*\}/g, '').replace(/<[^>]*>/g, ' ').trim();
