@@ -116,3 +116,16 @@ body.on-a-surface #solar-brightness { display: none; }
 /* A compact game-style legend appears only while the camera is being flown
    freely. It stays clear of the central time dock and never intercepts input. */
 #free-flight-help{position:fixed;z-index:4;left:46px;bottom:96px;width:254px;padding:13px 14px;background:rgba(7,11,24,.5);border:1px solid rgba(213,228,246,.2);border-radius:9px;backdrop-filter:blur(16px) saturate(130%);-webkit-backdrop-filter:blur(16px) saturate(130%);box-shadow:0 12px 36px rgba(0,0,0,.24);pointer-events:none;color:#c8d5e5;font-size:10px;line-height:1.45}.free-flight-title{display:block;margin-bottom:10px;color:#f0f6ff;font-size:11px;letter-spacing:.08em;text-transform:uppercase}.free-flight-layout{display:flex;align-items:center;gap:11px}.free-flight-keys{display:grid;grid-template-columns:repeat(3,22px);grid-template-rows:20px 20px;gap:3px;justify-content:center}.free-flight-keys kbd{display:flex;align-items:center;justify-content:center;border:1px solid #ffffff2b;border-bottom-color:#ffffff48;border-radius:4px;background:#ffffff0b;color:#edf5ff;font:600 9px/1 Arial,sans-serif}.free-flight-keys kbd:first-child{grid-column:2}.free-flight-list{display:grid;gap:3px;min-width:0}.free-flight-list span{white-space:nowrap;color:#aabbd0}@media(max-width:600px){#free-flight-help{left:14px;bottom:84px;width:218px;padding:10px 11px;font-size:9px}.free-flight-title{margin-bottom:7px;font-size:10px}.free-flight-layout{gap:8px}.free-flight-keys{grid-template-columns:repeat(3,19px);grid-template-rows:18px 18px;gap:2px}}
+
+/* Compact object knowledge card. Remote Wikimedia media is lazy-loaded after
+   the simulation itself, while local texture previews appear immediately. */
+.object-reference{margin:14px 0 4px;padding:11px;border-top:1px solid #ffffff14;border-bottom:1px solid #ffffff10;background:linear-gradient(90deg,#ffffff05,#ffffff02);border-radius:7px}
+.reference-eyebrow{margin:0 0 7px;font-size:10px;letter-spacing:.09em;text-transform:uppercase;color:#9dafc5}
+.reference-description{margin:0;color:#cbd7e7;font-size:11px;line-height:1.52}
+.reference-gallery{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:10px 0 9px;min-height:0;color:#8291a7;font-size:10px;line-height:1.4}
+.reference-gallery figure{margin:0;aspect-ratio:4/3;overflow:hidden;border:1px solid #ffffff14;border-radius:5px;background:#05070d}
+.reference-gallery img{display:block;width:100%;height:100%;object-fit:cover;transition:transform .25s ease}
+.reference-gallery figure:hover img{transform:scale(1.04)}
+.reference-wikipedia{display:inline-flex;align-items:center;min-height:26px;color:#b9d8f2;font-size:11px;text-decoration:none;border-bottom:1px solid #9fc5e855}
+.reference-wikipedia:hover{color:#f1f8ff;border-color:#dff1ff}
+@media(max-height:760px){.object-reference{margin-top:10px;padding:9px}.reference-gallery{margin:8px 0 7px;gap:5px}.reference-description{font-size:10px}}

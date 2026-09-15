@@ -20,6 +20,7 @@ import {bodyKind} from './body-search.js';
 import {constellationLabel,createSky,deepSkyKind,equatorialFromDirection} from './sky.js';
 import {constellationNote,deepSkyNote} from './sky-descriptions.js';
 import {formatAngularSize,formatDeclination,formatRightAscension} from './sky-detail.js';
+import {wikipediaReference,wikipediaSearchUrl,wikipediaTitle} from './wikipedia-reference.js';
 import {applyCometAppearance,cometNucleusGeometry,createCometTails} from './comet.js';
 import {fastStepSize,splitStep} from './fast-step.js';
 import {STAR_SYSTEMS,orbitSpanAU,systemBodies,systemNote} from './star-systems.js';
@@ -394,6 +395,34 @@ function updateTemperatureReadout(){
  if(!temperature){readout.hidden=true;return}
  readout.hidden=false;readout.querySelector('#temperature-lit').textContent=temperatureLabel(temperature.litC);readout.querySelector('#temperature-dark').textContent=temperatureLabel(temperature.darkC);
 }
+const standardTexturePaths={
+ mercury:'/textures/mercury.jpg',venus:'/textures/venus.webp',earth:'/textures/earth.webp',mars:'/textures/mars.webp',
+ jupiter:'/textures/jupiter.webp',saturn:'/textures/saturn.webp',uranus:'/textures/uranus.jpg',neptune:'/textures/neptune.webp'
+};
+function bodyReferenceImages(body){
+ const profile=moonAppearance[body.name],moonPath=profile&&moonMapPath(profile),texture=standardTexturePaths[body.textureKey||body.key];
+ const exoplanet=body.textureKey&&['proxima-centauri-b','trappist-1-e','51-pegasi-b','55-cancri-e'].includes(body.textureKey)?`/textures/exoplanets/${body.textureKey}.webp`:null;
+ return [moonPath,texture,exoplanet].filter(Boolean);
+}
+function mountWikipediaReference(subject,{description='',images=[]}={}){
+ const section=document.createElement('section'),eyebrow=document.createElement('p'),copy=document.createElement('p'),gallery=document.createElement('div'),link=document.createElement('a');
+ section.className='object-reference';section.dataset.noTranslate='true';
+ eyebrow.className='reference-eyebrow';eyebrow.textContent=translate('Opis i zdjęcia');
+ copy.className='reference-description';copy.textContent=description||translate('Ładowanie opisu i zdjęć…');
+ gallery.className='reference-gallery';gallery.setAttribute('aria-busy','true');
+ link.className='reference-wikipedia';link.target='_blank';link.rel='noopener noreferrer';link.href=wikipediaSearchUrl(wikipediaTitle(subject),getLanguage());link.textContent=translate('Wikipedia ↗');
+ section.append(eyebrow,copy,gallery,link);const beforeActions=panel.querySelector('.primary-actions');if(beforeActions)panel.insertBefore(section,beforeActions);else panel.append(section);
+ const renderGallery=sources=>{
+  const unique=[...new Set(sources.filter(Boolean))].slice(0,5);gallery.replaceChildren();gallery.setAttribute('aria-busy','false');
+  for(const source of unique){const figure=document.createElement('figure'),image=document.createElement('img');image.loading='lazy';image.decoding='async';image.src=source;image.alt=translate('Zdjęcie obiektu');image.onerror=()=>figure.remove();figure.append(image);gallery.append(figure)}
+  if(!unique.length){const unavailable=document.createElement('span');unavailable.textContent=translate('Zdjęcie Wikipedii niedostępne.');gallery.append(unavailable)}
+ };
+ wikipediaReference(subject,getLanguage()).then(reference=>{
+  if(!section.isConnected)return;
+  copy.textContent=description||reference.description||translate('Opis artykułu jest niedostępny.');
+  link.href=reference.url;renderGallery([...images,...reference.images]);
+ }).catch(()=>{if(!section.isConnected)return;renderGallery(images)});
+}
 function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const id=selected;stopLightFlight();selected=id}const b=bs.find(x=>x.id===selected);if(!b)return;requestDetailTexture(b);const velocity=b.v.map(x=>x*AU/86400),primary=b.key==='sun'?null:bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun'),orbitalVelocity=primary?relativeVelocity(b,primary):b.v,speedMagnitude=velocityKmPerSecond(orbitalVelocity),speedLabel=b.key==='sun'?'Prędkość barycentryczna · km/s':b.parent?'Prędkość względem planety · km/s':'Prędkość względem Słońca · km/s',magneticField=b.key==='neutron-star'?row('Pole magnetyczne · T',`<output class="value-readout">${formatNumber(b.magneticField,3)}</output>`):'',star=centralStarDetails(b),starRows=star?`${row('Typ widmowy',`<output class="value-readout">${star.spectralType}</output>`)}${row('Galaktyka',`<output class="value-readout">${star.galaxy}</output>`)}${row('Temperatura efektywna · K',`<output class="value-readout">${formatNumber(star.temperature,0)}</output>`)}${row('Ciepłota barwowa · K',`<output class="value-readout">${formatNumber(star.colorTemperature,0)}</output>`)}${row('Jasność · L☉',`<output class="value-readout">${formatNumber(star.luminosity,2)}</output>`)}`:'';shell(b.name,`${temperatureMarkup(b)}${starRows}${row('Masa · kg',num('mass',b.mass*SOLAR_MASS))}${row(b.key==='blackhole'?'Horyzont · km':'Promień · km',num('radius',b.radius))}${row(speedLabel,`<output class="value-readout">${formatNumber(speedMagnitude,3)}</output>`)}${magneticField}${primary?row('Punkt odniesienia',`<output class="value-readout">${primary.name}</output>`):''}${row('Obrót · godz.',num('spin',b.spin))}${row('Nachylenie osi · °',num('tilt',b.tilt))}${vecFields('p',b.p,'Położenie X / Y / Z · AU')}${vecFields('v',velocity,'Prędkość X / Y / Z · km/s')}<div class="actions primary-actions"><button class="action primary" id="apply">Zastosuj</button><button class="action" id="focus">Śledź</button></div><details class="advanced-fields"><summary>Dodatkowe opcje</summary>${row('Zamień orbitę',`<select id="swap"><option value="">Wybierz ciało</option>${bs.filter(x=>x.a&&x.id!==b.id).map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}</select>`)}<div class="actions"><button class="action" id="tools">Symulacja</button><button class="action danger" id="remove">Usuń</button></div></details><p class="muted" id="validation" role="status"></p>`);
  if(b.key==='blackhole'){const r=document.querySelector('#radius');r.setAttribute('aria-label','Horyzont · km');r.readOnly=true;document.querySelector('#mass').oninput=e=>r.value=horizonRadius(+e.target.value)}
  if(views.get(b.id)?.lastImpactAxis){const button=document.createElement('button');button.className='action';button.textContent='Pokaż miejsce uderzenia';button.onclick=()=>{focusBody(b.id);const view=views.get(b.id);view.mesh.updateWorldMatrix(true,false);const direction=view.lastImpactAxis.clone().applyQuaternion(view.mesh.getWorldQuaternion(new THREE.Quaternion()));camera.position.copy(displayed(b)).addScaledVector(direction,Math.max(radius(b)*4,controls.minDistance*2));controls.target.copy(displayed(b));controls.update()};panel.querySelector('.actions').append(button)}
@@ -401,6 +430,7 @@ function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const i
  if(b.textureKey){const note=document.createElement('p');note.className='muted appearance-note';note.textContent='Wizualizacja naukowa · tekstura symulowana';if(b.visualSource){const link=document.createElement('a');link.href=b.visualSource;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' · Materiały źródłowe ↗';note.append(link)}panel.querySelector('.panel-head').after(note)}
  const previewLighting=body=>{const sun=bs.find(candidate=>candidate.key==='sun');return {sunDirection:sun?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness}};const previewHost=document.createElement('div');previewHost.className='body-preview';panel.querySelector('.panel-head').prepend(previewHost);preview.attach(previewHost,b,views.get(b.id),previewLighting(b));
  if(star){const note=document.createElement('p');note.className='muted appearance-note';note.textContent=star.note||'';if(star.source){const link=document.createElement('a');link.href=star.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' · Źródło ↗';note.append(link)}panel.querySelector('.panel-head').after(note)}
+ const preset=catalog.find(item=>item.id===b.presetId||item.id===b.key);mountWikipediaReference({name:b.name,id:b.presetId||b.key},{description:translate(star?.note||b.note||preset?.note||''),images:bodyReferenceImages(b)});
  document.querySelector('#apply').onclick=()=>{const m=+document.querySelector('#mass').value,r=+document.querySelector('#radius').value,s=+document.querySelector('#spin').value,t=+document.querySelector('#tilt').value,p=getVec('p'),v=getVec('v');if(![m,r,s,t,...p,...v].every(Number.isFinite)||!validDimensions(m,r)||s===0||p.some(x=>Math.abs(x)>1e5)||v.some(x=>Math.abs(x)>299792)){document.querySelector('#validation').textContent='Sprawdź wartości: masa i promień muszą być dodatnie, obrót różny od zera.';return}b.mass=m/SOLAR_MASS;b.radius=b.key==='blackhole'?horizonRadius(m):r;b.spin=s;b.tilt=t;b.p=p;b.v=v.map(x=>x*86400/AU);if(b.key==='sun')applySolarBrightness();clearTrails();updateOrbits();document.querySelector('#validation').textContent='Zapisano parametry.'};document.querySelector('#focus').onclick=()=>focusBody(b.id,{keepPanel:true});document.querySelector('#tools').onclick=showTools;document.querySelector('#remove').onclick=()=>{bs=bs.filter(x=>x.id!==b.id);disposeView(b.id);closePanel();updateOrbits()};document.querySelector('#swap').onchange=e=>{const other=bs.find(x=>x.id===+e.target.value);if(!other)return;const oldP=[...b.p],oldV=[...b.v],otherP=[...other.p],otherV=[...other.v];for(const moon of bs.filter(x=>x.parent===b.id)){moon.p=moon.p.map((x,k)=>x+otherP[k]-oldP[k]);moon.v=moon.v.map((x,k)=>x+otherV[k]-oldV[k])}for(const moon of bs.filter(x=>x.parent===other.id)){moon.p=moon.p.map((x,k)=>x+oldP[k]-otherP[k]);moon.v=moon.v.map((x,k)=>x+oldV[k]-otherV[k])}b.p=otherP;b.v=otherV;other.p=oldP;other.v=oldV;clearTrails();updateOrbits();showBody()}}
 function showSpawner(presetId='comet'){
  if(lightFlight)stopLightFlight();selected=null;
@@ -866,10 +896,11 @@ function focusSkyTarget(direction){if(lightFlight)stopLightFlight();follow=null;
 // sheet: measured values from the catalogues, then a note about what is there.
 const skyRow=(label,value)=>row(label,`<output class="value-readout">${value}</output>`);
 let skySubject=null;
-function skyPanel(title,rows,note,source){
+function skyPanel(title,rows,note,source,subject){
  // The note is already written in the viewer's language, so the interface
  // phrase substituter must leave it alone; it only knows single labels.
  shell(title,`${rows.join('')}${note?`<p class="sky-note" data-no-translate>${note}</p>`:''}<p class="muted">${source}</p><div class="actions"><button class="action primary" id="sky-center">Wyśrodkuj</button></div>`);
+ mountWikipediaReference(subject,{description:note});
 }
 function showConstellation(entry){
  skySubject={kind:'constellation',entry};
@@ -881,7 +912,7 @@ function showConstellation(entry){
   skyRow('Najjaśniejsza gwiazda figury',brightest),
   skyRow('Rektascensja',formatRightAscension(ra)),
   skyRow('Deklinacja',formatDeclination(dec))
- ],constellationNote(entry.name,getLanguage()),'Figura gwiazdozbioru wg d3-celestial · gwiazda z katalogu sceny');
+ ],constellationNote(entry.name,getLanguage()),'Figura gwiazdozbioru wg d3-celestial · gwiazda z katalogu sceny',{name:entry.name,id:entry.id});
  document.querySelector('#sky-center').onclick=()=>focusSkyTarget(entry.target);
 }
 function showDeepSky(object){
@@ -893,7 +924,7 @@ function showDeepSky(object){
   skyRow('Rozmiar kątowy',formatAngularSize(object.arcmin)),
   skyRow('Rektascensja',formatRightAscension(object.ra)),
   skyRow('Deklinacja',formatDeclination(object.dec))
- ],deepSkyNote(object.id,getLanguage()),'Współrzędne i jasności z katalogu obiektów sceny');
+ ],deepSkyNote(object.id,getLanguage()),'Współrzędne i jasności z katalogu obiektów sceny',{name:object.label,id:object.id});
  document.querySelector('#sky-center').onclick=()=>focusSkyTarget(object.target);
 }
 function setupBodySearch(){
