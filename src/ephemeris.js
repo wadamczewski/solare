@@ -80,4 +80,11 @@ export function planetState(key, date) {
 }
 
 // Scene frame: the renderer keeps the ecliptic in XZ with +Y as its north pole.
-export const toSceneFrame = ([x, y, z]) => [x, z, y];
+//
+// The third component is negated, and that sign is the whole difference
+// between a rotation and a reflection. Swapping two axes and leaving it at
+// that is an odd permutation: it mirrors everything it maps, so the planets
+// would run clockwise seen from the ecliptic north pole and every
+// constellation would come out as its own reverse. Orion's belt pointed the
+// wrong way until this sign was put in.
+export const toSceneFrame = ([x, y, z]) => [x, z, -y];

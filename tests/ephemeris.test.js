@@ -66,7 +66,14 @@ test('velocity matches a finite difference of the position it is paired with',()
 });
 
 test('scene frame keeps the ecliptic in XZ with the pole on Y',()=>{
- assert.deepEqual(toSceneFrame([1, 2, 3]), [1, 3, 2]);
+ assert.deepEqual(toSceneFrame([1, 2, 3]), [1, 3, -2]);
+ // A rotation, not a reflection: the map must preserve a cross product, or
+ // the whole scene is a mirror image of the sky it claims to show.
+ const a = [1, 0, 0], b = [0, 1, 0];
+ const product = toSceneFrame([a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]);
+ const sa = toSceneFrame(a), sb = toSceneFrame(b);
+ const direct = [sa[1] * sb[2] - sa[2] * sb[1], sa[2] * sb[0] - sa[0] * sb[2], sa[0] * sb[1] - sa[1] * sb[0]];
+ assert.ok(Math.hypot(...product.map((value, axis) => value - direct[axis])) < 1e-12, 'the frame mirrors');
  const {p} = planetState('earth', REFERENCE);
  const scene = toSceneFrame(p);
  assert.ok(Math.abs(scene[1]) < 1e-3, 'Earth sits essentially in the ecliptic plane');
@@ -79,8 +86,9 @@ test('bodies orbit prograde and near their nominal semi-major axis on load',()=>
   const b = bs.find(x => x.key === key);
   const r = Math.hypot(...b.p.map((x, k) => x - sun.p[k]));
   assert.ok(Math.abs(r / a - 1) < 0.12, `${name} r=${r} a=${a}`);
-  // Prograde motion is counter-clockwise seen from ecliptic north: x*vz - z*vx > 0.
-  const angular = (b.p[0] - sun.p[0]) * (b.v[2] - sun.v[2]) - (b.p[2] - sun.p[2]) * (b.v[0] - sun.v[0]);
+  // Prograde is counter-clockwise seen from the ecliptic north pole, which in
+  // the scene is +Y, so the angular momentum about Y has to be positive.
+  const angular = (b.p[2] - sun.p[2]) * (b.v[0] - sun.v[0]) - (b.p[0] - sun.p[0]) * (b.v[2] - sun.v[2]);
   assert.ok(angular > 0, `${name} orbits retrograde`);
   // Speed must match the vis-viva value for its current radius.
   const speed = Math.hypot(...b.v.map((x, k) => x - sun.v[k]));

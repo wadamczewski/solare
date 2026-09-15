@@ -19,13 +19,11 @@ test('the local frame is orthonormal and right-handed everywhere', () => {
     assert.ok(Math.abs(dot(frame.zenith, frame.north)) < 1e-12, where);
     assert.ok(Math.abs(dot(frame.zenith, frame.east)) < 1e-12, where);
     assert.ok(Math.abs(dot(frame.north, frame.east)) < 1e-12, where);
-    // The three are a consistent triad. Its handedness is the scene's, not the
-    // sky's: the renderer's frame swaps two axes, which is a reflection, so a
-    // cross product taken in it comes out reversed. Altitude and azimuth are
-    // dot products and survive that untouched, which is why the almanac
-    // comparison below agrees to arcseconds all the same.
+    // Zenith, east and north in that order turn the right way round, which
+    // they only do because the map into the scene is a rotation rather than a
+    // reflection. Get that wrong and the sky is its own mirror image.
     const handed = cross(frame.zenith, frame.east);
-    assert.ok(Math.hypot(...handed.map((value, axis) => value + frame.north[axis])) < 1e-12, `${where} inconsistent triad`);
+    assert.ok(Math.hypot(...handed.map((value, axis) => value - frame.north[axis])) < 1e-12, `${where} left-handed`);
     // The pole stands at an altitude equal to the latitude, by definition.
     // The tolerance is loose only because an arcsine is badly conditioned at
     // the pole itself, where its slope is infinite; away from it the agreement

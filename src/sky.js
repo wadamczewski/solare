@@ -38,12 +38,12 @@ export function skyDirection(raDeg, decDeg) {
 // callers that build a direction in equatorial coordinates themselves - a spin
 // axis, say, or a local horizon.
 export function equatorialToScene([xe, ye, ze]) {
- return [xe, -ye * SIN_E + ze * COS_E, ye * COS_E + ze * SIN_E];
+ return [xe, -ye * SIN_E + ze * COS_E, -(ye * COS_E + ze * SIN_E)];
 }
 
 // The inverse, so a stored direction can be quoted back as catalogue coordinates.
 export function equatorialFromDirection([x, y, z]) {
- const ye = z * COS_E - y * SIN_E, ze = z * SIN_E + y * COS_E;
+ const ye = -z * COS_E - y * SIN_E, ze = -z * SIN_E + y * COS_E;
  const ra = (Math.atan2(ye, x) / DEG + 360) % 360;
  return [ra, Math.asin(Math.max(-1, Math.min(1, ze))) / DEG];
 }

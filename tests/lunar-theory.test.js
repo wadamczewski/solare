@@ -200,7 +200,7 @@ test('the simulation starts the Moon where the theory puts it', () => {
  assert.ok(Math.abs(Math.hypot(...offset) - Math.hypot(...expected)) * AU < 1e-6);
  assert.ok(Math.abs(offset[0] - expected[0]) * AU < 1e-6);
  assert.ok(Math.abs(offset[1] - expected[2]) * AU < 1e-6, 'y in the scene is z in the ecliptic');
- assert.ok(Math.abs(offset[2] - expected[1]) * AU < 1e-6);
+ assert.ok(Math.abs(offset[2] + expected[1]) * AU < 1e-6, 'and z in the scene is minus y, which keeps it a rotation');
 
  // The pair still averages to the barycentre the planetary ephemeris returns.
  const sun = bodies.find(item => item.key === 'sun');
