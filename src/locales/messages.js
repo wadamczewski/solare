@@ -165,4 +165,5 @@ rows.push(
  ['Pobieranie lokalizacji urządzenia…','Getting device location…','Gerätestandort wird ermittelt…','Obteniendo la ubicación del dispositivo…'],
  ['Lokalizacja urządzenia niedostępna','Device location unavailable','Gerätestandort nicht verfügbar','Ubicación del dispositivo no disponible'],
  ['czas lokalny','local time','Ortszeit','hora local']
+ ,['Kompas kierunku','Heading compass','Richtungskompass','Brújula de rumbo']
 );

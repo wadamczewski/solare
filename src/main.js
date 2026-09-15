@@ -27,6 +27,7 @@ import {systemBodyKey,systemBodyRadius,systemCameraDistance,systemDrawnExtent,sy
 import {angularDiameter,horizontal,rotatingBodies,skyObjects,surfaceFrame,synchronousFrame} from './surface-frame.js';
 import {earthObserverCoordinates,isEarthSurface} from './surface-observer.js';
 import {equirectangularSurfaceBasis} from './surface-texture-frame.js';
+import {compassPoint} from './surface-compass.js';
 import {moonIllumination,moonPhaseName} from './lunar-theory.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -545,14 +546,14 @@ function startSurfaceView(bodyId){
  compressed=false;controls.maxDistance=maxViewDistance(false);controls.enabled=false;
  speed=REAL_TIME;lag=0;last=performance.now();
  document.body.classList.add('on-a-surface');
- clearTrails();updateOrbits();surfaceHud.hidden=false;buildSurfaceHud();updateSurfaceView();
+ clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceCompass.hidden=false;buildSurfaceHud();updateSurfaceView();
  if(isEarthSurface(body))requestEarthObserverLocation();
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
  clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
- document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;releaseSurfaceOrientation();
+ document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceCompass.hidden=true;releaseSurfaceOrientation();
  controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
  if(previous){compressed=previous.compressed;follow=previous.follow;speed=previous.speed??2;lag=0;last=performance.now();
   controls.maxDistance=maxViewDistance(compressed);controls.enableDamping=false;
@@ -624,7 +625,7 @@ function updateSurfaceView(tick=0){
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));
  camera.updateMatrixWorld();
- if(tick%6===0)paintSurfaceHud(body,horizon);
+ if(tick%6===0){paintSurfaceHud(body,horizon);paintSurfaceCompass(body,horizon)}
 }
 // What is worth listing, and where it really is.
 //
@@ -689,6 +690,12 @@ function surfaceLookHandlers(element){
 }
 surfaceLookHandlers(renderer.domElement);
 const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';surfaceHud.hidden=true;document.body.append(surfaceHud);
+const surfaceCompass=document.createElement('aside');surfaceCompass.id='surface-compass';surfaceCompass.hidden=true;surfaceCompass.setAttribute('aria-label','Kompas kierunku');
+surfaceCompass.innerHTML='<i class="surface-compass-sweep" aria-hidden="true"></i><i class="surface-compass-ring" aria-hidden="true"></i><i class="surface-compass-reticle" aria-hidden="true"></i><strong id="surface-heading" aria-live="off"></strong><div id="surface-compass-cardinals" aria-hidden="true"></div><div id="surface-compass-markers" aria-hidden="true"></div>';
+for(const [name,bearing] of [['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270],['NW',315]]){
+ const marker=document.createElement('span');marker.className='surface-compass-cardinal';marker.dataset.bearing=String(bearing);marker.textContent=name;surfaceCompass.querySelector('#surface-compass-cardinals').append(marker);
+}
+document.body.append(surfaceCompass);
 // Keep the horizon readout in the left column, directly after the controls
 // that open it.  Its height changes with the active locale and selected body,
 // so a fixed offset would either overlap the controls or waste usable space.
@@ -723,6 +730,30 @@ function paintEarthLocation(){
  else if(surfaceView.locationState==='unavailable')location.textContent=translate('Lokalizacja urządzenia niedostępna');
 }
 const compass=azimuth=>{const names=['N','NE','E','SE','S','SW','W','NW'];return names[Math.round(((azimuth%360)+360)%360/45)%8]};
+function positionCompassMarker(node,bearing,heading,radius){
+ const point=compassPoint(bearing,heading,radius);
+ node.style.transform=`translate3d(calc(-50% + ${point.x.toFixed(2)}px),calc(-50% + ${point.y.toFixed(2)}px),0)`;
+}
+function paintSurfaceCompass(body,frame){
+ if(surfaceCompass.hidden)return;
+ const heading=surfaceView.azimuth;
+ const headingText=compass(heading);
+ document.querySelector('#surface-heading').textContent=headingText;
+ surfaceCompass.setAttribute('aria-label',`${translate('Kompas kierunku')}: ${headingText}`);
+ for(const cardinal of document.querySelectorAll('.surface-compass-cardinal'))positionCompassMarker(cardinal,+cardinal.dataset.bearing,heading,72);
+ const objects=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame)
+  .filter(item=>item.altitude>=0)
+  .sort((one,two)=>two.diameter-one.diameter)
+  .slice(0,6);
+ const markers=document.querySelector('#surface-compass-markers');markers.replaceChildren();
+ for(const object of objects){
+  const marker=document.createElement('span');marker.className='surface-compass-marker';
+  marker.dataset.object=object.key||'';marker.innerHTML='<i></i><b></b>';
+  marker.querySelector('b').textContent=translate(object.name);
+  positionCompassMarker(marker,object.azimuth,heading,49);
+  markers.append(marker);
+ }
+}
 function paintSurfaceHud(body,frame){
  document.querySelector('#surface-title').textContent=body.name;
  document.querySelector('#surface-latitude-value').textContent=`${formatNumber(surfaceView.latitude,0)}°`;
