@@ -220,3 +220,30 @@ test('what is above the horizon is sorted, sized and parallax-corrected', () => 
  assert.ok(shift > .9 && shift < 1, `parallax came out as ${shift} degrees`);
  assert.equal(skyObjects([], [0, 0, 0], frame).length, 0);
 });
+
+test('the frame carries the body-fixed axes it was built from', () => {
+ // Whoever draws the body has to turn it by the same rotation that produced
+ // the horizon. Without these the renderer spun the mesh on its own
+ // approximate rate and the ground slid under an observer standing still.
+ for (const key of ['earth', 'mars', 'moon']) {
+  const frame = surfaceFrame(key, 0, 0, at('2026-09-15T12:00:00Z'));
+  for (const axis of ['pole', 'prime', 'quarter'])
+   assert.ok(Math.abs(Math.hypot(...frame[axis]) - 1) < 1e-12, `${key} ${axis}`);
+  // A right-handed body-fixed triad: prime, quarter and pole in that order.
+  assert.ok(Math.abs(dot(frame.prime, frame.pole)) < 1e-12, key);
+  assert.ok(Math.abs(dot(frame.prime, frame.quarter)) < 1e-12, key);
+  // At latitude and longitude zero the zenith is the prime meridian itself,
+  // which is what pins the drawn surface to the standing observer.
+  assert.ok(Math.hypot(...frame.zenith.map((value, axis) => value - frame.prime[axis])) < 1e-9, key);
+  // A quarter turn east of it puts the zenith on the quarter axis.
+  const east = surfaceFrame(key, 0, 90, at('2026-09-15T12:00:00Z'));
+  assert.ok(Math.hypot(...east.zenith.map((value, axis) => value - frame.quarter[axis])) < 1e-9, key);
+  // And at the pole the zenith is the pole.
+  const polar = surfaceFrame(key, 90, 0, at('2026-09-15T12:00:00Z'));
+  assert.ok(Math.hypot(...polar.zenith.map((value, axis) => value - frame.pole[axis])) < 1e-6, key);
+ }
+ // The synchronous frame carries them too, with the primary on the prime axis.
+ const locked = synchronousFrame([.0045, 0, 0], [0, 0, 0], [0, 0, .0076], [0, 0, 0], 0, 0);
+ assert.ok(Math.abs(Math.hypot(...locked.prime) - 1) < 1e-12);
+ assert.ok(Math.hypot(...locked.zenith.map((value, axis) => value - locked.prime[axis])) < 1e-12);
+});

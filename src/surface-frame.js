@@ -147,13 +147,19 @@ export function surfaceFrame(key, latitudeDeg, longitudeDeg, date) {
  const outward = prime.map((value, axis) => value * Math.cos(longitude) + quarter[axis] * Math.sin(longitude));
  let zenith = outward.map((value, axis) => value * Math.cos(latitude) + pole[axis] * Math.sin(latitude));
  let north = outward.map((value, axis) => -value * Math.sin(latitude) + pole[axis] * Math.cos(latitude));
+ let meridianAxis = prime;
  if (element.sidereal) {
   const matrix = precessionMatrix(daysSinceJ2000(date) / 36525);
-  zenith = fromDate(matrix, zenith); north = fromDate(matrix, north); pole = fromDate(matrix, pole);
+  zenith = fromDate(matrix, zenith); north = fromDate(matrix, north);
+  pole = fromDate(matrix, pole); meridianAxis = fromDate(matrix, meridianAxis);
  }
  const east = cross(north, zenith);
+ // The body-fixed axes as well as the local ones: a caller that draws the body
+ // has to turn it by the same rotation the horizon was built from, or the
+ // ground slides under an observer who is standing still.
  return {zenith: equatorialToScene(zenith), north: equatorialToScene(north), east: equatorialToScene(east),
-  pole: equatorialToScene(pole), meridian: state.meridian};
+  pole: equatorialToScene(pole), prime: equatorialToScene(meridianAxis),
+  quarter: equatorialToScene(cross(pole, meridianAxis)), meridian: state.meridian};
 }
 
 // A satellite that keeps one face to its primary has no independent rotation
@@ -175,7 +181,7 @@ export function synchronousFrame(bodyPosition, hostPosition, bodyVelocity, hostV
  const outward = prime.map((value, axis) => value * Math.cos(longitude) + quarter[axis] * Math.sin(longitude));
  const zenith = outward.map((value, axis) => value * Math.cos(latitude) + pole[axis] * Math.sin(latitude));
  const north = outward.map((value, axis) => -value * Math.sin(latitude) + pole[axis] * Math.cos(latitude));
- return {zenith, north, east: cross(north, zenith), pole, meridian: 0};
+ return {zenith, north, east: cross(north, zenith), pole, prime, quarter, meridian: 0};
 }
 
 // Altitude above the horizon and azimuth from north through east, in degrees.
