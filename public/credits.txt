@@ -459,3 +459,35 @@ cross-checked against Wikipedia's infobox for each listed eclipse
 (https://en.wikipedia.org/wiki/November_2022_lunar_eclipse and the
 equivalent pages for 2025-03-14, 2025-09-07, 2026-03-03, 2026-08-28,
 2027-02-20 and 2028-12-31).
+
+2026-09-16 planets and moons keeping their level of detail current while the
+camera moves:
+Every body's sphere mesh is swapped between a low/medium/high vertex count
+(scene-lod.js) depending on how large it is currently drawn, so a distant
+moon a couple of pixels across never pays for a 56x40 sphere and a planet
+filling the screen never shows a visibly faceted one. That check itself was
+only run for a given body on one frame in every four (frame&3 matched
+against the body's own id), the same kind of periodic throttle that once
+let the deep-sky name labels visibly lag behind a dragged camera - and for
+the same reason: the camera can move every single frame (a held scroll
+wheel, a fast drag), but a body's rendered detail only followed up to three
+frames later, long enough to notice as the planet briefly looking blockier
+or smoother than it should for the distance the camera actually reached.
+The fix is simpler than the deep-sky one, because there is no cheap way here
+to detect "changed enough" other than doing the real distance check in the
+first place - and that check (one distanceTo, one tan, one comparison) is
+negligible next to the rest of a frame's work even at this app's full body
+count, so it is no longer throttled at all: every body's projected size,
+and with it its level of detail, is re-evaluated on every single frame.
+Checked by exposing each body's current level (window.solare().getView().
+bodies[].lod) and driving a fast, continuous zoom (repeated wheel events)
+toward the inner planets for 90 consecutive animation frames while sampling
+every frame: with the throttle in place this produced 25 frames where a
+body's level of detail did not match what its just-measured on-screen size
+called for, several of them four frames in a row for the same body (e.g.
+the Sun sitting at "low" for four straight frames while already large
+enough to need "medium"); with the throttle removed that fell to 6 isolated
+single-frame readings, every one of them a body caught exactly on a
+threshold boundary between two samples taken a frame apart - the ordinary,
+one-frame gap between an input event and the next controls.update() call,
+present before this fix as well and not the lag being complained about.
