@@ -357,3 +357,23 @@ Uranus's other narrow rings (most are only a few kilometres wide in
 reality and are drawn here as a deliberately widened band at their correct
 position for visibility, same as Saturn's Encke and Keeler gaps already
 were - but the emptiness between them is real, not a rendering shortcut).
+
+2026-09-16 let a planet cast its own shadow onto its own rings:
+Saturn and Uranus's rings already carried a ring-specific eclipse shader
+(ringEclipseShadow, alongside the same extended-solar-shadow system used
+for planet-on-planet eclipses), but updateExtendedSolarShadows() built one
+candidate list per body and fed it to both that body's own eclipse shader
+and its ring's, using the body's own id as the "receiver" for both.
+solarOccludersForReceiver() excludes any occluder whose id matches the
+receiver - correct for a body's own mesh, which cannot shadow itself - but
+it also silently excluded the planet from ever appearing as a candidate
+occluder for its own ring, so the dark band a planet casts across part of
+its rings when it blocks the Sun - one of the most recognisable eclipse
+effects in the solar system - never rendered, no matter how the real
+Sun-planet-ring geometry lined up.
+The ring's candidate list is now built with a receiver id no real body
+ever has, so the planet is no longer excluded from shadowing its own
+rings, while the planet's own mesh keeps excluding itself exactly as
+before. Confirmed by inspecting the shader's own occluder-count uniform
+before and after: previously 0 candidates for a planet's own ring, now 1
+(the planet itself, at the expected radius) for both Saturn and Uranus.

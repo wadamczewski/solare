@@ -368,9 +368,23 @@ function updateExtendedSolarShadows(){
  }).filter(Boolean);
  for(const body of bs){
   const view=views.get(body.id);if(!view?.eclipseShadow&&!view?.ringEclipseShadow)continue;
-  const candidates=solarOccludersForReceiver(view.group.position,sourcePosition,sourceRadius,occluders,body.id);
-  const state={sourcePosition,sourceRadius,occluders:candidates,viewMatrix:camera.matrixWorldInverse};
-  view.eclipseShadow?.update(state);view.ringEclipseShadow?.update(state);
+  if(view.eclipseShadow){
+   // A body cannot shadow itself, so its own id is excluded from its own
+   // candidate list here.
+   const candidates=solarOccludersForReceiver(view.group.position,sourcePosition,sourceRadius,occluders,body.id);
+   view.eclipseShadow.update({sourcePosition,sourceRadius,occluders:candidates,viewMatrix:camera.matrixWorldInverse});
+  }
+  if(view.ringEclipseShadow){
+   // The ring is a separate surface wrapped around the planet, not the
+   // planet itself, so unlike the mesh above, the planet *is* a valid
+   // occluder for its own ring - the dark band a planet casts across part
+   // of its own rings, cut off from the Sun by the planet's own bulk, is
+   // one of the most recognisable eclipse effects in the solar system. Pass
+   // a receiver id no real body ever has so the exclusion above never
+   // strips the planet back out of its own ring's candidate list.
+   const candidates=solarOccludersForReceiver(view.group.position,sourcePosition,sourceRadius,occluders,-1);
+   view.ringEclipseShadow.update({sourcePosition,sourceRadius,occluders:candidates,viewMatrix:camera.matrixWorldInverse});
+  }
  }
 }
 let asteroidSeed=72831;const asteroidRandom=()=>{asteroidSeed=(asteroidSeed*1664525+1013904223)>>>0;return asteroidSeed/4294967296};
