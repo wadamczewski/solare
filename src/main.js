@@ -609,12 +609,23 @@ function aimAtSomethingWorthSeeing(body){
  surfaceView.azimuth=target?target.azimuth:0;
  surfaceView.altitude=target?Math.max(6,Math.min(78,target.altitude)):24;
 }
+// A named place (see surface-places.js) is a feature of the ground itself,
+// not something to sight in the sky, so jumping to one looks down at it
+// instead of hunting for the biggest thing above the horizon: a shallow dip
+// below the horizon (rather than aimAtSomethingWorthSeeing's upward angles)
+// keeps the ground - and whatever the eye height's relief and texture show of
+// the feature - in the lower part of the frame, with the horizon and open sky
+// still filling the rest, instead of either the ground or the sky alone.
+const KNOWN_PLACE_ALTITUDE=-18;
+function aimAtLocalGround(){
+ surfaceView.azimuth=0;surfaceView.altitude=KNOWN_PLACE_ALTITUDE;
+}
 function startSurfaceView(bodyId){
  const body=bs.find(b=>b.id===bodyId);if(!body)return;
  if(lightFlight)stopLightFlight();
  stopSolarDeath();
  if(!surfaceView)surfaceReturn={compressed,camera:camera.position.clone(),target:controls.target.clone(),fov:camera.fov,follow,speed};
- surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null};
+ surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null,locationOverride:false};
  if(isEarthSurface(body))beginEarthSurfaceContext();
  aimAtSomethingWorthSeeing(body);
  follow=null;selected=null;closePanel();
@@ -627,14 +638,17 @@ function startSurfaceView(bodyId){
 }
 // Jumps straight into surface view already standing at a named "known place"
 // (see surface-places.js) instead of the default latitude/longitude zero,
-// then re-aims at whatever is worth seeing from there - the same thing the
-// body picker already does when switching bodies mid-session.
+// looking down at the ground so the feature is actually visible, and marks
+// the position as chosen by hand: on Earth this is the whole point of
+// clicking a place at all, so a device location fix that is already in
+// flight (or still arrives later from the ongoing watch) must not silently
+// carry the view back to wherever the device actually is.
 function goToKnownPlace(bodyId,place){
  startSurfaceView(bodyId);
  if(!surfaceView)return;
- surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;
- aimAtSomethingWorthSeeing(surfaceBody());
- buildSurfaceHud();updateSurfaceView();
+ surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;surfaceView.locationOverride=true;
+ aimAtLocalGround();
+ buildSurfaceHud();updateSurfaceView();paintEarthLocation();
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
@@ -660,6 +674,11 @@ function clearEarthObserverLocation(){
 }
 function applyEarthObserverLocation(position){
  if(!surfaceView||surfaceView.key!=='earth')return;
+ // A place picked by hand - a known place, or the latitude/longitude fields
+ // themselves - wins outright: the watch keeps running underneath so a plain
+ // "back to Earth" still gets a live fix, but it must not silently drag a
+ // chosen position back to wherever the device actually is.
+ if(surfaceView.locationOverride)return;
  const point=earthObserverCoordinates(position.coords);
  if(!point){surfaceView.locationState='unavailable';paintEarthLocation();return}
  const firstLocation=surfaceView.locationState!=='granted';
@@ -671,7 +690,7 @@ function applyEarthObserverLocation(position){
  updateSurfaceView();
 }
 function markEarthObserverLocationUnavailable(){
- if(!surfaceView||surfaceView.key!=='earth')return;
+ if(!surfaceView||surfaceView.key!=='earth'||surfaceView.locationOverride)return;
  surfaceView.locationState='unavailable';paintEarthLocation();
 }
 function requestEarthObserverLocation(){
@@ -810,18 +829,25 @@ function buildSurfaceHud(){
  surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
-  clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;
+  clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;
   if(isEarthSurface(body))beginEarthSurfaceContext();else clockShown='';
   releaseSurfaceOrientation();requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
  surfaceHud.querySelectorAll('.known-place').forEach(button=>button.onclick=()=>goToKnownPlace(surfaceView.bodyId,places[+button.dataset.index]));
- document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;updateSurfaceView()};
- document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;updateSurfaceView()};
+ // Dragging a coordinate by hand is exactly as much a manual override as
+ // clicking a known place - it must stick the same way.
+ document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;surfaceView.locationOverride=true;paintEarthLocation();updateSurfaceView()};
+ document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;surfaceView.locationOverride=true;paintEarthLocation();updateSurfaceView()};
  requestAnimationFrame(layoutSurfaceHud);
 }
 function paintEarthLocation(){
  const location=document.querySelector('#surface-location');if(!location||!surfaceView)return;
- if(surfaceView.locationState==='granted'){
-  const point=`${formatNumber(surfaceView.latitude,4)}°, ${formatNumber(surfaceView.longitude,4)}°`;
+ const point=`${formatNumber(surfaceView.latitude,4)}°, ${formatNumber(surfaceView.longitude,4)}°`;
+ // A chosen known place overrides whatever the device reports, so the label
+ // must say so too - otherwise it would keep calling a hand-picked landmark
+ // the "device location" once a fix arrives, or sit blank while one is still
+ // pending.
+ if(surfaceView.locationOverride)location.textContent=`${translate('Wybrana lokalizacja')}: ${point}`;
+ else if(surfaceView.locationState==='granted'){
   const accuracy=surfaceView.locationAccuracy==null?'':` · ±${formatNumber(surfaceView.locationAccuracy,0)} m`;
   location.textContent=`${translate('Lokalizacja urządzenia')}: ${point}${accuracy}`;
  }else if(surfaceView.locationState==='requesting')location.textContent=translate('Pobieranie lokalizacji urządzenia…');

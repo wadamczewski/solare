@@ -183,6 +183,7 @@ rows.push(
 );
 rows.push(
  ['Lokalizacja urządzenia','Device location','Gerätestandort','Ubicación del dispositivo'],
+ ['Wybrana lokalizacja','Chosen location','Gewählter Standort','Ubicación elegida'],
  ['Pobieranie lokalizacji urządzenia…','Getting device location…','Gerätestandort wird ermittelt…','Obteniendo la ubicación del dispositivo…'],
  ['Lokalizacja urządzenia niedostępna','Device location unavailable','Gerätestandort nicht verfügbar','Ubicación del dispositivo no disponible'],
  ['czas lokalny','local time','Ortszeit','hora local']

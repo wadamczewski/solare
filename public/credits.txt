@@ -197,3 +197,16 @@ survey's own vertex spacing of roughly 0.1-0.24 degrees) instead of being
 downsampled to 2048x1024 afterwards, so the shipped map keeps detail the
 build already computed rather than discarding part of it. Same source data,
 same isophote levels, same blur pipeline - nothing invented.
+
+2026-09-16 a known place overrides the device location, not the other way round:
+Clicking a known place (src/surface-places.js) now aims the surface-view
+camera down at the ground - 18 degrees below the horizon, so the ground
+fills most of the frame but a strip of open sky stays visible above it -
+instead of hunting the sky for something to sight, the way opening surface
+view normally does. On Earth, that click (and dragging the latitude/
+longitude sliders by hand) also marks the position as chosen: the ongoing
+navigator.geolocation.watchPosition fix keeps running underneath, but a
+device location that arrives afterwards can no longer silently drag a
+hand-picked spot back to wherever the browser thinks the device is. The HUD
+label says which is which - "Chosen location" for a manual position,
+"Device location" only when it is actually the current GPS/network fix.
