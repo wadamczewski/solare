@@ -198,6 +198,23 @@ downsampled to 2048x1024 afterwards, so the shipped map keeps detail the
 build already computed rather than discarding part of it. Same source data,
 same isophote levels, same blur pipeline - nothing invented.
 
+2026-09-16 deep-sky labels keep up with a dragged camera:
+The name-and-outline overlay for deep-sky objects (above) is a DOM layer,
+not part of the WebGL scene, so it was only repainted every 6th frame while
+the scene itself redraws every frame regardless - a deliberate saving, since
+the scene changes anyway and the overlay usually does not. But that made no
+exception for a dragged camera: the 3D view tracked the drag every frame
+while the labels visibly lagged behind it by up to those 6 frames. main.js
+now also repaints immediately whenever the camera has actually rotated since
+the last paint, detected with a new pure helper, quaternionChanged (in
+src/sky-labels.js, kept framework-free like the rest of that module): the
+angle between the previous and current camera orientation, from their
+quaternions' dot product, checked against a small epsilon so floating-point
+noise alone never triggers a repaint. The periodic every-6th-frame repaint
+still runs as a fallback for changes the camera orientation does not
+capture, such as the horizon filter drifting while standing on a surface as
+simulated time passes.
+
 2026-09-16 a known place overrides the device location, not the other way round:
 Clicking a known place (src/surface-places.js) now aims the surface-view
 camera down at the ground - 18 degrees below the horizon, so the ground

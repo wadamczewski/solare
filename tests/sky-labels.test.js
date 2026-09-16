@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {projectedPoint, ringPixelRadius, deepSkyRingPixelRadius} from '../src/sky-labels.js';
+import {projectedPoint, ringPixelRadius, deepSkyRingPixelRadius, quaternionChanged} from '../src/sky-labels.js';
 
 test('projectedPoint maps clip space to pixel coordinates, centre and corners', () => {
  assert.deepEqual(projectedPoint(0, 0, 0, 1000, 800), {x: 500, y: 400, visible: true});
@@ -55,4 +55,25 @@ test('deepSkyRingPixelRadius scales between the clamps with angular size', () =>
  const small = deepSkyRingPixelRadius(200, 60, 800), large = deepSkyRingPixelRadius(800, 60, 800);
  assert.ok(small > 9 && small < 120, 'the small case should land strictly between the clamps to be a meaningful comparison');
  assert.ok(large > small);
+});
+
+test('quaternionChanged is false for an identical orientation', () => {
+ assert.equal(quaternionChanged([0, 0, 0, 1], [0, 0, 0, 1]), false);
+});
+
+test('quaternionChanged ignores the q/-q sign ambiguity, since both represent the same orientation', () => {
+ assert.equal(quaternionChanged([0, 0, 0, 1], [0, 0, 0, -1]), false);
+});
+
+test('quaternionChanged stays false under a sub-epsilon rotation but flags one well past it', () => {
+ const identity = [0, 0, 0, 1];
+ // A quaternion for a rotation about X of 2*halfAngle: [sin(halfAngle),0,0,cos(halfAngle)].
+ const tiny = [Math.sin(1e-6), 0, 0, Math.cos(1e-6)];
+ const big = [Math.sin(0.01), 0, 0, Math.cos(0.01)];
+ assert.equal(quaternionChanged(identity, tiny), false, 'a sub-epsilon rotation should not trigger an out-of-turn repaint');
+ assert.equal(quaternionChanged(identity, big), true, 'a rotation well past the epsilon should trigger one');
+});
+
+test('quaternionChanged clamps a dot product pushed past 1 by floating-point drift, instead of returning NaN from acos', () => {
+ assert.equal(quaternionChanged([0, 0, 0, 1.0000001], [0, 0, 0, 1]), false);
 });

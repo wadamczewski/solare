@@ -40,3 +40,21 @@ export function deepSkyRingPixelRadius(arcminutes, fovDegrees, innerHeight, {min
  const pixels = angularRadiusDeg / fovDegrees * innerHeight;
  return Math.max(min, Math.min(max, pixels));
 }
+
+// Whether the camera has rotated enough since a label overlay was last
+// painted to be worth repainting right now, instead of waiting for the next
+// periodic refresh. Quaternions are plain [x,y,z,w] arrays (kept free of
+// THREE, like the rest of this module) so the caller can hand in
+// camera.quaternion's own components directly. The angle between two unit
+// quaternions is 2*acos(|dot|); the dot product is clamped to [-1,1] first
+// since floating-point drift can push it a hair past that and turn acos into
+// NaN, and the absolute value folds away the harmless q/-q sign ambiguity
+// (the same orientation can be represented by either). Comparing an angle
+// rather than a raw dot product keeps the epsilon meaningful on its own
+// terms - an actual angular tolerance - rather than an arbitrary number that
+// would need re-tuning if the comparison math ever changed.
+export function quaternionChanged(previous, current, epsilonRadians = 1e-4) {
+ const dot = Math.max(-1, Math.min(1,
+  previous[0] * current[0] + previous[1] * current[1] + previous[2] * current[2] + previous[3] * current[3]));
+ return 2 * Math.acos(Math.abs(dot)) > epsilonRadians;
+}
