@@ -446,22 +446,46 @@ function bodyReferenceImages(body){
 let imageLightbox;
 function ensureImageLightbox(){
  if(imageLightbox)return imageLightbox;
- const dialog=document.createElement('dialog'),content=document.createElement('article'),close=document.createElement('button'),image=document.createElement('img'),caption=document.createElement('footer'),description=document.createElement('p'),links=document.createElement('div'),sourceLink=document.createElement('a'),originalLink=document.createElement('a');
+ const dialog=document.createElement('dialog'),content=document.createElement('article'),close=document.createElement('button'),prev=document.createElement('button'),next=document.createElement('button'),image=document.createElement('img'),caption=document.createElement('footer'),description=document.createElement('p'),links=document.createElement('div'),sourceLink=document.createElement('a'),originalLink=document.createElement('a');
  dialog.id='image-lightbox';dialog.dataset.noTranslate='true';dialog.setAttribute('aria-label',translate('Podgląd zdjęcia'));
  content.className='image-lightbox-content';close.className='image-lightbox-close';close.type='button';close.textContent='×';close.onclick=()=>dialog.close();
+ prev.className='image-lightbox-nav image-lightbox-prev';prev.type='button';prev.textContent='‹';prev.setAttribute('aria-label',translate('Poprzednie zdjęcie'));
+ next.className='image-lightbox-nav image-lightbox-next';next.type='button';next.textContent='›';next.setAttribute('aria-label',translate('Następne zdjęcie'));
+ prev.onclick=()=>showReferenceImage(modal.index-1);next.onclick=()=>showReferenceImage(modal.index+1);
  image.className='image-lightbox-image';image.alt='';caption.className='image-lightbox-caption';description.className='image-lightbox-description';links.className='image-lightbox-links';
- [sourceLink,originalLink].forEach(link=>{link.target='_blank';link.rel='noopener noreferrer'});links.append(sourceLink,originalLink);caption.append(description,links);content.append(close,image,caption);dialog.append(content);
+ [sourceLink,originalLink].forEach(link=>{link.target='_blank';link.rel='noopener noreferrer'});links.append(sourceLink,originalLink);caption.append(description,links);content.append(close,prev,image,next,caption);dialog.append(content);
  dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
  dialog.addEventListener('close',()=>{image.removeAttribute('src');image.onerror=null});
- document.body.append(dialog);imageLightbox={dialog,close,image,description,sourceLink,originalLink};return imageLightbox;
+ // Left/right only make sense once more than one photo is open in the same
+ // gallery - modal.sources is set by openReferenceImage right before this
+ // can fire, so a lightbox opened for a single image (or before any gallery
+ // ever opened one) simply ignores the arrow keys.
+ dialog.addEventListener('keydown',event=>{
+  if(!modal.sources||modal.sources.length<2)return;
+  if(event.key==='ArrowLeft'){event.preventDefault();showReferenceImage(modal.index-1)}
+  else if(event.key==='ArrowRight'){event.preventDefault();showReferenceImage(modal.index+1)}
+ });
+ document.body.append(dialog);const modal={dialog,close,prev,next,image,description,sourceLink,originalLink,sources:[],index:0};imageLightbox=modal;return modal;
 }
-function openReferenceImage(source){
- const modal=ensureImageLightbox(),thumbnail=source.thumbnailUrl||source;
- modal.dialog.setAttribute('aria-label',translate('Podgląd zdjęcia'));modal.close.setAttribute('aria-label',translate('Zamknij podgląd zdjęcia'));
+// Renders sources[index] into the already-open lightbox and updates the
+// prev/next affordance. Navigation wraps around cyclically rather than
+// stopping at the ends, since the gallery it browses is always a short,
+// fixed set (capped at 5 images) rather than an open-ended list where
+// wrapping could feel disorienting.
+function showReferenceImage(index){
+ const modal=imageLightbox;if(!modal)return;
+ const count=modal.sources.length;modal.index=((index%count)+count)%count;
+ const source=modal.sources[modal.index],thumbnail=source.thumbnailUrl||source;
  modal.image.alt=translate('Zdjęcie obiektu');modal.image.onerror=()=>{if(modal.image.src!==thumbnail)modal.image.src=thumbnail};modal.image.src=source.originalUrl||thumbnail;
  modal.description.textContent=source.sourceDescription||translate('Źródło zdjęcia nie jest opisane.');
  modal.sourceLink.hidden=!source.sourceUrl;modal.sourceLink.href=source.sourceUrl||'#';modal.sourceLink.textContent=translate('Źródło ↗');
  modal.originalLink.href=source.originalUrl||thumbnail;modal.originalLink.textContent=translate('Otwórz oryginał ↗');
+ modal.prev.hidden=modal.next.hidden=count<2;
+}
+function openReferenceImage(sources,index){
+ const modal=ensureImageLightbox();
+ modal.dialog.setAttribute('aria-label',translate('Podgląd zdjęcia'));modal.close.setAttribute('aria-label',translate('Zamknij podgląd zdjęcia'));
+ modal.sources=sources;showReferenceImage(index);
  if(!modal.dialog.open)modal.dialog.showModal();
 }
 // `description` is shown once above the photos, with Wikipedia's own
@@ -484,7 +508,7 @@ function mountWikipediaReference(subject,{description='',images=[],hasDescriptio
  section.append(eyebrow,...(copy?[copy]:[]),gallery,link);const beforeActions=panel.querySelector('.primary-actions');if(beforeActions)panel.insertBefore(section,beforeActions);else panel.append(section);
  const renderGallery=sources=>{
   const unique=sources.filter(Boolean).map(source=>typeof source==='string'?{thumbnailUrl:source,originalUrl:source}:source).filter((source,index,list)=>list.findIndex(candidate=>candidate.thumbnailUrl===source.thumbnailUrl)===index).slice(0,5);gallery.replaceChildren();gallery.setAttribute('aria-busy','false');
-  for(const source of unique){const button=document.createElement('button'),image=document.createElement('img');button.className='reference-image-button';button.type='button';button.setAttribute('aria-label',translate('Otwórz zdjęcie obiektu'));image.loading='lazy';image.decoding='async';image.src=source.thumbnailUrl;image.alt=translate('Zdjęcie obiektu');image.onerror=()=>button.remove();button.onclick=()=>openReferenceImage(source);button.append(image);gallery.append(button)}
+  unique.forEach((source,index)=>{const button=document.createElement('button'),image=document.createElement('img');button.className='reference-image-button';button.type='button';button.setAttribute('aria-label',translate('Otwórz zdjęcie obiektu'));image.loading='lazy';image.decoding='async';image.src=source.thumbnailUrl;image.alt=translate('Zdjęcie obiektu');image.onerror=()=>button.remove();button.onclick=()=>openReferenceImage(unique,index);button.append(image);gallery.append(button)});
   if(!unique.length){const unavailable=document.createElement('span');unavailable.textContent=translate('Zdjęcie Wikipedii niedostępne.');gallery.append(unavailable)}
  };
  wikipediaReference(subject,getLanguage()).then(reference=>{
