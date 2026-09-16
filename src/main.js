@@ -479,7 +479,7 @@ function mountWikipediaReference(subject,{description='',images=[],hasDescriptio
  section.className='object-reference';section.dataset.noTranslate='true';
  eyebrow.className='reference-eyebrow';eyebrow.textContent=translate('Zdjęcia');
  if(copy){copy.className='reference-description';copy.textContent=description||translate('Ładowanie opisu i zdjęć…')}
- gallery.className='reference-gallery';gallery.setAttribute('aria-busy','true');
+ gallery.className='reference-gallery';gallery.setAttribute('aria-busy','true');const spinner=document.createElement('div');spinner.className='gallery-spinner';spinner.setAttribute('aria-hidden','true');gallery.append(spinner);
  link.className='reference-wikipedia';link.target='_blank';link.rel='noopener noreferrer';link.href=wikipediaSearchUrl(wikipediaTitle(subject),getLanguage());link.textContent=translate('Wikipedia ↗');
  section.append(eyebrow,...(copy?[copy]:[]),gallery,link);const beforeActions=panel.querySelector('.primary-actions');if(beforeActions)panel.insertBefore(section,beforeActions);else panel.append(section);
  const renderGallery=sources=>{

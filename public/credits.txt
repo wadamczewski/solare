@@ -288,3 +288,18 @@ instead of being reused out of context; the spawner dialog's own
 same as it already does for the couple of presets that had no note text to
 begin with, while every other catalog entry's own factual note (a comet,
 asteroid, black hole, or exoplanet) is untouched in both places.
+
+2026-09-16 a spinner while the Photos gallery loads:
+The "Photos" gallery grid had no content and no minimum height while its
+Wikipedia images were still loading, so the section briefly collapsed to
+almost nothing and then popped into its final size once the request
+resolved - on a slow connection that gap could sit empty for a while with
+no indication anything was happening beyond the aria-busy attribute
+already set for assistive tech. A small spinner is now appended to the
+gallery element as soon as it is marked busy, and the section switches to
+a centered flex layout with a minimum height while aria-busy is true so
+the spinner has room; renderGallery's existing replaceChildren() call
+removes it the same way it already clears any earlier content, whether the
+Wikipedia lookup succeeds or falls back to the images passed in directly.
+The spin animation is plain CSS and already covered by the project's
+existing prefers-reduced-motion rule that disables all animations.
