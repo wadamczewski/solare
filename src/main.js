@@ -57,6 +57,7 @@ import {createTidalStreams} from './tidal-stream.js';
 import {createAsteroidBelt} from './asteroid-belt.js';
 import {DEFAULT_IMPACT_SPEED_KMS,buildCustomScenario,clampImpactSpeed,collisionScenarios,collisionLaunchState,findScenarioTarget,scenarioCollisionReady,scenarioContactNormal,scenarioContactSpeed,scenarioVisualSeparation} from './collision-scenarios.js';
 import {SATURN_RING_INNER,SATURN_RING_BANDS,URANUS_RING_INNER,URANUS_RING_BANDS,ringBandAt} from './planet-rings.js';
+import {SOLAR_ECLIPSES,SOLAR_LEAD_MINUTES,formatEclipseDuration} from './solar-eclipses.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: lot i sterowanie myszą. Q/E: dół/góra. Shift: szybciej. Escape: zwolnij mysz i zamknij panel. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza.');
 // Rates the clock can run at, in days per second of wall time. The slowest is
@@ -121,6 +122,7 @@ const timeDock=document.createElement('nav');timeDock.id='time-dock';timeDock.se
 timeDock.innerHTML=`<button id="dock-pause" aria-label="Wstrzymaj symulację"><span id="dock-pause-icon">Ⅱ</span><span id="dock-pause-label">Pauza</span></button><div class="dock-divider"></div><label for="dock-speed">Tempo</label><select id="dock-speed" aria-label="Tempo symulacji"><option value="realtime" hidden>1 : 1</option>${rateOptions(2)}</select><label class="dock-scale" id="dock-scale-label"><input id="dock-scale" type="checkbox"> Rzeczywista skala</label><div class="dock-divider"></div><button id="dock-flight"><span class="dock-c">c</span><span id="dock-flight-label">Lot światła</span></button><button id="dock-death"><span class="dock-c">☉</span><span id="dock-death-label">Śmierć Słońca</span></button><button id="dock-black-hole" aria-label="Uruchom symulację wpadania do czarnej dziury"><span class="dock-c dock-hole">◉</span><span id="dock-black-hole-label">Wpadanie</span></button>`;
 document.body.append(timeDock);
 const collisionCourseButton=document.createElement('button');collisionCourseButton.id='collision-course';collisionCourseButton.textContent='Kurs kolizyjny';collisionCourseButton.setAttribute('aria-label','Ustaw scenariusz zderzenia');timeDock.append(collisionCourseButton);
+const eclipseButton=document.createElement('button');eclipseButton.id='eclipse-scenarios';eclipseButton.textContent='Zaćmienia';eclipseButton.setAttribute('aria-label','Pokaż scenariusze zaćmień Słońca i Księżyca');timeDock.append(eclipseButton);
 const freeFlightHelp=document.createElement('aside');freeFlightHelp.id='free-flight-help';freeFlightHelp.hidden=true;freeFlightHelp.setAttribute('aria-label','Sterowanie swobodnym lotem');freeFlightHelp.innerHTML='<strong class="free-flight-title">Swobodny lot</strong><div class="free-flight-layout"><div class="free-flight-keys" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div class="free-flight-list"><span>WASD · ruch</span><span>Q / E · dół / góra</span><span>Shift · szybciej</span><span>Mysz · rozglądanie</span><span>Prawy przycisk lub WASD aktywuje mysz</span><span>Escape · zwolnij mysz</span></div></div>';document.body.append(freeFlightHelp);
 const solarControl=document.createElement('aside');solarControl.id='solar-control';solarControl.setAttribute('aria-label','Regulacja gwiazdy centralnej');solarControl.innerHTML=`<label for="central-star"><span>Gwiazda centralna</span></label><select id="central-star" aria-label="Gwiazda centralna">${centralStars.map(star=>`<option value="${star.id}">${star.name}</option>`).join('')}</select><label for="solar-brightness"><span>Jasność gwiazdy</span><output id="solar-brightness-value">100%</output></label><input id="solar-brightness" type="range" min="5" max="100" step="1" value="100" aria-label="Jasność gwiazdy"><div class="sky-explorer"><label class="field-title" for="body-search">Szukaj ciała lub obiektu</label><div class="body-search"><input id="body-search" type="text" autocomplete="off" placeholder="Nazwa ciała lub obiektu…" aria-label="Szukaj ciała lub obiektu" role="combobox" aria-expanded="false" aria-controls="body-results" aria-autocomplete="list"><ul id="body-results" class="body-results" role="listbox" aria-label="Wyniki wyszukiwania" hidden></ul></div><label class="sky-toggle" for="constellations"><span>Gwiazdozbiory</span><input id="constellations" type="checkbox" role="switch" aria-label="Pokaż linie gwiazdozbiorów"><i aria-hidden="true"></i></label><label class="sky-toggle" for="deep-sky-markers"><span>Obiekty głębokiego nieba</span><input id="deep-sky-markers" type="checkbox" role="switch" aria-label="Pokaż punkty orientacyjne obiektów głębokiego nieba"><i aria-hidden="true"></i></label><button id="systems" class="sky-mode" aria-label="Otwórz bibliotekę układów gwiazdowych">Symulacja układów</button><button id="surface" class="sky-mode" aria-label="Stań na powierzchni ciała i spójrz w niebo">Widok z powierzchni</button></div>`;
 document.body.append(solarControl);setupBodySearch();document.querySelector('#constellations').onchange=e=>setConstellationsVisible(e.target.checked);document.querySelector('#deep-sky-markers').onchange=e=>setDeepSkyMarkersVisible(e.target.checked);document.querySelector('#systems').onclick=()=>showSystemLibrary();document.querySelector('#surface').onclick=()=>surfaceView?stopSurfaceView():startSurfaceView((bs.find(b=>b.key==='earth')||surfaceCandidates()[0])?.id);
@@ -272,7 +274,7 @@ function syncTimeDock(){const special=lightFlight||blackHoleFall;const state=`${
  // describe the Solar System seen from outside: none of them has a meaning
  // while a star system is loaded or the camera is standing on the ground.
  for(const id of ['dock-flight','dock-death','dock-black-hole'])document.querySelector('#'+id).disabled=!!systemMode||!!surfaceView;
- collisionCourseButton.disabled=!!systemMode||!!surfaceView;centralStarInput.disabled=!!systemMode;
+ collisionCourseButton.disabled=!!systemMode||!!surfaceView;eclipseButton.disabled=!!systemMode||!!surfaceView;centralStarInput.disabled=!!systemMode;
  document.querySelector('#systems').setAttribute('aria-pressed',String(!!systemMode));
  const surfaceButton=document.querySelector('#surface');
  surfaceButton.setAttribute('aria-pressed',String(!!surfaceView));surfaceButton.disabled=!!systemMode||!!lightFlight||!!blackHoleFall;document.querySelector('#dock-death').setAttribute('aria-pressed',String(!!solarDeath));document.body.classList.toggle('in-light-flight',!!lightFlight);document.body.classList.toggle('in-solar-death',!!solarDeath);document.body.classList.toggle('in-black-hole-fall',!!blackHoleFall);if(state===dockState)return;dockState=state;
@@ -626,6 +628,64 @@ function showCollisionLauncher(){
  document.querySelector('#tools').onclick=showTools;
 }
 collisionCourseButton.onclick=showCollisionLauncher;
+// A listed eclipse opens standing at the real spot of greatest eclipse, a
+// lead time before it, aimed at whichever of the Sun or Moon is worth
+// looking at - during totality that is essentially both, overlapping. The
+// occlusion itself needs no scripting at all: the Moon is a real 3D body at
+// its real ephemeris position, so it simply passes in front of the Sun's
+// disc, and Earth already receives the same per-fragment eclipse shadow a
+// planet's rings do (updateExtendedSolarShadows below) - the umbra sweeping
+// across the ground is that shadow, evaluated as the real geometry moves.
+function launchSolarEclipse(item){
+ if(!item)return;
+ const start=new Date(Date.parse(item.greatest)-SOLAR_LEAD_MINUTES*60000);
+ resetSystem(start);
+ const earth=bs.find(b=>b.key==='earth');if(!earth)return;
+ startSurfaceView(earth.id);
+ if(!surfaceView)return;
+ // Standing on Earth normally opens on the device's real "now"
+ // (beginEarthSurfaceContext, called from inside startSurfaceView above) -
+ // exactly what a scripted date must not be second-guessed by, so it is put
+ // back here once surface view has finished its own setup. bs is already
+ // built for `start` by resetSystem, and is unaffected by that reset.
+ epoch=start;elapsed=0;lag=0;last=performance.now();clockShown='';
+ surfaceView.latitude=item.location.latitude;surfaceView.longitude=item.location.longitude;surfaceView.locationOverride=true;
+ surfaceView.trackBrightest=true;
+ aimAtSomethingWorthSeeing(earth);
+ // At the Sun's real half-degree apparent size, the default field of view
+ // draws it a few pixels across - correct, but too small to actually watch
+ // the Moon cross it. The closest zoom the surface view allows is still wide
+ // enough to keep both discs comfortably framed even with imperfect aim.
+ surfaceView.fov=SURFACE_FOV.min;
+ speed=MINUTE_PER_SECOND;paused=false;
+ buildSurfaceHud();updateSurfaceView();paintEarthLocation();
+}
+// Built from whole reusable phrases (each registered as one row in
+// messages.js) rather than single translated words stitched together: the
+// eclipse kind and its phase noun invert order or inflect differently enough
+// across Polish, English, German and Spanish that translating word-by-word
+// would not reliably agree. The interpolated duration and place name carry
+// no Polish text of their own, so the automatic DOM translator (i18n.js)
+// still renders the whole sentence correctly once it reaches the page.
+const SOLAR_ECLIPSE_LABEL={total:'Całkowite zaćmienie Słońca',annular:'Obrączkowe zaćmienie Słońca',hybrid:'Hybrydowe zaćmienie Słońca'};
+const SOLAR_ECLIPSE_PHASE={total:'fazy całkowitej',annular:'fazy obrączkowej',hybrid:'fazy całkowitej'};
+function solarEclipseNote(item){
+ const label=SOLAR_ECLIPSE_LABEL[item.kind]||item.kind,phase=SOLAR_ECLIPSE_PHASE[item.kind]||'',duration=formatEclipseDuration(item.durationSeconds);
+ return `${label}. Maksymalny czas trwania ${phase} (w miejscu największego zaćmienia): ${duration}. Scenariusz otwiera widok z okolic ${item.location.name}.`;
+}
+function showEclipseLauncher(){
+ const solarOptions=SOLAR_ECLIPSES.map(item=>`<option value="${item.id}">${item.name} · ${dateFormat.format(new Date(item.greatest))}</option>`).join('');
+ shell('Zaćmienia',`<label class="field-title">Zaćmienia Słońca</label>${row('Wydarzenie',`<select id="solar-eclipse">${solarOptions}</select>`)}<p class="muted" id="solar-eclipse-note"></p><div class="actions"><button class="action primary" id="launch-solar-eclipse">Uruchom</button><button class="action" id="tools">Symulacja</button></div>`);
+ const solarSelect=document.querySelector('#solar-eclipse'),solarNote=document.querySelector('#solar-eclipse-note');
+ const refreshSolarNote=()=>{
+  const item=SOLAR_ECLIPSES.find(x=>x.id===solarSelect.value);if(!item)return;
+  solarNote.textContent=solarEclipseNote(item);
+ };
+ solarSelect.onchange=refreshSolarNote;refreshSolarNote();
+ document.querySelector('#launch-solar-eclipse').onclick=()=>launchSolarEclipse(SOLAR_ECLIPSES.find(item=>item.id===solarSelect.value));
+ document.querySelector('#tools').onclick=showTools;
+}
+eclipseButton.onclick=showEclipseLauncher;
 // Standing on a body and looking up.
 //
 // The whole point is that the sky is the real one: the stars come from the
@@ -791,6 +851,12 @@ function surfaceLook(frame){
 }
 function updateSurfaceView(tick=0){
  const body=surfaceBody();if(!body){stopSurfaceView();return}
+ // An eclipse scenario starts aimed at the Sun, but standing still means the
+ // sky turns underneath: without this the Sun and Moon would drift out of
+ // frame well before the interesting part. Nothing but that one scenario ever
+ // sets the flag, so every other surface view keeps its fixed, hand-aimed
+ // direction exactly as before.
+ if(surfaceView.trackBrightest&&tick%15===0)aimAtSomethingWorthSeeing(body);
  const horizon=surfaceFrameNow(body);if(!horizon){stopSurfaceView();return}
  surfaceView.horizon=horizon;
  const centre=displayed(body),up=new THREE.Vector3(...horizon.zenith);
@@ -906,7 +972,7 @@ function buildSurfaceHud(){
  surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
-  clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;
+  clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.trackBrightest=false;
   if(isEarthSurface(body))beginEarthSurfaceContext();else clockShown='';
   releaseSurfaceOrientation();requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
  surfaceHud.querySelectorAll('.known-place').forEach(button=>button.onclick=()=>goToKnownPlace(surfaceView.bodyId,places[+button.dataset.index]));

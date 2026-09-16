@@ -377,3 +377,49 @@ rings, while the planet's own mesh keeps excluding itself exactly as
 before. Confirmed by inspecting the shader's own occluder-count uniform
 before and after: previously 0 candidates for a planet's own ring, now 1
 (the planet itself, at the expected radius) for both Saturn and Uranus.
+
+2026-09-16 real solar eclipse scenarios ("Zaćmienia"):
+The occlusion, penumbra/umbra and shadow-sweep needed no new physics at
+all: a solar eclipse is just the Moon, a real 3D body at its real
+ELP-2000/82 position (lunar-theory.js), passing in front of the Sun as
+seen from a point on Earth's own real 3D surface, and the same per-fragment
+eclipse shader already used for a planet's ring shadow (
+extended-solar-shadow.js) already treats Earth as an ordinary receiver.
+What was missing was a way to land on a date where that geometry is worth
+watching. The new "Zaćmienia" scenario picker (src/solar-eclipses.js) lists
+six real eclipses - three total, one annular and one hybrid, from 2017 to
+2027 - each with the kind, the UTC instant of greatest eclipse, the
+duration of totality/annularity there and the geographic point of greatest
+eclipse, as tabulated in NASA's Eclipse Website (F. Espenak's catalogue)
+and mirrored on each event's Wikipedia page. Launching one rewinds the
+whole system to a head start before that instant (a practical viewing
+margin, not itself a sourced contact time), stands the viewer at the real
+point of greatest eclipse in a real-scale surface view, and aims the
+camera at the Sun.
+Two things were not obvious in advance. First, beginEarthSurfaceContext()
+unconditionally resets the clock to the device's actual "now" the moment
+Earth's surface view opens - reasonable for a viewer who just wants
+tonight's real sky, wrong for a scripted date - so the chosen instant has
+to be reapplied immediately afterwards, once surface view has finished its
+own setup. Second, at the Sun's true half-degree apparent size the surface
+view's default field of view draws it a few pixels across: correct, but too
+small to see the Moon actually cross it, and standing still would let the
+sky's rotation carry both out of frame well before totality. The scenario
+therefore opens already zoomed to the surface view's closest allowed field
+of view, and re-aims at the brightest object above the horizon every few
+frames for as long as the scenario runs (surfaceView.trackBrightest) - the
+only surface-view case that ever moves the camera on its own; every other
+surface view keeps the exact fixed, hand-aimed direction it always did.
+Checked against the least ambiguous test available - a known real eclipse
+should show the Sun and Moon converge to the same point in the sky at the
+real, published instant of greatest eclipse, and separate again on either
+side of it - by reading each body's projected screen position
+(window.solare.getView()) through a run of the 2024-04-08 event: the two
+discs were 20 px apart 50 minutes before greatest eclipse, arrived within
+half a pixel of each other within a minute of the published 18:18:29 UTC,
+and were separating again shortly after.
+Sources: NASA Eclipse Website / F. Espenak's five-millennium catalogue,
+cross-checked against Wikipedia's infobox for each listed eclipse
+(https://en.wikipedia.org/wiki/Solar_eclipse_of_August_21,_2017 and the
+equivalent pages for 2023-04-20, 2023-10-14, 2024-04-08, 2026-08-12 and
+2027-08-02).

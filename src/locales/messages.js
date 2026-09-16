@@ -203,3 +203,25 @@ rows.push(
  ['Struktura Richat (Oko Sahary)','Richat Structure (Eye of the Sahara)','Richat-Struktur (Auge der Sahara)','Estructura de Richat (Ojo del Sáhara)'],
  ['Punkt podplanetarny','Sub-planetary point','Subplanetarer Punkt','Punto subplanetario']
 );
+// The "Zaćmienia" scenario picker (dock button and its panel). The scenario
+// names and the composed duration/location note are intentionally left out
+// of this table - see solarEclipseNote in main.js for why the note is
+// templated per language instead of run through substring substitution.
+rows.push(
+ ['Zaćmienia','Eclipses','Finsternisse','Eclipses'],
+ ['Pokaż scenariusze zaćmień Słońca i Księżyca','Show solar and lunar eclipse scenarios','Sonnen- und Mondfinsternis-Szenarien anzeigen','Mostrar escenarios de eclipses solares y lunares'],
+ ['Zaćmienia Słońca','Solar eclipses','Sonnenfinsternisse','Eclipses solares'],
+ ['Wydarzenie','Event','Ereignis','Evento'],
+ // The solar-eclipse note in showEclipseLauncher (main.js) is assembled from
+ // these whole phrases, each already in the word order its own language
+ // needs, rather than from single translated words - see the comment above
+ // solarEclipseNote for why.
+ ['Całkowite zaćmienie Słońca','Total solar eclipse','Totale Sonnenfinsternis','Eclipse solar total'],
+ ['Obrączkowe zaćmienie Słońca','Annular solar eclipse','Ringförmige Sonnenfinsternis','Eclipse solar anular'],
+ ['Hybrydowe zaćmienie Słońca','Hybrid solar eclipse','Hybride Sonnenfinsternis','Eclipse solar híbrido'],
+ ['Maksymalny czas trwania','Maximum duration','Maximale Dauer','Duración máxima'],
+ ['fazy całkowitej','of totality','der Totalität','de la totalidad'],
+ ['fazy obrączkowej','of annularity','der Ringförmigkeit','de la anularidad'],
+ ['(w miejscu największego zaćmienia)','(at the point of greatest eclipse)','(am Ort der größten Verfinsterung)','(en el punto de eclipse máximo)'],
+ ['Scenariusz otwiera widok z okolic','The scenario opens the view from near','Das Szenario öffnet die Ansicht bei','El escenario abre la vista cerca de']
+);
