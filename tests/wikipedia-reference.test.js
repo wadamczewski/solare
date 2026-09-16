@@ -15,6 +15,7 @@ test('Wikipedia reference uses the selected wiki and deduplicates gallery images
  const fetcher=async url=>{seen.push(url);return {ok:true,json:async()=>url.includes('summary')?({title:'Eagle Nebula',titles:{canonical:'Eagle_Nebula'},extract:'A nebula.',thumbnail:{source:'one.jpg'},content_urls:{desktop:{page:'https://en.wikipedia.org/wiki/Eagle_Nebula'}}}):({query:{pages:{one:{imageinfo:[{thumburl:'one.jpg'}]},two:{imageinfo:[{thumburl:'two.jpg'}]}}}})}};
  const reference=await wikipediaReference({id:'M 16'},'en',fetcher);
  assert.deepEqual(reference.images,['one.jpg','two.jpg']);
+ assert.deepEqual(reference.imageDetails.map(image=>image.originalUrl),['one.jpg','two.jpg']);
  assert.ok(seen.every(url=>url.includes('en.wikipedia.org')));
 });
 

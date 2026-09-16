@@ -41,10 +41,21 @@ async function resolveTitle(title,language,fetcher){
  }
 }
 
-async function imageUrlsFor(title,language,fetcher){
+const plainText=value=>String(value||'').replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
+
+async function imageDetailsFor(title,language,fetcher){
  try{
-  const data=await request(`https://${language}.wikipedia.org/w/api.php?action=query&generator=images&titles=${encodeURIComponent(title)}&prop=imageinfo&iiprop=url&iiurlwidth=560&gimlimit=5&format=json&origin=*`,fetcher);
-  return Object.values(data?.query?.pages||{}).map(page=>page.imageinfo?.[0]?.thumburl).filter(Boolean);
+  const data=await request(`https://${language}.wikipedia.org/w/api.php?action=query&generator=images&titles=${encodeURIComponent(title)}&prop=imageinfo&iiprop=url|extmetadata&iiurlwidth=560&gimlimit=5&format=json&origin=*`,fetcher);
+  return Object.values(data?.query?.pages||{}).map(page=>{
+   const info=page.imageinfo?.[0],metadata=info?.extmetadata||{},thumbnailUrl=info?.thumburl||info?.url;
+   if(!thumbnailUrl)return null;
+   return {
+    thumbnailUrl,
+    originalUrl:info?.url||thumbnailUrl,
+    sourceUrl:info?.descriptionurl||null,
+    sourceDescription:plainText(metadata.ImageDescription?.value)||plainText(metadata.Credit?.value)||page.title||''
+   };
+  }).filter(Boolean);
  }catch{return []}
 }
 
@@ -59,9 +70,18 @@ async function loadWikipediaReference(subject,language,fetcher){
   if(preferred==='en')throw new Error('Wikipedia article unavailable');
   usedLanguage='en';page=await resolveTitle(title,'en',fetcher);
  }
- const gallery=await imageUrlsFor(page.titles?.canonical||page.title||title,usedLanguage,fetcher);
- const images=[page.thumbnail?.source,...gallery].filter(Boolean).filter((url,index,list)=>list.indexOf(url)===index).slice(0,5);
- return {title:page.title||title,description:page.extract||'',images,url:page.content_urls?.desktop?.page||wikipediaSearchUrl(title,usedLanguage),language:usedLanguage};
+ const articleUrl=page.content_urls?.desktop?.page||wikipediaSearchUrl(title,usedLanguage);
+ const gallery=await imageDetailsFor(page.titles?.canonical||page.title||title,usedLanguage,fetcher);
+ const cover=page.thumbnail?.source?{
+  thumbnailUrl:page.thumbnail.source,
+  originalUrl:page.originalimage?.source||page.thumbnail.source,
+  sourceUrl:articleUrl,
+  sourceDescription:page.title||title
+ }:null;
+ const imageDetails=[cover,...gallery].filter(Boolean).filter((image,index,list)=>list.findIndex(candidate=>candidate.thumbnailUrl===image.thumbnailUrl)===index).slice(0,5);
+ // Keep the compact URL list for callers that only need thumbnails; the
+ // companion records retain provenance for the full-screen viewer.
+ return {title:page.title||title,description:page.extract||'',images:imageDetails.map(image=>image.thumbnailUrl),imageDetails,url:articleUrl,language:usedLanguage};
 }
 
 export function wikipediaReference(subject,language='en',fetcher=fetch){

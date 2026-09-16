@@ -403,7 +403,33 @@ const standardTexturePaths={
 function bodyReferenceImages(body){
  const profile=moonAppearance[body.name],moonPath=profile&&moonMapPath(profile),texture=standardTexturePaths[body.textureKey||body.key];
  const exoplanet=body.textureKey&&['proxima-centauri-b','trappist-1-e','51-pegasi-b','55-cancri-e'].includes(body.textureKey)?`/textures/exoplanets/${body.textureKey}.webp`:null;
- return [moonPath,texture,exoplanet].filter(Boolean);
+ const sourceUrl=body.visualSource||profile?.sources?.[0]||null;
+ return [moonPath,texture,exoplanet].filter(Boolean).map(url=>({
+  thumbnailUrl:url,originalUrl:url,sourceUrl,
+  sourceDescription:translate('Tekstura używana w wizualizacji sceny.')
+ }));
+}
+
+let imageLightbox;
+function ensureImageLightbox(){
+ if(imageLightbox)return imageLightbox;
+ const dialog=document.createElement('dialog'),content=document.createElement('article'),close=document.createElement('button'),image=document.createElement('img'),caption=document.createElement('footer'),description=document.createElement('p'),links=document.createElement('div'),sourceLink=document.createElement('a'),originalLink=document.createElement('a');
+ dialog.id='image-lightbox';dialog.dataset.noTranslate='true';dialog.setAttribute('aria-label',translate('Podgląd zdjęcia'));
+ content.className='image-lightbox-content';close.className='image-lightbox-close';close.type='button';close.textContent='×';close.onclick=()=>dialog.close();
+ image.className='image-lightbox-image';image.alt='';caption.className='image-lightbox-caption';description.className='image-lightbox-description';links.className='image-lightbox-links';
+ [sourceLink,originalLink].forEach(link=>{link.target='_blank';link.rel='noopener noreferrer'});links.append(sourceLink,originalLink);caption.append(description,links);content.append(close,image,caption);dialog.append(content);
+ dialog.addEventListener('click',event=>{if(event.target===dialog)dialog.close()});
+ dialog.addEventListener('close',()=>{image.removeAttribute('src');image.onerror=null});
+ document.body.append(dialog);imageLightbox={dialog,close,image,description,sourceLink,originalLink};return imageLightbox;
+}
+function openReferenceImage(source){
+ const modal=ensureImageLightbox(),thumbnail=source.thumbnailUrl||source;
+ modal.dialog.setAttribute('aria-label',translate('Podgląd zdjęcia'));modal.close.setAttribute('aria-label',translate('Zamknij podgląd zdjęcia'));
+ modal.image.alt=translate('Zdjęcie obiektu');modal.image.onerror=()=>{if(modal.image.src!==thumbnail)modal.image.src=thumbnail};modal.image.src=source.originalUrl||thumbnail;
+ modal.description.textContent=source.sourceDescription||translate('Źródło zdjęcia nie jest opisane.');
+ modal.sourceLink.hidden=!source.sourceUrl;modal.sourceLink.href=source.sourceUrl||'#';modal.sourceLink.textContent=translate('Źródło ↗');
+ modal.originalLink.href=source.originalUrl||thumbnail;modal.originalLink.textContent=translate('Otwórz oryginał ↗');
+ if(!modal.dialog.open)modal.dialog.showModal();
 }
 function mountWikipediaReference(subject,{description='',images=[]}={}){
  const section=document.createElement('section'),eyebrow=document.createElement('p'),copy=document.createElement('p'),gallery=document.createElement('div'),link=document.createElement('a');
@@ -414,14 +440,14 @@ function mountWikipediaReference(subject,{description='',images=[]}={}){
  link.className='reference-wikipedia';link.target='_blank';link.rel='noopener noreferrer';link.href=wikipediaSearchUrl(wikipediaTitle(subject),getLanguage());link.textContent=translate('Wikipedia ↗');
  section.append(eyebrow,copy,gallery,link);const beforeActions=panel.querySelector('.primary-actions');if(beforeActions)panel.insertBefore(section,beforeActions);else panel.append(section);
  const renderGallery=sources=>{
-  const unique=[...new Set(sources.filter(Boolean))].slice(0,5);gallery.replaceChildren();gallery.setAttribute('aria-busy','false');
-  for(const source of unique){const figure=document.createElement('figure'),image=document.createElement('img');image.loading='lazy';image.decoding='async';image.src=source;image.alt=translate('Zdjęcie obiektu');image.onerror=()=>figure.remove();figure.append(image);gallery.append(figure)}
+  const unique=sources.filter(Boolean).map(source=>typeof source==='string'?{thumbnailUrl:source,originalUrl:source}:source).filter((source,index,list)=>list.findIndex(candidate=>candidate.thumbnailUrl===source.thumbnailUrl)===index).slice(0,5);gallery.replaceChildren();gallery.setAttribute('aria-busy','false');
+  for(const source of unique){const button=document.createElement('button'),image=document.createElement('img');button.className='reference-image-button';button.type='button';button.setAttribute('aria-label',translate('Otwórz zdjęcie obiektu'));image.loading='lazy';image.decoding='async';image.src=source.thumbnailUrl;image.alt=translate('Zdjęcie obiektu');image.onerror=()=>button.remove();button.onclick=()=>openReferenceImage(source);button.append(image);gallery.append(button)}
   if(!unique.length){const unavailable=document.createElement('span');unavailable.textContent=translate('Zdjęcie Wikipedii niedostępne.');gallery.append(unavailable)}
  };
  wikipediaReference(subject,getLanguage()).then(reference=>{
   if(!section.isConnected)return;
   copy.textContent=description||reference.description||translate('Opis artykułu jest niedostępny.');
-  link.href=reference.url;renderGallery([...images,...reference.images]);
+  link.href=reference.url;renderGallery([...images,...(reference.imageDetails||reference.images)]);
  }).catch(()=>{if(!section.isConnected)return;renderGallery(images)});
 }
 function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const id=selected;stopLightFlight();selected=id}const b=bs.find(x=>x.id===selected);if(!b)return;requestDetailTexture(b);const velocity=b.v.map(x=>x*AU/86400),primary=b.key==='sun'?null:bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun'),orbitalVelocity=primary?relativeVelocity(b,primary):b.v,speedMagnitude=velocityKmPerSecond(orbitalVelocity),speedLabel=b.key==='sun'?'Prędkość barycentryczna · km/s':b.parent?'Prędkość względem planety · km/s':'Prędkość względem Słońca · km/s',magneticField=b.key==='neutron-star'?row('Pole magnetyczne · T',`<output class="value-readout">${formatNumber(b.magneticField,3)}</output>`):'',star=centralStarDetails(b),starRows=star?`${row('Typ widmowy',`<output class="value-readout">${star.spectralType}</output>`)}${row('Galaktyka',`<output class="value-readout">${star.galaxy}</output>`)}${row('Temperatura efektywna · K',`<output class="value-readout">${formatNumber(star.temperature,0)}</output>`)}${row('Ciepłota barwowa · K',`<output class="value-readout">${formatNumber(star.colorTemperature,0)}</output>`)}${row('Jasność · L☉',`<output class="value-readout">${formatNumber(star.luminosity,2)}</output>`)}`:'',surfaceAction=surfaceCandidates().some(candidate=>candidate.id===b.id)?'<button class="action" id="surface-open">Widok z powierzchni</button>':'';shell(b.name,`${temperatureMarkup(b)}${starRows}${row('Masa · kg',num('mass',b.mass*SOLAR_MASS))}${row(b.key==='blackhole'?'Horyzont · km':'Promień · km',num('radius',b.radius))}${row(speedLabel,`<output class="value-readout">${formatNumber(speedMagnitude,3)}</output>`)}${magneticField}${primary?row('Punkt odniesienia',`<output class="value-readout">${primary.name}</output>`):''}${row('Obrót · godz.',num('spin',b.spin))}${row('Nachylenie osi · °',num('tilt',b.tilt))}${vecFields('p',b.p,'Położenie X / Y / Z · AU')}${vecFields('v',velocity,'Prędkość X / Y / Z · km/s')}<div class="actions primary-actions"><button class="action primary" id="apply">Zastosuj</button><button class="action" id="focus">Śledź</button>${surfaceAction}</div><details class="advanced-fields"><summary>Dodatkowe opcje</summary>${row('Zamień orbitę',`<select id="swap"><option value="">Wybierz ciało</option>${bs.filter(x=>x.a&&x.id!==b.id).map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}</select>`)}<div class="actions"><button class="action" id="tools">Symulacja</button><button class="action danger" id="remove">Usuń</button></div></details><p class="muted" id="validation" role="status"></p>`);
