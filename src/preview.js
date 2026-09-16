@@ -27,13 +27,16 @@ function landmarkGlowTexture(){
 // with main.js, which adds a second copy of the same group to the real body
 // mesh in the main scene - not only this module's small rotating preview -
 // so a tracked body shows its landmarks close up as well as in the preview.
+// Each sprite carries its source place in userData, so main.js's own pointer
+// picking (raycasting against this same group in the main scene) can name
+// whichever one the cursor lands on without a separate lookup table.
 export function buildLandmarkMarkers(places){
  const group=new THREE.Group();group.name='landmark-markers';
  const texture=landmarkGlowTexture();
  for(const place of places){
   const [x,y,z]=localSurfacePoint(place.latitude,place.longitude);
   const sprite=new THREE.Sprite(new THREE.SpriteMaterial({map:texture,color:'#ffe9b8',transparent:true,depthWrite:false,depthTest:true}));
-  sprite.position.set(x*1.02,y*1.02,z*1.02);sprite.scale.setScalar(.16);
+  sprite.position.set(x*1.02,y*1.02,z*1.02);sprite.scale.setScalar(.16);sprite.userData.place=place;
   group.add(sprite);
  }
  return group;

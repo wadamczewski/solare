@@ -255,3 +255,19 @@ device location that arrives afterwards can no longer silently drag a
 hand-picked spot back to wherever the browser thinks the device is. The HUD
 label says which is which - "Chosen location" for a manual position,
 "Device location" only when it is actually the current GPS/network fix.
+
+2026-09-16 landmark pins in the main scene are hoverable and clickable:
+The pins added to a tracked body's real mesh (above) sat there but did
+nothing: no name on hover, no cursor change, no click target - unlike every
+other marker in the scene (a body, a deep-sky object, a constellation
+figure), which all already show a tooltip and jump somewhere on click. Each
+pin sprite now carries its source place in userData (preview.js), and
+main.js's existing pointer-picking chain gains a landmark check ahead of
+the others (a real 3D raycast against the pin group, the same technique
+already used for a body, rather than sky.js's screen-space picking for a
+deep-sky marker or constellation figure, since a pin already lives in
+ordinary scene space right on the mesh). Hovering shows the same floating
+name tag as everything else; clicking calls the same goToKnownPlace already
+wired to the surface-view HUD's own known-places list, landing standing at
+that exact spot and looking at the ground - answering "what is this" by
+showing it, not by adding another line of text to read.

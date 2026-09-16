@@ -386,19 +386,29 @@ updateOrbits();
 const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);let down=null,lastTouchTimer,hoveredConstellation=null,hoveredDeepSky=null;
 function pointRay(e){pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);ray.setFromCamera(pointer,camera)}
 function hit(e){pointRay(e);const hits=ray.intersectObjects([...views.values()].map(v=>v.mesh),false);return hits[0]?.object.userData.id||null}
+// A landmark pin (attachBodyLandmarks, above) is a real sprite in the main
+// scene - unlike a deep-sky marker, which sky.pickDeepSkyMarker locates by
+// screen-space projection since those sit at effectively infinite distance
+// - so an ordinary raycast against its own small group, the same way a body
+// is picked, is enough. Only the currently open panel's body ever has one.
+function pickLandmark(e){if(!bodyLandmarks?.group.visible)return null;pointRay(e);const hits=ray.intersectObjects(bodyLandmarks.group.children,false);return hits[0]?.object.userData.place||null}
 function location(e){pointRay(e);const pos=new THREE.Vector3();if(!ray.ray.intersectPlane(plane,pos))pos.copy(controls.target);const r=pos.length();return r?pos.multiplyScalar(auRadius(r,compressed)/r):pos}
 renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.clientY};if(e.pointerType==='touch')lastTouchTimer=setTimeout(()=>{spawnAt.copy(location(e));showSpawner()},650)});
-renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>6)clearTimeout(lastTouchTimer);if(e.buttons){hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true;return}const id=hit(e),deepSky=id?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null,constellation=id||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;hoveredConstellation=constellation;hoveredDeepSky=deepSky;if(id||deepSky||!constellation)sky.clearConstellationHighlight();if(id||constellation||!deepSky)sky.clearDeepSkyHighlight();renderer.domElement.style.cursor=id||constellation||deepSky?'pointer':'grab';tip.hidden=!id&&!constellation&&!deepSky;if(id||constellation||deepSky){tip.textContent=id?bs.find(b=>b.id===id)?.name:deepSky?deepSky.label:constellationLabel(constellation,getLanguage());tip.style.left=Math.min(innerWidth-180,e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px'}});
+renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>6)clearTimeout(lastTouchTimer);if(e.buttons){hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true;return}const landmark=pickLandmark(e),id=landmark?null:hit(e),deepSky=id||landmark?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null,constellation=id||landmark||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;hoveredConstellation=constellation;hoveredDeepSky=deepSky;if(id||deepSky||!constellation)sky.clearConstellationHighlight();if(id||constellation||!deepSky)sky.clearDeepSkyHighlight();renderer.domElement.style.cursor=id||constellation||deepSky||landmark?'pointer':'grab';tip.hidden=!id&&!constellation&&!deepSky&&!landmark;if(id||constellation||deepSky||landmark){tip.textContent=landmark?landmark.name:id?bs.find(b=>b.id===id)?.name:deepSky?deepSky.label:constellationLabel(constellation,getLanguage());tip.style.left=Math.min(innerWidth-180,e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px'}});
 renderer.domElement.addEventListener('pointerleave',()=>{hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true});
 document.addEventListener('languagechange',()=>{if(hoveredConstellation&&!tip.hidden)tip.textContent=constellationLabel(hoveredConstellation,getLanguage())});
 document.addEventListener('languagechange',()=>{if(panel.hidden||!skySubject)return;const subject=skySubject;if(subject.kind==='constellation')showConstellation(subject.entry);else showDeepSky(subject.entry)});
-renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const id=hit(e);
+renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const landmark=pickLandmark(e);const id=landmark?null:hit(e);
  // Picking again rather than trusting the hover state, which a touch pointer
- // never produces. A marker or a figure under the cursor opens its own sheet;
- // only genuinely empty sky falls through to the body spawner.
- const deepSky=id?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null;
- const constellation=id||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;
- if(id){selected=id;showBody()}else if(deepSky)showDeepSky(deepSky);else if(constellation)showConstellation(constellation);else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
+ // never produces. A marker, a landmark pin, or a figure under the cursor
+ // opens its own sheet; only genuinely empty sky falls through to the body
+ // spawner. A landmark pin jumps straight into surface view standing at
+ // that place - the same as clicking it in the surface-view HUD's own
+ // known-places list - since that is the actual answer to "what is this":
+ // seeing it, not another line of panel text.
+ const deepSky=id||landmark?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null;
+ const constellation=id||landmark||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;
+ if(landmark)goToKnownPlace(bodyLandmarks.bodyId,landmark);else if(id){selected=id;showBody()}else if(deepSky)showDeepSky(deepSky);else if(constellation)showConstellation(constellation);else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
 renderer.domElement.addEventListener('dblclick',e=>{const id=hit(e);if(id)focusBody(id)});
 function shell(title,content){preview.clear();restoreFocus=document.activeElement;panel.innerHTML=`<div class="panel-head"><h2>${title}</h2><button class="close" aria-label="Zamknij">×</button></div>${content}`;panel.hidden=false;panel.querySelector('.close').onclick=closePanel}
 function closePanel(){preview.clear();clearBodyLandmarks();panel.hidden=true;selected=null;skySubject=null;restoreFocus?.focus?.()}
