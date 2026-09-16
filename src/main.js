@@ -434,7 +434,7 @@ function openReferenceImage(source){
 function mountWikipediaReference(subject,{description='',images=[]}={}){
  const section=document.createElement('section'),eyebrow=document.createElement('p'),copy=document.createElement('p'),gallery=document.createElement('div'),link=document.createElement('a');
  section.className='object-reference';section.dataset.noTranslate='true';
- eyebrow.className='reference-eyebrow';eyebrow.textContent=translate('Opis i zdjęcia');
+ eyebrow.className='reference-eyebrow';eyebrow.textContent=translate('Zdjęcia');
  copy.className='reference-description';copy.textContent=description||translate('Ładowanie opisu i zdjęć…');
  gallery.className='reference-gallery';gallery.setAttribute('aria-busy','true');
  link.className='reference-wikipedia';link.target='_blank';link.rel='noopener noreferrer';link.href=wikipediaSearchUrl(wikipediaTitle(subject),getLanguage());link.textContent=translate('Wikipedia ↗');
