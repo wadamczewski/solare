@@ -185,3 +185,15 @@ type. Messier's own three unresolved star fields/asterisms (M 24, M 40,
 M 73) are left out, since they are not deep-sky objects the way the rest of
 the catalogue is. Every addition gets its own researched note in all four
 interface languages (src/sky-descriptions.js), the same as the original 32.
+
+2026-09-16 more detail in the Milky Way band:
+sky/milkyway.bin's point cloud grows from 110 000 to 500 000 points
+(tools/build-sky.mjs, buildMilkyWay), restoring more of the grain of the
+individual stars that resolve out of the band - there is far more of that
+grain to show away from a planet's atmosphere and light pollution than the
+view from Earth's surface ever exposes. sky/milkyway.webp is rebuilt at the
+working raster grid's own native resolution (2880x1440, matching the isophote
+survey's own vertex spacing of roughly 0.1-0.24 degrees) instead of being
+downsampled to 2048x1024 afterwards, so the shipped map keeps detail the
+build already computed rather than discarding part of it. Same source data,
+same isophote levels, same blur pipeline - nothing invented.

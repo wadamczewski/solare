@@ -78,7 +78,7 @@ test('the shipped star catalogue decodes to a plausible sky',()=>{
 
 test('the Milky Way point cloud hugs the galactic plane',()=>{
  const glow = decodeGlow(load('milkyway.bin'));
- assert.ok(glow.count > 50000, `only ${glow.count} points`);
+ assert.ok(glow.count > 400000, `only ${glow.count} points`);
  // The galactic centre lies at RA 266.4, Dec -29.0; the densest part of the
  // cloud must be near it, and no point may reach the celestial poles.
  let near = 0, extremeDec = 0;

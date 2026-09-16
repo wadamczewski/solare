@@ -10,7 +10,11 @@
 //   stars.14.json, starnames.json, mw.json, dsos.bright.json, messier.json,
 //   constellations.lines.json
 //
-// Outputs into public/sky/: stars.bin, milkyway.bin, deepsky.json, constellations.bin
+// Outputs into public/sky/: stars.bin, milkyway.bin, deepsky.json,
+// constellations.bin, starnames.json, and milkyway.png (the renderer loads
+// milkyway.webp instead, so convert the PNG once after running this script,
+// e.g. `convert public/sky/milkyway.png -quality 90 public/sky/milkyway.webp`,
+// then delete the PNG - it ships no other way).
 import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
 import {join} from 'node:path';
 import {deflateSync} from 'node:zlib';
@@ -123,7 +127,10 @@ function buildStars() {
 // The five nested isophotes are rasterised with an even-odd scanline fill (so
 // interior rings punch out the dark rifts), then rejection-sampled into a point
 // cloud. Physically this is what the band is: unresolved stars, not a surface.
-const GRID_W = 2880, GRID_H = 1440; // 0.125 deg per cell
+// 0.125 deg per cell: close to the isophote polygons' own vertex spacing in
+// mw.json (about 0.1-0.24 deg on average), so this already resolves nearly
+// all the detail the survey itself carries.
+const GRID_W = 2880, GRID_H = 1440;
 
 function splitAtSeam(ring) {
   // The band wraps the sky, so some rings are clipped at the antimeridian and
@@ -262,7 +269,12 @@ function buildMilkyWay(target) {
   let peak = 0;
   for (const v of field) if (v > peak) peak = v;
   // The shipped map is blurred harder: real diffuse starlight has no contour steps.
-  const texture = writeTexture(blur(field, 17), peak, 2048, 1024);
+  // Shipped at the working grid's own resolution (GRID_W x GRID_H), not
+  // downsampled: the survey's isophote polygons are only good to about
+  // 0.1-0.24 deg between vertices (see the grid comment above), so 0.125
+  // deg/cell already uses what detail they carry - downsampling further
+  // would just throw part of it away.
+  const texture = writeTexture(blur(field, 17), peak, GRID_W, GRID_H);
   console.log(`milkyway.png       ${texture.width}x${texture.height} luminance map`);
 
   const ra = [], dec = [], brightness = [];
@@ -381,7 +393,7 @@ function buildConstellations() {
 
 const stars = buildStars();
 console.log(`stars.bin          ${stars.count} stars (to mag 14), ${stars.named.length} named landmarks`);
-const mw = buildMilkyWay(110000);
+const mw = buildMilkyWay(500000);
 console.log(`milkyway.bin       ${mw.count} glow points`);
 const dso = buildDeepSky();
 console.log(`deepsky.json       ${dso.count} bright objects`);
