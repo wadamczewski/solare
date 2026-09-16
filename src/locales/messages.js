@@ -223,5 +223,16 @@ rows.push(
  ['fazy całkowitej','of totality','der Totalität','de la totalidad'],
  ['fazy obrączkowej','of annularity','der Ringförmigkeit','de la anularidad'],
  ['(w miejscu największego zaćmienia)','(at the point of greatest eclipse)','(am Ort der größten Verfinsterung)','(en el punto de eclipse máximo)'],
- ['Scenariusz otwiera widok z okolic','The scenario opens the view from near','Das Szenario öffnet die Ansicht bei','El escenario abre la vista cerca de']
+ ['Scenariusz otwiera widok z okolic','The scenario opens the view from near','Das Szenario öffnet die Ansicht bei','El escenario abre la vista cerca de'],
+ // The lunar half of the same picker. Unlike the solar events (each a
+ // one-off, place-specific name), every lunar eclipse of one kind shares the
+ // same plain name, so - unlike the solar scenario names - these are worth
+ // registering: one row each covers every dated entry in lunar-eclipses.js.
+ ['Zaćmienia Księżyca','Lunar eclipses','Mondfinsternisse','Eclipses lunares'],
+ ['Całkowite zaćmienie Księżyca','Total lunar eclipse','Totale Mondfinsternis','Eclipse lunar total'],
+ ['Częściowe zaćmienie Księżyca','Partial lunar eclipse','Partielle Mondfinsternis','Eclipse lunar parcial'],
+ ['Półcieniowe zaćmienie Księżyca','Penumbral lunar eclipse','Halbschatten-Mondfinsternis','Eclipse penumbral lunar'],
+ ['Faza całkowita','Total phase','Totale Phase','Fase total'],
+ ['Faza częściowa','Partial phase','Partielle Phase','Fase parcial'],
+ ['Faza półcieniowa','Penumbral phase','Halbschattenphase','Fase penumbral']
 );

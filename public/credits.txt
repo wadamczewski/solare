@@ -423,3 +423,39 @@ cross-checked against Wikipedia's infobox for each listed eclipse
 (https://en.wikipedia.org/wiki/Solar_eclipse_of_August_21,_2017 and the
 equivalent pages for 2023-04-20, 2023-10-14, 2024-04-08, 2026-08-12 and
 2027-08-02).
+
+2026-09-16 real lunar eclipse scenarios:
+The same "Zaćmienia" picker gained a second, lunar half (src/lunar-eclipses.js),
+listing seven real eclipses from 2022 to 2028 - four total, one partial and
+one penumbral - each with its kind and the sourced instant of greatest
+eclipse plus the umbral/partial/penumbral durations there, again from NASA's
+Eclipse Website and cross-checked on Wikipedia. A lunar eclipse needed no
+surface view: it is visible from an entire hemisphere at once rather than one
+narrow path, so launching one rewinds the system to a head start before
+greatest eclipse (half the sourced penumbral duration, since the Moon
+crosses the shadow at close to constant speed near mid-eclipse) and simply
+follows the Moon from outside - in real scale, forced on for the same reason
+surface view always forces it: compressed mode distorts exactly the relative
+sizes and distances the eclipse shader's overlap calculation depends on.
+Earth's shadow on the Moon needed no new code at all, for the same reason a
+planet's shadow on its own rings did not: updateExtendedSolarShadows()
+already builds a full occluder candidate list for every receiving body, and
+the Moon already receives that shadow (participatesInSolarShadow is true for
+every body but the Sun and a black hole) with Earth as an ordinary, un-excluded
+candidate. This is also why the very same self-shadow bug fixed for a
+planet's rings a moment earlier plainly never affected the Moon: the excluded
+receiver id there was always the ring's own placeholder, never the real
+Earth-Moon pair.
+Checked the same way as the solar scenario: reading the raw body positions
+(window.solare.getState()) through a run of the 2022-11-08 event, the
+Earth-Moon-Sun angle (how far Earth sits from directly blocking the Sun, as
+seen from the Moon) fell from 1.45 degrees at the scenario's start to 0.96
+degrees roughly an hour later - closing steadily toward zero on schedule for
+the published 10:59:08 UTC greatest eclipse - and a screenshot partway
+through already shows a real, sourced-geometry shadow visibly advancing
+across the Moon's disc.
+Sources: NASA Eclipse Website / F. Espenak's five-millennium catalogue,
+cross-checked against Wikipedia's infobox for each listed eclipse
+(https://en.wikipedia.org/wiki/November_2022_lunar_eclipse and the
+equivalent pages for 2025-03-14, 2025-09-07, 2026-03-03, 2026-08-28,
+2027-02-20 and 2028-12-31).

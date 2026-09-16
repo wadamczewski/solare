@@ -58,6 +58,7 @@ import {createAsteroidBelt} from './asteroid-belt.js';
 import {DEFAULT_IMPACT_SPEED_KMS,buildCustomScenario,clampImpactSpeed,collisionScenarios,collisionLaunchState,findScenarioTarget,scenarioCollisionReady,scenarioContactNormal,scenarioContactSpeed,scenarioVisualSeparation} from './collision-scenarios.js';
 import {SATURN_RING_INNER,SATURN_RING_BANDS,URANUS_RING_INNER,URANUS_RING_BANDS,ringBandAt} from './planet-rings.js';
 import {SOLAR_ECLIPSES,SOLAR_LEAD_MINUTES,formatEclipseDuration} from './solar-eclipses.js';
+import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: lot i sterowanie myszą. Q/E: dół/góra. Shift: szybciej. Escape: zwolnij mysz i zamknij panel. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza.');
 // Rates the clock can run at, in days per second of wall time. The slowest is
@@ -673,9 +674,35 @@ function solarEclipseNote(item){
  const label=SOLAR_ECLIPSE_LABEL[item.kind]||item.kind,phase=SOLAR_ECLIPSE_PHASE[item.kind]||'',duration=formatEclipseDuration(item.durationSeconds);
  return `${label}. Maksymalny czas trwania ${phase} (w miejscu największego zaćmienia): ${duration}. Scenariusz otwiera widok z okolic ${item.location.name}.`;
 }
+// A lunar eclipse needs none of the surface-view machinery a solar one does:
+// it is visible from an entire hemisphere at once rather than one narrow
+// path, so the scenario simply follows the Moon from outside, in real scale
+// - compressed mode would distort exactly the relative sizes and distances
+// the eclipse shader's overlap calculation depends on, the same reason
+// surface view always forces it. Earth already receives the shadow through
+// the ordinary occluder list updateExtendedSolarShadows builds every frame;
+// nothing here scripts the umbra itself.
+const LUNAR_ECLIPSE_PHASE_LABEL={totality:'Faza całkowita',partial:'Faza częściowa',penumbral:'Faza półcieniowa'};
+function lunarEclipseNote(item){
+ const parts=[`${item.name}.`];
+ if(item.totalitySeconds)parts.push(`${LUNAR_ECLIPSE_PHASE_LABEL.totality}: ${formatEclipseDuration(item.totalitySeconds)}.`);
+ if(item.partialSeconds)parts.push(`${LUNAR_ECLIPSE_PHASE_LABEL.partial}: ${formatEclipseDuration(item.partialSeconds)}.`);
+ parts.push(`${LUNAR_ECLIPSE_PHASE_LABEL.penumbral}: ${formatEclipseDuration(item.penumbralSeconds)}.`);
+ return parts.join(' ');
+}
+function launchLunarEclipse(item){
+ if(!item)return;
+ const start=new Date(Date.parse(item.greatest)-lunarEclipseLeadMinutes(item)*60000);
+ resetSystem(start);
+ const moon=bs.find(b=>b.key==='moon'&&bs.find(host=>host.id===b.parent)?.key==='earth');if(!moon)return;
+ compressed=false;controls.maxDistance=maxViewDistance(false);clearTrails();updateOrbits();
+ focusBody(moon.id,{keepPanel:false});
+ speed=MINUTE_PER_SECOND;paused=false;
+}
 function showEclipseLauncher(){
  const solarOptions=SOLAR_ECLIPSES.map(item=>`<option value="${item.id}">${item.name} · ${dateFormat.format(new Date(item.greatest))}</option>`).join('');
- shell('Zaćmienia',`<label class="field-title">Zaćmienia Słońca</label>${row('Wydarzenie',`<select id="solar-eclipse">${solarOptions}</select>`)}<p class="muted" id="solar-eclipse-note"></p><div class="actions"><button class="action primary" id="launch-solar-eclipse">Uruchom</button><button class="action" id="tools">Symulacja</button></div>`);
+ const lunarOptions=LUNAR_ECLIPSES.map(item=>`<option value="${item.id}">${item.name} · ${dateFormat.format(new Date(item.greatest))}</option>`).join('');
+ shell('Zaćmienia',`<label class="field-title">Zaćmienia Słońca</label>${row('Wydarzenie',`<select id="solar-eclipse">${solarOptions}</select>`)}<p class="muted" id="solar-eclipse-note"></p><div class="actions"><button class="action primary" id="launch-solar-eclipse">Uruchom</button><button class="action" id="tools">Symulacja</button></div><div class="separator"></div><label class="field-title">Zaćmienia Księżyca</label>${row('Wydarzenie',`<select id="lunar-eclipse">${lunarOptions}</select>`)}<p class="muted" id="lunar-eclipse-note"></p><div class="actions"><button class="action primary" id="launch-lunar-eclipse">Uruchom</button></div>`);
  const solarSelect=document.querySelector('#solar-eclipse'),solarNote=document.querySelector('#solar-eclipse-note');
  const refreshSolarNote=()=>{
   const item=SOLAR_ECLIPSES.find(x=>x.id===solarSelect.value);if(!item)return;
@@ -683,6 +710,13 @@ function showEclipseLauncher(){
  };
  solarSelect.onchange=refreshSolarNote;refreshSolarNote();
  document.querySelector('#launch-solar-eclipse').onclick=()=>launchSolarEclipse(SOLAR_ECLIPSES.find(item=>item.id===solarSelect.value));
+ const lunarSelect=document.querySelector('#lunar-eclipse'),lunarNote=document.querySelector('#lunar-eclipse-note');
+ const refreshLunarNote=()=>{
+  const item=LUNAR_ECLIPSES.find(x=>x.id===lunarSelect.value);if(!item)return;
+  lunarNote.textContent=lunarEclipseNote(item);
+ };
+ lunarSelect.onchange=refreshLunarNote;refreshLunarNote();
+ document.querySelector('#launch-lunar-eclipse').onclick=()=>launchLunarEclipse(LUNAR_ECLIPSES.find(item=>item.id===lunarSelect.value));
  document.querySelector('#tools').onclick=showTools;
 }
 eclipseButton.onclick=showEclipseLauncher;
