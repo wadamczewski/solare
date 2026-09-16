@@ -271,3 +271,20 @@ name tag as everything else; clicking calls the same goToKnownPlace already
 wired to the surface-view HUD's own known-places list, landing standing at
 that exact spot and looking at the ground - answering "what is this" by
 showing it, not by adding another line of text to read.
+
+2026-09-16 no more spawner-only note under a real planet's photos:
+The generic planet catalog entry's note ("Approximate mass and mean
+planetary radius. A new copy is created at the selected position.") is
+written for the spawner dialog, where "a new copy is created" is literally
+what happens when you add one from the catalog. showBody()'s photo section
+fell back to that same catalog note whenever a real, already-placed planet
+had no note of its own - which is every default planet, since they are
+built directly from the solar-system table rather than through the
+spawner - so Mars, say, ended up telling the viewer a new copy would be
+created at a position, which made no sense for a body already sitting in
+the scene. The catalog entry's note is now empty for ordinary planets
+instead of being reused out of context; the spawner dialog's own
+#catalog-note field simply shows nothing extra for a plain planet preset,
+same as it already does for the couple of presets that had no note text to
+begin with, while every other catalog entry's own factual note (a comet,
+asteroid, black hole, or exoplanet) is untouched in both places.

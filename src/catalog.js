@@ -28,7 +28,7 @@ export const catalog = [
  {id:'theia',key:'planet',name:'Theia (hipotetyczna)',group:'Małe ciała',mass:6.4e23/SOLAR_MASS,radius:3390,spin:24,tilt:15,color:'#8a6f5e',source:'https://science.nasa.gov/moon/formation/',note:'Ciało wielkości Marsa, którego zderzenie z młodą Ziemią miałoby utworzyć Księżyc. Masa i promień to wartości modelowe przyjmowane w symulacjach hipotezy wielkiego zderzenia — Theia nigdy nie została zaobserwowana.'},
 
  {...blackHole('custom-blackhole','Własna czarna dziura',10),group:'Obiekty ogólne',note:'Ustaw własną masę w kg lub masach Słońca, położenie i wektor ruchu. Horyzont wynika z masy. Model nierotującej czarnej dziury; bez efektów relatywistycznych.'},
- ...planets.map(p=>({id:p[1],name:p[0],key:p[1],group:'Układ Słoneczny',mass:p[5],radius:p[6],spin:p[7],tilt:p[8],color:p[9],note:'Przybliżona masa i średni promień planety. Nowa kopia powstaje we wskazanym miejscu.'})),
+ ...planets.map(p=>({id:p[1],name:p[0],key:p[1],group:'Układ Słoneczny',mass:p[5],radius:p[6],spin:p[7],tilt:p[8],color:p[9],note:''})),
  blackHole('sagittarius-a','Sagittarius A*',4e6,'https://science.nasa.gov/universe/black-holes/'),
  blackHole('m87','M87*',6.5e9,'https://www.jpl.nasa.gov/edu/resources/teachable-moment/how-scientists-captured-the-first-image-of-a-black-hole/'),
  blackHole('cygnus-x1','Cygnus X-1',21,'https://www.nasa.gov/universe/nasas-ixpe-reveals-shape-orientation-of-hot-matter-around-black-hole/'),
