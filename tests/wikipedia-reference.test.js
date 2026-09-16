@@ -24,3 +24,17 @@ test('Wikipedia gallery is bounded to five lazy-loadable images',async()=>{
  const reference=await wikipediaReference({name:'Księżyc'},'en',fetcher);
  assert.deepEqual(reference.images,['cover.jpg','one.jpg','two.jpg','three.jpg','four.jpg']);
 });
+
+test('Wikipedia gallery rejects Wikimedia interface artwork without reducing the photo limit',async()=>{
+ const fetcher=async url=>({ok:true,json:async()=>{
+  if(url.includes('summary'))return {title:'Moon',titles:{canonical:'Moon'},extract:'A moon.',thumbnail:{source:'https://upload.wikimedia.org/commons-logo.svg'},originalimage:{source:'https://upload.wikimedia.org/commons-logo.svg'},content_urls:{desktop:{page:'https://en.wikipedia.org/wiki/Moon'}}};
+  return {query:{pages:{
+   logo:{title:'File:Commons-logo.svg',imageinfo:[{thumburl:'commons-thumb.svg',url:'https://upload.wikimedia.org/commons-logo.svg',mime:'image/svg+xml'}]},
+   photo:{title:'File:Moon Apollo 11.jpg',imageinfo:[{thumburl:'moon-thumb.jpg',url:'moon-full.jpg',mime:'image/jpeg'}]},
+   diagram:{title:'File:Moon phases.svg',imageinfo:[{thumburl:'phases.svg',url:'phases.svg',mime:'image/svg+xml'}]}
+  }}};
+ }});
+ const reference=await wikipediaReference({name:'Księżyc'},'en',fetcher);
+ assert.deepEqual(reference.images,['moon-thumb.jpg']);
+ assert.deepEqual(reference.imageDetails.map(image=>image.originalUrl),['moon-full.jpg']);
+});
