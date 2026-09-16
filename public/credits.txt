@@ -118,11 +118,11 @@ confidently mapped named feature; each instead points at the sub-planetary
 point, since this simulation already models every moon without its own
 tabulated rotation as tidally locked.
 
-Standing in surface view, the same solar-system bodies the compass already
+Standing in surface view, the same solar-system bodies the radar already
 tracks, and - opt-in, matching the existing deep-sky marker toggle - deep-sky
 objects, now also get a name-and-outline marker drawn directly over their
 actual position in the rendered sky (src/sky-labels.js), rather than only on
-the compass ring or in the object list. No new imagery or data; it projects
+the radar or in the object list. No new imagery or data; it projects
 positions the simulation already computes.
 
 2026-09-16 sphere-based surface-view radar:
@@ -139,3 +139,14 @@ around for" is visible at a glance rather than requiring a full turn. No new
 imagery or data; it is a second small Three.js scene, following the same
 reusable-renderer pattern as the existing detail preview, projecting
 positions the simulation already computes.
+
+2026-09-16 deep-sky labels shown in every view:
+The name-and-outline marker for a deep-sky object (above) now follows the
+same toggle's marker dots wherever they are drawn (src/sky.js) rather than
+only while standing on a surface: the free orbit view, star-system presets,
+the light-flight camera and falling into a black hole all get it too,
+whenever "Deep-sky objects" is switched on. Standing on a surface is still
+the one case that filters by altitude, since the ground genuinely blocks
+anything below the horizon there; everywhere else nothing blocks the view
+in any direction, so only being in front of the camera is required. No new
+imagery or data; same projection as before, run every view instead of one.

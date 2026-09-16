@@ -128,9 +128,12 @@ body.on-a-surface #solar-brightness { display: none; }
 
 /* One outline+name marker per sky-label, positioned every frame at the exact
    screen point its tracked body or deep-sky object projects to, so it reads
-   as a ring drawn around the real point of light rather than a HUD widget. */
-#sky-labels{position:fixed;inset:0;z-index:1;pointer-events:none}
-#sky-labels[hidden]{display:none}
+   as a ring drawn around the real point of light rather than a HUD widget.
+   #sky-labels is the surface-view radar's own bodies; #deep-sky-labels is
+   the opt-in deep-sky layer, shown in whatever view is active, not only
+   while standing on a surface. */
+#sky-labels,#deep-sky-labels{position:fixed;inset:0;z-index:1;pointer-events:none}
+#sky-labels[hidden],#deep-sky-labels[hidden]{display:none}
 .sky-label{position:absolute;left:0;top:0;display:flex;flex-direction:column;align-items:center;gap:4px;transform:translate(-50%,-50%);white-space:nowrap}
 .sky-label i{display:block;width:var(--sky-label-size,18px);height:var(--sky-label-size,18px);border-radius:50%;border:1px solid #cfe8ff9c;box-shadow:0 0 9px #8fc4ff44,inset 0 0 9px #8fc4ff22}
 .sky-label b{font-size:10px;font-weight:500;letter-spacing:.02em;color:#dceeff;text-shadow:0 1px 4px #000,0 0 8px #000;background:#080c19a8;padding:2px 6px;border-radius:3px}

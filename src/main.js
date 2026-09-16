@@ -91,11 +91,16 @@ const flightTextureKeys=new Set();
 // meaningless against radii that have been enlarged to be seen from outside.
 let surfaceView=null,surfaceReturn=null,earthLocationWatch=null;
 const flightLabels=document.createElement("div");flightLabels.id="flight-labels";document.body.append(flightLabels);
-// Persistent labels over whatever the surface-view radar (the compass) and,
-// opt-in, the deep-sky markers are tracking, drawn directly on the rendered
-// sky rather than on the compass ring, so a bright point overhead can be
-// matched to a name by eye instead of read off a list.
+// Persistent labels over whatever the surface-view radar is tracking, drawn
+// directly on the rendered sky rather than on the radar sphere, so a bright
+// point overhead can be matched to a name by eye instead of read off a list.
+// Surface-view only: the objects it tracks (surfaceEntries) only make sense
+// relative to a horizon.
 const skyLabels=document.createElement('div');skyLabels.id='sky-labels';skyLabels.hidden=true;document.body.append(skyLabels);
+// Deep-sky name+outline markers, opt-in via the same toggle that lights up
+// their dots on the dome itself (sky.js) - and, like those dots, shown in
+// whatever view is currently active, not only while standing on a surface.
+const deepSkyLabels=document.createElement('div');deepSkyLabels.id='deep-sky-labels';deepSkyLabels.hidden=!showDeepSkyMarkers;document.body.append(deepSkyLabels);
 const flightHud=document.createElement('div');flightHud.id='light-flight';flightHud.hidden=true;document.body.append(flightHud);
 const deathHud=document.createElement('div');deathHud.id='solar-death';deathHud.hidden=true;document.body.append(deathHud);
 const blackHoleFallHud=document.createElement('aside');blackHoleFallHud.id='black-hole-fall';blackHoleFallHud.hidden=true;document.body.append(blackHoleFallHud);
@@ -833,34 +838,46 @@ function paintSurfaceRadar(body,frame){
 }
 // Name+outline markers drawn directly over the rendered sky, so a bright
 // point overhead can be matched to a body by eye instead of read off the
-// compass ring or the object list. The same bodies the compass already
-// tracks (surfaceEntries) get one always; deep-sky objects join them only
-// when that marker layer is switched on, matching what is actually lit up
-// on the dome itself - never labelling something the sky isn't showing.
-function appendSkyLabel(kind,key,name,point,pixelRadius){
+// radar or the object list.
+function appendSkyLabel(container,kind,key,name,point,pixelRadius){
  const label=document.createElement('span');label.className='sky-label';label.dataset.kind=kind;if(key)label.dataset.object=key;
  label.style.left=`${point.x.toFixed(1)}px`;label.style.top=`${point.y.toFixed(1)}px`;
  label.style.setProperty('--sky-label-size',`${(pixelRadius*2).toFixed(1)}px`);
  label.innerHTML='<i></i><b></b>';label.querySelector('b').textContent=name;
- skyLabels.append(label);
+ container.append(label);
 }
+// Surface-view only: the same bodies the radar already tracks
+// (surfaceEntries), relative to that body's own horizon.
 function paintSkyLabels(body,frame){
  if(skyLabels.hidden)return;
  const radarObjects=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).filter(item=>item.altitude>=0);
- const deepSkyObjects=showDeepSkyMarkers?sky.getDeepSkyObjects().filter(entry=>horizontal([entry.target.x,entry.target.y,entry.target.z],frame).altitude>=0):[];
  skyLabels.replaceChildren();
  for(const item of radarObjects){
   const other=bs.find(b=>b.id===item.id);if(!other)continue;
   const worldPosition=displayed(other),clip=worldPosition.project(camera),point=projectedPoint(clip.x,clip.y,clip.z,innerWidth,innerHeight);
   if(!point.visible)continue;
   const pixelRadius=ringPixelRadius(radius(other),camera.position.distanceTo(worldPosition),camera.fov,innerHeight);
-  appendSkyLabel('radar',item.key||'',translate(item.name),point,pixelRadius);
+  appendSkyLabel(skyLabels,'radar',item.key||'',translate(item.name),point,pixelRadius);
  }
+}
+// Deep-sky objects join whatever view is currently active - not only surface
+// view - matching what is actually lit up on the dome itself (sky.js) once
+// the toggle is on: those marker dots already show through every view, so
+// their name+outline overlay should too. While standing on a surface, the
+// ground blocks anything below the horizon, so that case alone still filters
+// by altitude the same way the radar labels do; every other view has no
+// horizon to speak of, so nothing is filtered there beyond being in front of
+// the camera.
+function paintDeepSkyLabels(){
+ if(deepSkyLabels.hidden)return;
+ const horizon=surfaceView?.horizon;
+ const deepSkyObjects=sky.getDeepSkyObjects().filter(entry=>!horizon||horizontal([entry.target.x,entry.target.y,entry.target.z],horizon).altitude>=0);
+ deepSkyLabels.replaceChildren();
  for(const entry of deepSkyObjects){
   const worldPosition=camera.position.clone().addScaledVector(entry.target,SKY_RADIUS),clip=worldPosition.project(camera),point=projectedPoint(clip.x,clip.y,clip.z,innerWidth,innerHeight);
   if(!point.visible)continue;
   const pixelRadius=deepSkyRingPixelRadius(entry.arcmin,camera.fov,innerHeight);
-  appendSkyLabel('deep',entry.type||'',entry.label,point,pixelRadius);
+  appendSkyLabel(deepSkyLabels,'deep',entry.type||'',entry.label,point,pixelRadius);
  }
 }
 function paintSurfaceHud(body,frame){
@@ -969,7 +986,7 @@ function showSystemLibrary(preselect){
 }
 function showTools(){selected=null;shell('Symulacja',`<div class="tools"><button id="pause" aria-label="Pauza">${paused?'▶':'Ⅱ'}</button><button id="zoom-in" aria-label="Przybliż">＋</button><button id="zoom-out" aria-label="Oddal">−</button><button id="home" aria-label="Domyślny widok">⌖</button></div>${row('Tempo',`<select id="speed">${lightFlight?`<option selected>Lot · ${lightFlight.rate} ×</option>`:''}${rateOptions(speed)}</select>`)}${row('Widok',`<select id="scale"><option value="visual" ${compressed?'selected':''}>Czytelny</option><option value="real" ${!compressed?'selected':''}>Rzeczywista skala</option></select>`)}<div class="actions"><button class="action" id="light-start">${lightFlight?'Zakończ lot światła':'Symulacja prędkości światła'}</button></div><div class="actions"><button class="action" id="add">Dodaj ciało</button><button class="action" id="custom-blackhole">Własna czarna dziura</button><button class="action danger" id="restart">Od nowa</button></div>`);document.querySelector('#pause').onclick=e=>{setPaused(!paused);e.target.textContent=paused?'▶':'Ⅱ'};document.querySelector('#light-start').onclick=()=>lightFlight?stopLightFlight():startLightFlight();for(const id of ['speed','scale','zoom-in','zoom-out','home'])document.getElementById(id).disabled=!!lightFlight;document.querySelector('#light-start').disabled=!!systemMode;document.querySelector('#zoom-in').onclick=()=>camera.position.lerp(controls.target,.25);document.querySelector('#zoom-out').onclick=()=>camera.position.sub(controls.target).multiplyScalar(1.3).add(controls.target);document.querySelector('#home').onclick=resetView;document.querySelector('#speed').onchange=e=>setSimulationSpeed(e.target.value);document.querySelector('#scale').onchange=e=>setScaleMode(e.target.value==='visual');document.querySelector('#add').onclick=()=>{spawnAt.set(2,0,0);showSpawner()};document.querySelector('#custom-blackhole').onclick=()=>{spawnAt.set(2,0,0);showSpawner('custom-blackhole')};document.querySelector('#restart').onclick=restart;}
 function setConstellationsVisible(visible){showConstellations=visible;sky.setConstellations(visible);const checkbox=document.querySelector('#constellations');if(checkbox)checkbox.checked=visible;}
-function setDeepSkyMarkersVisible(visible){showDeepSkyMarkers=visible;sky.setDeepSkyMarkers(visible);const checkbox=document.querySelector('#deep-sky-markers');if(checkbox)checkbox.checked=visible;}
+function setDeepSkyMarkersVisible(visible){showDeepSkyMarkers=visible;sky.setDeepSkyMarkers(visible);deepSkyLabels.hidden=!visible;if(!visible)deepSkyLabels.replaceChildren();const checkbox=document.querySelector('#deep-sky-markers');if(checkbox)checkbox.checked=visible;}
 function focusSkyTarget(direction){if(lightFlight)stopLightFlight();follow=null;const target=camera.position.clone().add(direction.clone().normalize().multiplyScalar(100));controls.target.copy(target);controls.update();}
 // A sky object has no simulated state to edit, so its panel is a read-only
 // sheet: measured values from the catalogues, then a note about what is there.
@@ -1155,7 +1172,7 @@ function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed
  if(Math.abs(nextSolarInfall-solarInfall)>.002){solarInfall=nextSolarInfall;applySolarBrightness()}
  const sun=bs.find(b=>b.key==='sun');sunlight.visible=!!sun;solarBloom.enabled=!!sun;blackHoleLensing.enabled=blackHoles.length>0&&!blackHoleFall;blackHoleFallPass.enabled=!!blackHoleFall;if(sun)sunlight.position.copy(displayed(sun));if(follow){const b=bs.find(x=>x.id===follow);if(b){const p=displayed(b),offset=camera.position.clone().sub(controls.target);controls.target.copy(p);camera.position.copy(p).add(offset)}}
  selection.visible=!!selected;const chosen=bs.find(x=>x.id===selected);if(chosen){selection.position.copy(displayed(chosen));selection.scale.setScalar(radius(chosen));selection.quaternion.copy(camera.quaternion)}
- asteroidBelt.mesh.visible=!systemMode&&!blackHoleFall;if(frame%3===0&&!systemMode)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight||blackHoleFall?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden&&(frame&1)===0){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}syncTimeDock();if(solarDeath)updateSolarDeath(now);if(blackHoleFall)updateBlackHoleFall(now);else if(surfaceView)updateSurfaceView(frame);else if(lightFlight)updateLightFlight(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}freeFlightHelp.hidden=!!(lightFlight||surfaceView||solarDeath||blackHoleFall||!navigation.active());camera.updateMatrixWorld();if((frame&1)===0)updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}if(blackHoleLensing.enabled)updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);if(blackHoleFall){const hole=bs.find(b=>b.id===blackHoleFall.holeId),projected=hole?displayed(hole).project(camera):new THREE.Vector3();updateBlackHoleFallPass(blackHoleFallPass,blackHoleFallState(blackHoleFall.seconds(now),hole?.mass),new THREE.Vector2(projected.x*.5+.5,projected.y*.5+.5))}else updateBlackHoleFallPass(blackHoleFallPass,null,new THREE.Vector2(.5,.5));for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect)}else composer.render();frame++}
+ asteroidBelt.mesh.visible=!systemMode&&!blackHoleFall;if(frame%3===0&&!systemMode)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight||blackHoleFall?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden&&(frame&1)===0){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}syncTimeDock();if(solarDeath)updateSolarDeath(now);if(blackHoleFall)updateBlackHoleFall(now);else if(surfaceView)updateSurfaceView(frame);else if(lightFlight)updateLightFlight(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}freeFlightHelp.hidden=!!(lightFlight||surfaceView||solarDeath||blackHoleFall||!navigation.active());camera.updateMatrixWorld();if((frame&1)===0)updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}if(blackHoleLensing.enabled)updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);if(blackHoleFall){const hole=bs.find(b=>b.id===blackHoleFall.holeId),projected=hole?displayed(hole).project(camera):new THREE.Vector3();updateBlackHoleFallPass(blackHoleFallPass,blackHoleFallState(blackHoleFall.seconds(now),hole?.mass),new THREE.Vector2(projected.x*.5+.5,projected.y*.5+.5))}else updateBlackHoleFallPass(blackHoleFallPass,null,new THREE.Vector2(.5,.5));for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect);deepSkyLabels.replaceChildren()}else{composer.render();if(frame%6===0)paintDeepSkyLabels()}frame++}
 installLanguageUI();
 document.addEventListener('languagechange',()=>{refreshClockFormats();clockShown='';updateClock();layoutRail();if(surfaceView)buildSurfaceHud();if(!panel.hidden&&selected)showBody()});
 requestAnimationFrame(animate);
