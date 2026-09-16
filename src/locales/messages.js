@@ -170,3 +170,18 @@ rows.push(
  ['czas lokalny','local time','Ortszeit','hora local']
  ,['Kompas kierunku','Heading compass','Richtungskompass','Brújula de rumbo']
 );
+// Known-places section in the object details pane, and the handful of place
+// names that aren't an official, un-translated IAU/Latin feature name (most
+// are - Olympus Mons, Valles Marineris, Kraken Mare and the like need no
+// translation because that is exactly how every language writes them).
+rows.push(
+ ['Znane miejsca','Known places','Bekannte Orte','Lugares conocidos'],
+ ['Otwiera widok z powierzchni w tym miejscu.','Opens surface view at this location.','Öffnet die Oberflächenansicht an diesem Ort.','Abre la vista de superficie en este lugar.'],
+ ['Wielka Czerwona Plama','Great Red Spot','Großer Roter Fleck','Gran Mancha Roja'],
+ ['Heksagon bieguna północnego','North Pole Hexagon','Nordpol-Sechseck','Hexágono del polo norte'],
+ ['Biegun (ekstremalne nachylenie osi)','Pole (extreme axial tilt)','Pol (extreme Achsneigung)','Polo (inclinación axial extrema)'],
+ ['Wielka Ciemna Plama','Great Dark Spot','Großer Dunkler Fleck','Gran Mancha Oscura'],
+ ['Baza Spokoju (Apollo 11)','Tranquility Base (Apollo 11)','Tranquility Base (Apollo 11)','Base de la Tranquilidad (Apolo 11)'],
+ ['Struktura Richat (Oko Sahary)','Richat Structure (Eye of the Sahara)','Richat-Struktur (Auge der Sahara)','Estructura de Richat (Ojo del Sáhara)'],
+ ['Punkt podplanetarny','Sub-planetary point','Subplanetarer Punkt','Punto subplanetario']
+);

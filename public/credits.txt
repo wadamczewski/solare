@@ -102,3 +102,25 @@ times across the surface. It is a cosmetic detail layer so the ground right
 under a standing observer - always far inside a single texel of even the
 real elevation maps above - doesn't read as a smooth interpolation of its
 far-away neighbours. No third-party asset.
+
+2026-09-16 known-places navigation and sky-object labelling:
+The "Known places" list in the object details pane (src/surface-places.js)
+jumps a surface-view visit straight to a real, named surface feature instead
+of latitude/longitude zero. Names and approximate planetocentric
+coordinates follow the IAU's official planetary nomenclature,
+https://planetarynames.wr.usgs.gov/ - rounded to the nearest degree, which
+is enough to bring a feature into view from directly overhead but is not
+survey-grade placement. A few (Jupiter's Great Red Spot, Neptune's Great
+Dark Spot, Saturn's polar hexagon, Io's active volcanoes) name features
+that drift or evolve, so their coordinates are only approximate for the
+current epoch. Proteus and Nereid, only glimpsed by Voyager 2, have no
+confidently mapped named feature; each instead points at the sub-planetary
+point, since this simulation already models every moon without its own
+tabulated rotation as tidally locked.
+
+Standing in surface view, the same solar-system bodies the compass already
+tracks, and - opt-in, matching the existing deep-sky marker toggle - deep-sky
+objects, now also get a name-and-outline marker drawn directly over their
+actual position in the rendered sky (src/sky-labels.js), rather than only on
+the compass ring or in the object list. No new imagery or data; it projects
+positions the simulation already computes.

@@ -10,6 +10,7 @@ import {collisionScenarios} from '../src/collision-scenarios.js';
 import {SOLAR_PHASES} from '../src/solar-evolution.js';
 import {deepSkyKind} from '../src/sky.js';
 import {STAR_SYSTEMS, systemBodies} from '../src/star-systems.js';
+import {KNOWN_PLACES} from '../src/surface-places.js';
 
 // Letters used by Polish and by none of the other three interface languages.
 // 'ó' is deliberately absent: Spanish and Hungarian use it, and including it
@@ -45,6 +46,8 @@ test('every rendered string in the data modules is translated into all four lang
   gaps.push(...untranslated(`sky.deepSkyKind.${type}`, deepSkyKind({type})));
  for (const object of JSON.parse(readFileSync(`${root}public/sky/deepsky.json`, 'utf8')))
   gaps.push(...untranslated(`deepsky.${object.id}`, object.label));
+ for (const [body, places] of Object.entries(KNOWN_PLACES))
+  for (const place of places) gaps.push(...untranslated(`surface-places.${body}`, place.name));
  assert.deepEqual(gaps, [], `untranslated:\n${gaps.join('\n')}`);
 });
 

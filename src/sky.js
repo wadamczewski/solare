@@ -129,7 +129,7 @@ export function splitConstellationFigures(lines) {
  });
 }
 
-const RADIUS = 900; // well inside the camera far plane; the group tracks the camera
+export const RADIUS = 900; // well inside the camera far plane; the group tracks the camera
 
 // The band is painted from an equirectangular luminance map. Rather than rely on
 // the sphere's own UV convention, the fragment shader inverts skyDirection() to

@@ -17,7 +17,9 @@ import {SOLAR_EVOLUTION_SECONDS,SOLAR_PHASES,SOLAR_RADIUS_KM,adiabaticExpansion,
 import {captureCollisionView,collisionFocusTransfer,framingDistance,viewContact} from './collision-view.js';
 import {catalog,createCatalogBody,horizonRadius,validDimensions} from './catalog.js';
 import {bodyKind} from './body-search.js';
-import {constellationLabel,createSky,deepSkyKind,equatorialFromDirection} from './sky.js';
+import {constellationLabel,createSky,deepSkyKind,equatorialFromDirection,RADIUS as SKY_RADIUS} from './sky.js';
+import {knownPlacesFor} from './surface-places.js';
+import {deepSkyRingPixelRadius,projectedPoint,ringPixelRadius} from './sky-labels.js';
 import {constellationNote,deepSkyNote} from './sky-descriptions.js';
 import {formatAngularSize,formatDeclination,formatRightAscension} from './sky-detail.js';
 import {wikipediaReference,wikipediaSearchUrl,wikipediaTitle} from './wikipedia-reference.js';
@@ -89,6 +91,11 @@ const flightTextureKeys=new Set();
 // meaningless against radii that have been enlarged to be seen from outside.
 let surfaceView=null,surfaceReturn=null,earthLocationWatch=null;
 const flightLabels=document.createElement("div");flightLabels.id="flight-labels";document.body.append(flightLabels);
+// Persistent labels over whatever the surface-view radar (the compass) and,
+// opt-in, the deep-sky markers are tracking, drawn directly on the rendered
+// sky rather than on the compass ring, so a bright point overhead can be
+// matched to a name by eye instead of read off a list.
+const skyLabels=document.createElement('div');skyLabels.id='sky-labels';skyLabels.hidden=true;document.body.append(skyLabels);
 const flightHud=document.createElement('div');flightHud.id='light-flight';flightHud.hidden=true;document.body.append(flightHud);
 const deathHud=document.createElement('div');deathHud.id='solar-death';deathHud.hidden=true;document.body.append(deathHud);
 const blackHoleFallHud=document.createElement('aside');blackHoleFallHud.id='black-hole-fall';blackHoleFallHud.hidden=true;document.body.append(blackHoleFallHud);
@@ -450,7 +457,12 @@ function mountWikipediaReference(subject,{description='',images=[]}={}){
   link.href=reference.url;renderGallery([...images,...(reference.imageDetails||reference.images)]);
  }).catch(()=>{if(!section.isConnected)return;renderGallery(images)});
 }
-function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const id=selected;stopLightFlight();selected=id}const b=bs.find(x=>x.id===selected);if(!b)return;requestDetailTexture(b);const velocity=b.v.map(x=>x*AU/86400),primary=b.key==='sun'?null:bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun'),orbitalVelocity=primary?relativeVelocity(b,primary):b.v,speedMagnitude=velocityKmPerSecond(orbitalVelocity),speedLabel=b.key==='sun'?'Prędkość barycentryczna · km/s':b.parent?'Prędkość względem planety · km/s':'Prędkość względem Słońca · km/s',magneticField=b.key==='neutron-star'?row('Pole magnetyczne · T',`<output class="value-readout">${formatNumber(b.magneticField,3)}</output>`):'',star=centralStarDetails(b),starRows=star?`${row('Typ widmowy',`<output class="value-readout">${star.spectralType}</output>`)}${row('Galaktyka',`<output class="value-readout">${star.galaxy}</output>`)}${row('Temperatura efektywna · K',`<output class="value-readout">${formatNumber(star.temperature,0)}</output>`)}${row('Ciepłota barwowa · K',`<output class="value-readout">${formatNumber(star.colorTemperature,0)}</output>`)}${row('Jasność · L☉',`<output class="value-readout">${formatNumber(star.luminosity,2)}</output>`)}`:'',surfaceAction=surfaceCandidates().some(candidate=>candidate.id===b.id)?'<button class="action" id="surface-open">Widok z powierzchni</button>':'';shell(b.name,`${temperatureMarkup(b)}${starRows}${row('Masa · kg',num('mass',b.mass*SOLAR_MASS))}${row(b.key==='blackhole'?'Horyzont · km':'Promień · km',num('radius',b.radius))}${row(speedLabel,`<output class="value-readout">${formatNumber(speedMagnitude,3)}</output>`)}${magneticField}${primary?row('Punkt odniesienia',`<output class="value-readout">${primary.name}</output>`):''}${row('Obrót · godz.',num('spin',b.spin))}${row('Nachylenie osi · °',num('tilt',b.tilt))}${vecFields('p',b.p,'Położenie X / Y / Z · AU')}${vecFields('v',velocity,'Prędkość X / Y / Z · km/s')}<div class="actions primary-actions"><button class="action primary" id="apply">Zastosuj</button><button class="action" id="focus">Śledź</button>${surfaceAction}</div><details class="advanced-fields"><summary>Dodatkowe opcje</summary>${row('Zamień orbitę',`<select id="swap"><option value="">Wybierz ciało</option>${bs.filter(x=>x.a&&x.id!==b.id).map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}</select>`)}<div class="actions"><button class="action" id="tools">Symulacja</button><button class="action danger" id="remove">Usuń</button></div></details><p class="muted" id="validation" role="status"></p>`);
+function knownPlacesMarkup(places){
+ if(!places.length)return '';
+ const items=places.map((place,i)=>`<button type="button" class="known-place" data-index="${i}">${place.name}</button>`).join('');
+ return `<section class="known-places"><p class="reference-eyebrow">Znane miejsca</p><div class="known-places-list">${items}</div><p class="muted known-places-hint">Otwiera widok z powierzchni w tym miejscu.</p></section>`;
+}
+function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const id=selected;stopLightFlight();selected=id}const b=bs.find(x=>x.id===selected);if(!b)return;requestDetailTexture(b);const velocity=b.v.map(x=>x*AU/86400),primary=b.key==='sun'?null:bs.find(x=>x.id===b.parent)||bs.find(x=>x.key==='sun'),orbitalVelocity=primary?relativeVelocity(b,primary):b.v,speedMagnitude=velocityKmPerSecond(orbitalVelocity),speedLabel=b.key==='sun'?'Prędkość barycentryczna · km/s':b.parent?'Prędkość względem planety · km/s':'Prędkość względem Słońca · km/s',magneticField=b.key==='neutron-star'?row('Pole magnetyczne · T',`<output class="value-readout">${formatNumber(b.magneticField,3)}</output>`):'',star=centralStarDetails(b),starRows=star?`${row('Typ widmowy',`<output class="value-readout">${star.spectralType}</output>`)}${row('Galaktyka',`<output class="value-readout">${star.galaxy}</output>`)}${row('Temperatura efektywna · K',`<output class="value-readout">${formatNumber(star.temperature,0)}</output>`)}${row('Ciepłota barwowa · K',`<output class="value-readout">${formatNumber(star.colorTemperature,0)}</output>`)}${row('Jasność · L☉',`<output class="value-readout">${formatNumber(star.luminosity,2)}</output>`)}`:'',isSurfaceCandidate=surfaceCandidates().some(candidate=>candidate.id===b.id),surfaceAction=isSurfaceCandidate?'<button class="action" id="surface-open">Widok z powierzchni</button>':'',places=isSurfaceCandidate?knownPlacesFor(b):[];shell(b.name,`${temperatureMarkup(b)}${starRows}${row('Masa · kg',num('mass',b.mass*SOLAR_MASS))}${row(b.key==='blackhole'?'Horyzont · km':'Promień · km',num('radius',b.radius))}${row(speedLabel,`<output class="value-readout">${formatNumber(speedMagnitude,3)}</output>`)}${magneticField}${primary?row('Punkt odniesienia',`<output class="value-readout">${primary.name}</output>`):''}${row('Obrót · godz.',num('spin',b.spin))}${row('Nachylenie osi · °',num('tilt',b.tilt))}${vecFields('p',b.p,'Położenie X / Y / Z · AU')}${vecFields('v',velocity,'Prędkość X / Y / Z · km/s')}${knownPlacesMarkup(places)}<div class="actions primary-actions"><button class="action primary" id="apply">Zastosuj</button><button class="action" id="focus">Śledź</button>${surfaceAction}</div><details class="advanced-fields"><summary>Dodatkowe opcje</summary>${row('Zamień orbitę',`<select id="swap"><option value="">Wybierz ciało</option>${bs.filter(x=>x.a&&x.id!==b.id).map(x=>`<option value="${x.id}">${x.name}</option>`).join('')}</select>`)}<div class="actions"><button class="action" id="tools">Symulacja</button><button class="action danger" id="remove">Usuń</button></div></details><p class="muted" id="validation" role="status"></p>`);
  if(b.key==='blackhole'){const r=document.querySelector('#radius');r.setAttribute('aria-label','Horyzont · km');r.readOnly=true;document.querySelector('#mass').oninput=e=>r.value=horizonRadius(+e.target.value)}
  if(views.get(b.id)?.lastImpactAxis){const button=document.createElement('button');button.className='action';button.textContent='Pokaż miejsce uderzenia';button.onclick=()=>{focusBody(b.id);const view=views.get(b.id);view.mesh.updateWorldMatrix(true,false);const direction=view.lastImpactAxis.clone().applyQuaternion(view.mesh.getWorldQuaternion(new THREE.Quaternion()));camera.position.copy(displayed(b)).addScaledVector(direction,Math.max(radius(b)*4,controls.minDistance*2));controls.target.copy(displayed(b));controls.update()};panel.querySelector('.actions').append(button)}
  const appearance=moonAppearance[b.name];if(b.key==='moon'&&appearance){const note=document.createElement('p');note.className='muted appearance-note';note.append(document.createTextNode(appearance.unknown?'Szczegóły powierzchni nieznane':appearance.haze?'Atmosfera w świetle widzialnym · barwa przybliżona':appearance.map?'Mapa misji · barwa przybliżona':'Wygląd orientacyjny · brak pełnej mapy'));const links=document.createElement('span');links.textContent=' · ';appearance.sources.forEach((url,i)=>{const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=`[${i+1}]`;a.setAttribute('aria-label',`Zdjęcia i źródła ${i+1}`);links.append(a)});note.append(links);panel.querySelector('.panel-head').after(note)}
@@ -458,7 +470,7 @@ function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const i
  const previewLighting=body=>{const sun=bs.find(candidate=>candidate.key==='sun');return {sunDirection:sun?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness}};const previewHost=document.createElement('div');previewHost.className='body-preview';panel.querySelector('.panel-head').prepend(previewHost);preview.attach(previewHost,b,views.get(b.id),previewLighting(b));
  if(star){const note=document.createElement('p');note.className='muted appearance-note';note.textContent=star.note||'';if(star.source){const link=document.createElement('a');link.href=star.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' · Źródło ↗';note.append(link)}panel.querySelector('.panel-head').after(note)}
  const preset=catalog.find(item=>item.id===b.presetId||item.id===b.key);mountWikipediaReference({name:b.name,id:b.presetId||b.key},{description:translate(star?.note||b.note||preset?.note||''),images:bodyReferenceImages(b)});
- document.querySelector('#apply').onclick=()=>{const m=+document.querySelector('#mass').value,r=+document.querySelector('#radius').value,s=+document.querySelector('#spin').value,t=+document.querySelector('#tilt').value,p=getVec('p'),v=getVec('v');if(![m,r,s,t,...p,...v].every(Number.isFinite)||!validDimensions(m,r)||s===0||p.some(x=>Math.abs(x)>1e5)||v.some(x=>Math.abs(x)>299792)){document.querySelector('#validation').textContent='Sprawdź wartości: masa i promień muszą być dodatnie, obrót różny od zera.';return}b.mass=m/SOLAR_MASS;b.radius=b.key==='blackhole'?horizonRadius(m):r;b.spin=s;b.tilt=t;b.p=p;b.v=v.map(x=>x*86400/AU);if(b.key==='sun')applySolarBrightness();clearTrails();updateOrbits();document.querySelector('#validation').textContent='Zapisano parametry.'};document.querySelector('#focus').onclick=()=>focusBody(b.id,{keepPanel:true});const surfaceOpen=document.querySelector('#surface-open');if(surfaceOpen)surfaceOpen.onclick=()=>startSurfaceView(b.id);document.querySelector('#tools').onclick=showTools;document.querySelector('#remove').onclick=()=>{bs=bs.filter(x=>x.id!==b.id);disposeView(b.id);closePanel();updateOrbits()};document.querySelector('#swap').onchange=e=>{const other=bs.find(x=>x.id===+e.target.value);if(!other)return;const oldP=[...b.p],oldV=[...b.v],otherP=[...other.p],otherV=[...other.v];for(const moon of bs.filter(x=>x.parent===b.id)){moon.p=moon.p.map((x,k)=>x+otherP[k]-oldP[k]);moon.v=moon.v.map((x,k)=>x+otherV[k]-oldV[k])}for(const moon of bs.filter(x=>x.parent===other.id)){moon.p=moon.p.map((x,k)=>x+oldP[k]-otherP[k]);moon.v=moon.v.map((x,k)=>x+oldV[k]-otherV[k])}b.p=otherP;b.v=otherV;other.p=oldP;other.v=oldV;clearTrails();updateOrbits();showBody()}}
+ document.querySelector('#apply').onclick=()=>{const m=+document.querySelector('#mass').value,r=+document.querySelector('#radius').value,s=+document.querySelector('#spin').value,t=+document.querySelector('#tilt').value,p=getVec('p'),v=getVec('v');if(![m,r,s,t,...p,...v].every(Number.isFinite)||!validDimensions(m,r)||s===0||p.some(x=>Math.abs(x)>1e5)||v.some(x=>Math.abs(x)>299792)){document.querySelector('#validation').textContent='Sprawdź wartości: masa i promień muszą być dodatnie, obrót różny od zera.';return}b.mass=m/SOLAR_MASS;b.radius=b.key==='blackhole'?horizonRadius(m):r;b.spin=s;b.tilt=t;b.p=p;b.v=v.map(x=>x*86400/AU);if(b.key==='sun')applySolarBrightness();clearTrails();updateOrbits();document.querySelector('#validation').textContent='Zapisano parametry.'};document.querySelector('#focus').onclick=()=>focusBody(b.id,{keepPanel:true});const surfaceOpen=document.querySelector('#surface-open');if(surfaceOpen)surfaceOpen.onclick=()=>startSurfaceView(b.id);document.querySelectorAll('.known-place').forEach(button=>button.onclick=()=>goToKnownPlace(b.id,places[+button.dataset.index]));document.querySelector('#tools').onclick=showTools;document.querySelector('#remove').onclick=()=>{bs=bs.filter(x=>x.id!==b.id);disposeView(b.id);closePanel();updateOrbits()};document.querySelector('#swap').onchange=e=>{const other=bs.find(x=>x.id===+e.target.value);if(!other)return;const oldP=[...b.p],oldV=[...b.v],otherP=[...other.p],otherV=[...other.v];for(const moon of bs.filter(x=>x.parent===b.id)){moon.p=moon.p.map((x,k)=>x+otherP[k]-oldP[k]);moon.v=moon.v.map((x,k)=>x+otherV[k]-oldV[k])}for(const moon of bs.filter(x=>x.parent===other.id)){moon.p=moon.p.map((x,k)=>x+oldP[k]-otherP[k]);moon.v=moon.v.map((x,k)=>x+oldV[k]-otherV[k])}b.p=otherP;b.v=otherV;other.p=oldP;other.v=oldV;clearTrails();updateOrbits();showBody()}}
 function showSpawner(presetId='comet'){
  if(lightFlight)stopLightFlight();selected=null;
  const groups=[...new Set(catalog.map(p=>p.group))];
@@ -604,15 +616,26 @@ function startSurfaceView(bodyId){
  requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());
  speed=REAL_TIME;lag=0;last=performance.now();
  document.body.classList.add('on-a-surface');
- clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceCompass.hidden=false;buildSurfaceHud();updateSurfaceView();
+ clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceCompass.hidden=false;skyLabels.hidden=false;buildSurfaceHud();updateSurfaceView();
  if(isEarthSurface(body))requestEarthObserverLocation();
+}
+// Jumps straight into surface view already standing at a named "known place"
+// (see surface-places.js) instead of the default latitude/longitude zero,
+// then re-aims at whatever is worth seeing from there - the same thing the
+// body picker already does when switching bodies mid-session.
+function goToKnownPlace(bodyId,place){
+ startSurfaceView(bodyId);
+ if(!surfaceView)return;
+ surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;
+ aimAtSomethingWorthSeeing(surfaceBody());
+ buildSurfaceHud();updateSurfaceView();
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
  leaveSurfaceDetail(views.get(surfaceView.bodyId));
  clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
- document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceCompass.hidden=true;releaseSurfaceOrientation();
+ document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceCompass.hidden=true;skyLabels.hidden=true;skyLabels.replaceChildren();releaseSurfaceOrientation();
  controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
  if(previous){compressed=previous.compressed;follow=previous.follow;speed=previous.speed??2;lag=0;last=performance.now();
   controls.maxDistance=maxViewDistance(compressed);controls.enableDamping=false;
@@ -684,7 +707,7 @@ function updateSurfaceView(tick=0){
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));
  camera.updateMatrixWorld();
- if(tick%6===0){paintSurfaceHud(body,horizon);paintSurfaceCompass(body,horizon)}
+ if(tick%6===0){paintSurfaceHud(body,horizon);paintSurfaceCompass(body,horizon);paintSkyLabels(body,horizon)}
 }
 // What is worth listing, and where it really is.
 //
@@ -811,6 +834,38 @@ function paintSurfaceCompass(body,frame){
   marker.querySelector('b').textContent=translate(object.name);
   positionCompassMarker(marker,object.azimuth,heading,49);
   markers.append(marker);
+ }
+}
+// Name+outline markers drawn directly over the rendered sky, so a bright
+// point overhead can be matched to a body by eye instead of read off the
+// compass ring or the object list. The same bodies the compass already
+// tracks (surfaceEntries) get one always; deep-sky objects join them only
+// when that marker layer is switched on, matching what is actually lit up
+// on the dome itself - never labelling something the sky isn't showing.
+function appendSkyLabel(kind,key,name,point,pixelRadius){
+ const label=document.createElement('span');label.className='sky-label';label.dataset.kind=kind;if(key)label.dataset.object=key;
+ label.style.left=`${point.x.toFixed(1)}px`;label.style.top=`${point.y.toFixed(1)}px`;
+ label.style.setProperty('--sky-label-size',`${(pixelRadius*2).toFixed(1)}px`);
+ label.innerHTML='<i></i><b></b>';label.querySelector('b').textContent=name;
+ skyLabels.append(label);
+}
+function paintSkyLabels(body,frame){
+ if(skyLabels.hidden)return;
+ const radarObjects=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).filter(item=>item.altitude>=0);
+ const deepSkyObjects=showDeepSkyMarkers?sky.getDeepSkyObjects().filter(entry=>horizontal([entry.target.x,entry.target.y,entry.target.z],frame).altitude>=0):[];
+ skyLabels.replaceChildren();
+ for(const item of radarObjects){
+  const other=bs.find(b=>b.id===item.id);if(!other)continue;
+  const worldPosition=displayed(other),clip=worldPosition.project(camera),point=projectedPoint(clip.x,clip.y,clip.z,innerWidth,innerHeight);
+  if(!point.visible)continue;
+  const pixelRadius=ringPixelRadius(radius(other),camera.position.distanceTo(worldPosition),camera.fov,innerHeight);
+  appendSkyLabel('radar',item.key||'',translate(item.name),point,pixelRadius);
+ }
+ for(const entry of deepSkyObjects){
+  const worldPosition=camera.position.clone().addScaledVector(entry.target,SKY_RADIUS),clip=worldPosition.project(camera),point=projectedPoint(clip.x,clip.y,clip.z,innerWidth,innerHeight);
+  if(!point.visible)continue;
+  const pixelRadius=deepSkyRingPixelRadius(entry.arcmin,camera.fov,innerHeight);
+  appendSkyLabel('deep',entry.type||'',entry.label,point,pixelRadius);
  }
 }
 function paintSurfaceHud(body,frame){
