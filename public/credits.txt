@@ -330,3 +330,30 @@ key now gets an explicit grid-column/grid-row instead of relying on
 auto-placement: W alone on the top row, A/S/D together on the row below
 with A to the left of S and D to the right, matching the shape every WASD
 legend in games uses.
+
+2026-09-16 make Saturn and Uranus's rings match their real structure:
+Saturn's ring previously used approximate hand-picked band boundaries, and
+Uranus's used a single continuous translucent disc coloured by a repeating
+sine wave - neither sourced from real ring geometry. Both are rewritten in
+a new module, planet-rings.js (with its own tests), from Cassini/Voyager
+and stellar-occultation radii (Wikipedia, "Rings of Saturn" and "Rings of
+Uranus"), in units of each planet's own equatorial radius (Saturn 60,300
+km, Uranus 25,559 km): the D, C, B, Cassini Division, A ring, Encke Gap,
+Keeler Gap, Roche Division and F ring for Saturn; the zeta, 6, 5, 4, alpha,
+beta, eta, gamma, delta, lambda and epsilon rings for Uranus. Each band's
+alpha now stands in for its measured normal optical depth (roughly
+alpha=1-e^-tau) instead of a single flat opacity for the whole ring, using
+a 4-component (RGBA) vertex-colour attribute - three.js applies per-vertex
+alpha automatically once a "color" attribute has 4 components instead of
+3, so Saturn's Cassini/Encke/Keeler gaps and the wide true emptiness
+between every named Uranus ring are now actually transparent, not just a
+darker but still-solid tone painted over the same disc.
+This also fixes a real, previously-alarming inaccuracy: Uranus's outer
+ring boundary was 1.9 planet radii, which entirely excluded the epsilon
+ring at ~2.00 radii - Uranus's brightest, widest and most famous ring, the
+one whose 1977 stellar-occultation detection led to discovering the whole
+system. It is now included, along with the true, very wide gaps between
+Uranus's other narrow rings (most are only a few kilometres wide in
+reality and are drawn here as a deliberately widened band at their correct
+position for visibility, same as Saturn's Encke and Keeler gaps already
+were - but the emptiness between them is real, not a rendering shortcut).
