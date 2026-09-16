@@ -491,3 +491,36 @@ single-frame readings, every one of them a body caught exactly on a
 threshold boundary between two samples taken a frame apart - the ordinary,
 one-frame gap between an input event and the next controls.update() call,
 present before this fix as well and not the lag being complained about.
+
+2026-09-16 a body can hide another body's sky-view marker (marker-occlusion.js):
+The surface-view sky labels (the name+outline tags drawn over whatever is
+actually rendered, src/main.js's paintSkyLabels) only ever checked whether a
+body was above the local horizon and inside the camera's view - never
+whether some *other*, nearer body's own disc stood in the way. At real
+interplanetary scale a planet and its own moons project to almost exactly
+the same point in the sky from anywhere else in the solar system, so every
+one of Saturn's moons was picking up its own label directly on top of
+Saturn's, and the same for any other planet's moons: a small crowd of
+identical-looking tags stacked on a single point, none of them showing what
+a real observer would actually see, which is the planet's disc and nothing
+behind it.
+marker-occlusion.js answers the general question - is anything solid
+between an observer and some point worth labelling - with the same
+disc-versus-direction geometry the eclipse shadows already use for
+sunlight (extended-solar-shadow.js), aimed at the camera's own line of
+sight instead: a body blocks the label behind it when the angle between
+the two directions is smaller than that body's own angular radius as seen
+from the observer, and only a nearer body can ever qualify. Wired into
+paintSkyLabels, with the body the observer is currently standing on left
+out of its own candidate list - from a point on its own surface a body's
+angular radius approaches 90 degrees, which would swallow the entire sky
+above the horizon and defeat the horizon check that already runs first.
+Verified two ways: eight unit tests on the geometry alone, including the
+reported case at realistic scale (Saturn between an observer and Titan,
+using Saturn's real radius and Titan's real orbital distance in AU); and a
+Playwright run standing on Earth's surface, where the sky briefly aimed at
+Saturn and Neptune - before the fix this listed all thirteen bodies
+(Saturn, Neptune and eleven of their moons) as separately labelled points
+stacked on the same two pixels; after it, exactly two labels remain,
+"Saturn" and "Neptune", each correctly standing for every moon now
+correctly recognised as hidden behind it.

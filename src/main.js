@@ -20,6 +20,7 @@ import {bodyKind} from './body-search.js';
 import {constellationLabel,createSky,deepSkyKind,equatorialFromDirection,RADIUS as SKY_RADIUS} from './sky.js';
 import {knownPlacesFor} from './surface-places.js';
 import {deepSkyRingPixelRadius,projectedPoint,quaternionChanged,ringPixelRadius} from './sky-labels.js';
+import {findOccluder} from './marker-occlusion.js';
 import {constellationNote,deepSkyNote} from './sky-descriptions.js';
 import {formatAngularSize,formatDeclination,formatRightAscension} from './sky-detail.js';
 import {wikipediaReference,wikipediaSearchUrl,wikipediaTitle} from './wikipedia-reference.js';
@@ -1063,10 +1064,23 @@ function paintSkyLabels(body,frame){
  if(skyLabels.hidden)return;
  const radarObjects=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).filter(item=>item.altitude>=0);
  skyLabels.replaceChildren();
+ // A body can hide another one standing behind it just as surely as the
+ // ground hides what is below the horizon - Jupiter is real enough to pass
+ // in front of its own moons. The same candidate list is built once and
+ // reused for every label this frame; a body already excludes itself and
+ // never blocks its own marker (see marker-occlusion.js).
+ // The body the observer is standing on is excluded here: from a point on
+ // its own surface, its angular radius approaches 90 degrees, which would
+ // make it swallow the entire sky above the horizon. Whether it blocks
+ // something is already the horizon check (the altitude>=0 filter above) -
+ // this second pass is only for one body in the sky hiding another.
+ const observerPosition=[camera.position.x,camera.position.y,camera.position.z];
+ const candidates=bs.filter(b=>b.id!==body.id).map(b=>{const p=displayed(b);return {id:b.id,position:[p.x,p.y,p.z],radius:radius(b)};});
  for(const item of radarObjects){
   const other=bs.find(b=>b.id===item.id);if(!other)continue;
   const worldPosition=displayed(other),clip=worldPosition.project(camera),point=projectedPoint(clip.x,clip.y,clip.z,innerWidth,innerHeight);
   if(!point.visible)continue;
+  if(findOccluder(observerPosition,[worldPosition.x,worldPosition.y,worldPosition.z],other.id,candidates))continue;
   const pixelRadius=ringPixelRadius(radius(other),camera.position.distanceTo(worldPosition),camera.fov,innerHeight);
   appendSkyLabel(skyLabels,'radar',item.key||'',translate(item.name),point,pixelRadius);
  }
