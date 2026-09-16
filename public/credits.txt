@@ -150,3 +150,17 @@ the one case that filters by altitude, since the ground genuinely blocks
 anything below the horizon there; everywhere else nothing blocks the view
 in any direction, so only being in front of the camera is required. No new
 imagery or data; same projection as before, run every view instead of one.
+
+2026-09-16 landmark pins on the object-details preview:
+A new "Landmarks" toggle (off by default) on any body with known places
+(src/surface-places.js) marks them directly on that body's small rotating
+preview in the object-details panel, so the one or two most interesting
+features on a planet or moon are visible at a glance, in their real place,
+without opening surface view. Each pin's position comes from
+src/surface-texture-frame.js's localSurfacePoint, the same equirectangular
+calibration surface view already uses to orient the ground itself
+(equirectangularSurfaceBasis, inverted) - so a pin lands exactly where that
+calibration says the named feature's texture pixel is, and it turns with
+the body's own rotation because it is added as a child of the same mesh.
+No new imagery; it is a small glowing marker (src/preview.js), the same
+visual language as the sky and radar markers elsewhere.
