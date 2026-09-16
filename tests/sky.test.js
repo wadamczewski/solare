@@ -56,7 +56,10 @@ test('magnitude flux follows the astronomical five-magnitudes-per-hundred rule',
 
 test('the shipped star catalogue decodes to a plausible sky',()=>{
  const stars = decodeStars(load('stars.bin'));
- assert.ok(stars.count > 40000, `only ${stars.count} stars`);
+ // Space has no atmospheric extinction (see the flux comment in src/sky.js),
+ // so the catalogue reaches well past naked-eye magnitude 6 - to magnitude 14,
+ // where the source catalogue itself stops.
+ assert.ok(stars.count > 100000, `only ${stars.count} stars`);
  let brightest = 99, faintest = -99, north = 0;
  for(let i = 0; i < stars.count; i++){
   const mag = stars.mag[i] / 100, dec = unpackDec(stars.dec[i]), ra = unpackRA(stars.ra[i]);
@@ -65,9 +68,9 @@ test('the shipped star catalogue decodes to a plausible sky',()=>{
   brightest = Math.min(brightest, mag); faintest = Math.max(faintest, mag);
   if(dec > 0) north++;
  }
- // Sirius at -1.44 is the brightest star in the sky and the cut is magnitude 8.
+ // Sirius at -1.44 is the brightest star in the sky and the cut is magnitude 14.
  assert.ok(Math.abs(brightest + 1.44) < 0.05, `brightest ${brightest}`);
- assert.ok(faintest <= 8.01 && faintest > 7.5, `faintest ${faintest}`);
+ assert.ok(faintest <= 14.01 && faintest > 13.5, `faintest ${faintest}`);
  // Both hemispheres are covered; the south is richer because the galactic centre is there.
  const share = north / stars.count;
  assert.ok(share > 0.35 && share < 0.65, `northern share ${share}`);

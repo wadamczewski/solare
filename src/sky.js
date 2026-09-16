@@ -108,8 +108,8 @@ export function constellationLabel(figure, language='en') {
  return `${localized} (${latin})`;
 }
 
-export const deepSkyKind = object => ({s:'Galaktyka',sd:'Galaktyka',i:'Galaktyka',oc:'Gromada',gc:'Gromada',sfr:'Mgławica',en:'Mgławica',pn:'Mgławica',pos:'Punkt orientacyjny'}[object.type] || 'Obiekt głębokiego nieba');
-const deepSkyMarkerTint = {s:[.78,.89,1],sd:[.78,.89,1],i:[.78,.89,1],oc:[.98,.9,.58],gc:[1,.72,.48],sfr:[1,.58,.7],en:[1,.58,.7],pn:[.52,.96,1],pos:[1,.84,.5]};
+export const deepSkyKind = object => ({s:'Galaktyka',sd:'Galaktyka',i:'Galaktyka',e:'Galaktyka',oc:'Gromada',gc:'Gromada',sfr:'Mgławica',en:'Mgławica',pn:'Mgławica',snr:'Pozostałość supernowej',pos:'Punkt orientacyjny'}[object.type] || 'Obiekt głębokiego nieba');
+const deepSkyMarkerTint = {s:[.78,.89,1],sd:[.78,.89,1],i:[.78,.89,1],e:[.78,.89,1],oc:[.98,.9,.58],gc:[1,.72,.48],sfr:[1,.58,.7],en:[1,.58,.7],pn:[.52,.96,1],snr:[1,.62,.42],pos:[1,.84,.5]};
 
 // Segment totals are retained from the d3-celestial GeoJSON features when the
 // compact binary file is built. They preserve exact figure boundaries, even
@@ -250,8 +250,8 @@ function waitForIdle() {
 // angular extent, which is why the Magellanic Clouds and M31 read as smudges
 // rather than stars.
 const DSO_TINT = {
- g: [1, .93, .84], s: [1, .93, .84], i: [.95, .95, 1], sd: [.95, .95, 1],
- sfr: [1, .72, .62], en: [1, .72, .62], pn: [.6, 1, .9],
+ g: [1, .93, .84], s: [1, .93, .84], i: [.95, .95, 1], sd: [.95, .95, 1], e: [.95, .95, 1],
+ sfr: [1, .72, .62], en: [1, .72, .62], pn: [.6, 1, .9], snr: [1, .68, .52],
  gc: [1, .95, .82], oc: [.85, .92, 1], pos: [1, .85, .7]
 };
 

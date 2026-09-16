@@ -164,3 +164,24 @@ calibration says the named feature's texture pixel is, and it turns with
 the body's own rotation because it is added as a child of the same mesh.
 No new imagery; it is a small glowing marker (src/preview.js), the same
 visual language as the sky and radar markers elsewhere.
+
+2026-09-16 a denser star field and a wider deep-sky catalogue:
+sky/stars.bin is rebuilt from d3-celestial's stars.14.json instead of
+stars.8.json (tools/build-sky.mjs), reaching limit magnitude 14 instead of 8
+- 118 216 stars instead of 41 411. Air has extinction and light pollution;
+space, where every view of this simulation's sky is set, has neither (see
+the flux comment in src/sky.js, already relied on to keep faint stars
+visible), so a real observer keeps resolving fainter starlight far past the
+naked-eye limit rather than hitting a hard cutoff. 14 is simply where the
+source catalogue itself stops.
+
+sky/deepsky.json grows from the 32 objects in d3-celestial's own hand-picked
+"bright" list to 60, adding 28 more famous entries from the rest of the
+Messier catalogue (d3-celestial's messier.json, same dataset and licence) -
+chosen for having an actual common name (Whirlpool Galaxy, Ring Nebula,
+Crab Nebula, Sombrero Galaxy and so on) rather than for magnitude alone, and
+spread across galaxies, nebulae and clusters rather than concentrated in one
+type. Messier's own three unresolved star fields/asterisms (M 24, M 40,
+M 73) are left out, since they are not deep-sky objects the way the rest of
+the catalogue is. Every addition gets its own researched note in all four
+interface languages (src/sky-descriptions.js), the same as the original 32.

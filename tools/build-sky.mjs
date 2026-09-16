@@ -7,7 +7,8 @@
 //   node tools/build-sky.mjs <source-data-dir>
 //
 // Source files expected in <source-data-dir>:
-//   stars.8.json, starnames.json, mw.json, dsos.bright.json, constellations.lines.json
+//   stars.14.json, starnames.json, mw.json, dsos.bright.json, messier.json,
+//   constellations.lines.json
 //
 // Outputs into public/sky/: stars.bin, milkyway.bin, deepsky.json, constellations.bin
 import {readFileSync, writeFileSync, mkdirSync} from 'node:fs';
@@ -74,8 +75,13 @@ const random = () => ((seed = (seed * 1664525 + 1013904223) >>> 0) / 4294967296)
 // ---------------------------------------------------------------- stars
 // Quantisation: RA to 360/65536 deg (~20"), Dec to 1/180 deg (~20"), both far
 // below one screen pixel at any zoom the app allows.
+//
+// Limit magnitude 14, not 8: air has extinction and light pollution, space has
+// neither (see the flux comment in src/sky.js), so a real observer away from
+// any planet keeps resolving fainter and fainter starlight rather than hitting
+// a hard cutoff. 14 is where the d3-celestial catalogue itself stops.
 function buildStars() {
-  const stars = read('stars.8.json').features;
+  const stars = read('stars.14.json').features;
   const names = read('starnames.json');
   const rows = [];
   for (const f of stars) {
@@ -299,24 +305,53 @@ const DSO_LABELS = {
   'M 44': 'Żłóbek', 'ω Cen': 'Omega Centauri', '47 Tuc': '47 Tucanae', 'η Car': 'Mgławica Kila',
   'M 8': 'Mgławica Laguna', 'M 16': 'Mgławica Orzeł', 'M 7': 'Gromada Ptolemeusza',
   'Mel 111': 'Warkocz Bereniki', 'Mel 25': 'Hiady', 'GalCtr': 'Centrum Galaktyki',
-  'h Per': 'Podwójna gromada h Per', 'χ Per': 'Podwójna gromada χ Per'
+  'h Per': 'Podwójna gromada h Per', 'χ Per': 'Podwójna gromada χ Per',
+  // Added to broaden the catalogue beyond d3-celestial's own "bright" pick
+  // (below): the rest of the Messier catalogue's best-known objects, chosen by
+  // having a real common name rather than only a catalogue number.
+  'M 1': 'Mgławica Krab', 'M 11': 'Gromada Dzikiej Kaczki', 'M 13': 'Wielka Gromada Herkulesa',
+  'M 17': 'Mgławica Omega', 'M 20': 'Mgławica Trifid', 'M 27': 'Mgławica Hantle',
+  'M 51': 'Galaktyka Wir', 'M 57': 'Mgławica Pierścień', 'M 63': 'Galaktyka Słonecznik',
+  'M 64': 'Galaktyka Czarne Oko', 'M 81': 'Galaktyka Bodego', 'M 82': 'Galaktyka Cygaro',
+  'M 83': 'Południowy Wiatrak', 'M 97': 'Mgławica Sowa', 'M 101': 'Galaktyka Wiatrak',
+  'M 104': 'Galaktyka Sombrero'
 };
 
+// The rest of the Messier catalogue, added on top of d3-celestial's own
+// hand-picked "bright" list so the sky holds more of astronomy's most famous
+// deep-sky objects, not just the visually brightest ones. Chosen for fame and
+// spread across types (galaxy, nebula, cluster) rather than for magnitude
+// alone; each one gets its own note in src/sky-descriptions.js. Messier's own
+// three loose asterisms/star fields (M 24, M 40, M 73) are left out, since
+// they are not resolved deep-sky objects the way the rest of the catalogue is.
+const MESSIER_ADDITIONS = [
+  'M1', 'M3', 'M11', 'M13', 'M15', 'M17', 'M20', 'M22', 'M27', 'M32', 'M35', 'M41',
+  'M46', 'M47', 'M51', 'M57', 'M63', 'M64', 'M65', 'M66', 'M81', 'M82', 'M83', 'M87',
+  'M97', 'M101', 'M104', 'M110'
+];
+
 function buildDeepSky() {
-  const items = read('dsos.bright.json').features.map(f => {
-    const p = f.properties;
-    const [ra, dec] = f.geometry.coordinates;
+  const toItem = (p, [ra, dec], id) => {
     const size = String(p.dim || '0').split('x').map(Number);
     return {
-      id: p.desig,
-      label: DSO_LABELS[p.desig] || p.desig,
+      id,
+      label: DSO_LABELS[id] || id,
       type: p.type,
       mag: Number(p.mag),
       arcmin: Math.max(...size.filter(Number.isFinite), 1),
       ra: Number((((ra % 360) + 360) % 360).toFixed(3)),
       dec: Number(dec.toFixed(3))
     };
-  }).sort((a, b) => a.mag - b.mag);
+  };
+  const bright = read('dsos.bright.json').features.map(f => toItem(f.properties, f.geometry.coordinates, f.properties.desig));
+  const messierById = new Map(read('messier.json').features.map(f => [f.id, f]));
+  const additions = MESSIER_ADDITIONS.map(id => {
+    const f = messierById.get(id);
+    if (!f) throw new Error(`${id} missing from messier.json`);
+    // "M1" -> "M 1", matching the "M 31" style d3-celestial's own bright list uses.
+    return toItem(f.properties, f.geometry.coordinates, f.id.replace(/^M/, 'M '));
+  });
+  const items = [...bright, ...additions].sort((a, b) => a.mag - b.mag);
   writeFileSync(join(out, 'deepsky.json'), JSON.stringify(items));
   return {count: items.length};
 }
@@ -345,7 +380,7 @@ function buildConstellations() {
 }
 
 const stars = buildStars();
-console.log(`stars.bin          ${stars.count} stars (to mag 8), ${stars.named.length} named landmarks`);
+console.log(`stars.bin          ${stars.count} stars (to mag 14), ${stars.named.length} named landmarks`);
 const mw = buildMilkyWay(110000);
 console.log(`milkyway.bin       ${mw.count} glow points`);
 const dso = buildDeepSky();

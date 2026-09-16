@@ -11,7 +11,8 @@ const TITLES={
  'Dimorphos':'Dimorphos','99942 Apophis':'99942_Apophis','101955 Bennu':'101955_Bennu','Impaktor Chicxulub':'Chicxulub_impactor','4 Westa':'4_Vesta','1 Ceres':'Ceres_(dwarf_planet)','Theia (hipotetyczna)':'Theia_(planet)',
  'Proxima Centauri b':'Proxima_Centauri_b','TRAPPIST-1 e':'TRAPPIST-1e','51 Pegasi b':'51_Pegasi_b','55 Cancri e':'55_Cancri_e',
  'Sirius A':'Sirius','Vega':'Vega','Betelgeuse':'Betelgeuse','R136a1':'R136a1','WOH G64':'WOH_G64',
- 'M 16':'Eagle_Nebula','M 45':'Pleiades','M 31':'Andromeda_Galaxy','M 42':'Orion_Nebula','M 44':'Beehive_Cluster','M 7':'Ptolemy_Cluster','M 8':'Lagoon_Nebula','M 4':'Messier_4','M 33':'Triangulum_Galaxy','M 6':'Butterfly_Cluster','LMC':'Large_Magellanic_Cloud','SMC':'Small_Magellanic_Cloud','η Car':'Carina_Nebula','GalCtr':'Galactic_Center','h Per':'Double_Cluster','χ Per':'Double_Cluster','ω Cen':'Omega_Centauri','47 Tuc':'47_Tucanae','Serpens Caput':'Serpens','Serpens Cauda':'Serpens'
+ 'M 16':'Eagle_Nebula','M 45':'Pleiades','M 31':'Andromeda_Galaxy','M 42':'Orion_Nebula','M 44':'Beehive_Cluster','M 7':'Ptolemy_Cluster','M 8':'Lagoon_Nebula','M 4':'Messier_4','M 33':'Triangulum_Galaxy','M 6':'Butterfly_Cluster','LMC':'Large_Magellanic_Cloud','SMC':'Small_Magellanic_Cloud','η Car':'Carina_Nebula','GalCtr':'Galactic_Center','h Per':'Double_Cluster','χ Per':'Double_Cluster','ω Cen':'Omega_Centauri','47 Tuc':'47_Tucanae','Serpens Caput':'Serpens','Serpens Cauda':'Serpens',
+ 'M 1':'Crab_Nebula','M 11':'Wild_Duck_Cluster','M 17':'Omega_Nebula','M 20':'Trifid_Nebula','M 27':'Dumbbell_Nebula','M 51':'Whirlpool_Galaxy','M 57':'Ring_Nebula','M 63':'Sunflower_Galaxy','M 97':'Owl_Nebula','M 101':'Pinwheel_Galaxy','M 104':'Sombrero_Galaxy'
 };
 
 const fallbackArticle=subject=>String(subject?.id||subject?.name||subject?.label||'Astronomical object')
