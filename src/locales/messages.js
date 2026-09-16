@@ -176,7 +176,7 @@ rows.push(
 // translation because that is exactly how every language writes them).
 rows.push(
  ['Znane miejsca','Known places','Bekannte Orte','Lugares conocidos'],
- ['Otwiera widok z powierzchni w tym miejscu.','Opens surface view at this location.','Öffnet die Oberflächenansicht an diesem Ort.','Abre la vista de superficie en este lugar.'],
+ ['Przenosi w to miejsce.','Moves the view to this place.','Bewegt die Ansicht an diesen Ort.','Traslada la vista a este lugar.'],
  ['Wielka Czerwona Plama','Great Red Spot','Großer Roter Fleck','Gran Mancha Roja'],
  ['Heksagon bieguna północnego','North Pole Hexagon','Nordpol-Sechseck','Hexágono del polo norte'],
  ['Biegun (ekstremalne nachylenie osi)','Pole (extreme axial tilt)','Pol (extreme Achsneigung)','Polo (inclinación axial extrema)'],
