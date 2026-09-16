@@ -320,3 +320,13 @@ it did before. Every gallery thumbnail now opens the lightbox with its own
 index into that same gallery's list instead of a single isolated image, so
 the click that opens a photo and the arrows that browse from there share
 one code path.
+
+2026-09-16 fix the WASD key layout in the free-flight help panel:
+The key legend's CSS only ever gave the first key (W) an explicit grid
+position, leaving A, S and D to auto-place into the remaining cells of the
+3-column, 2-row grid in DOM order - which happened to produce a plain 2x2
+square (W A over S D) rather than the intended WASD movement cluster. Each
+key now gets an explicit grid-column/grid-row instead of relying on
+auto-placement: W alone on the top row, A/S/D together on the row below
+with A to the left of S and D to the right, matching the shape every WASD
+legend in games uses.
