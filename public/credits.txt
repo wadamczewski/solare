@@ -93,3 +93,12 @@ several-thousand-kilometre map covers less than a screen pixel - exactly
 the situation standing on the ground puts it in. Earth and every other body
 without a shipped elevation map get the equivalent normal map computed from
 their existing procedural relief field instead of new imagery.
+
+Every body's ground also gets a second, much finer normal layer blended in
+close up (src/surface-detail.js, applyMicroDetail): generic rock/regolith
+grain, not modelled on any specific body, generated once in-code
+(seamlessHeightField in src/surface-normal-detail.js) and tiled hundreds of
+times across the surface. It is a cosmetic detail layer so the ground right
+under a standing observer - always far inside a single texel of even the
+real elevation maps above - doesn't read as a smooth interpolation of its
+far-away neighbours. No third-party asset.

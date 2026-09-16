@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {heightFieldToNormals, equirectangularTexelSpan} from '../src/surface-normal-detail.js';
+import {heightFieldToNormals, equirectangularTexelSpan, seamlessHeightField, seamlessNoiseTerms, seamlessNoiseAt} from '../src/surface-normal-detail.js';
 
 test('a flat field encodes to the unperturbed normal-map texel everywhere', () => {
  const width = 8, rows = 4, field = new Uint8Array(width * rows).fill(120);
@@ -51,4 +51,38 @@ test('equirectangularTexelSpan gives a wider step around the equator than pole-t
  const {worldStepU, worldStepV} = equirectangularTexelSpan(2048, 1024, 1);
  assert.ok(Math.abs(worldStepU - worldStepV) < 1e-9, 'a 2:1 equirectangular map should have matched horizontal and vertical texel spacing');
  assert.ok(worldStepU > 0 && worldStepV > 0);
+});
+
+test('seamlessNoiseAt repeats exactly one tile-width or tile-height away, at arbitrary offsets', () => {
+ const width = 32, rows = 24, terms = seamlessNoiseTerms(7);
+ for (const [x, y] of [[0, 0], [5, 3], [17, 11], [31, 0], [0, 23], [12, 9]]) {
+  const base = seamlessNoiseAt(x, y, width, rows, terms);
+  assert.ok(Math.abs(seamlessNoiseAt(x + width, y, width, rows, terms) - base) < 1e-9, `(${x},${y}) should repeat one tile-width to the right`);
+  assert.ok(Math.abs(seamlessNoiseAt(x, y + rows, width, rows, terms) - base) < 1e-9, `(${x},${y}) should repeat one tile-height down`);
+  assert.ok(Math.abs(seamlessNoiseAt(x - width, y, width, rows, terms) - base) < 1e-9, `(${x},${y}) should repeat one tile-width to the left`);
+ }
+});
+
+test('seamlessHeightField wraps its right and bottom edges consistently with its left and top', () => {
+ // The array itself only holds one tile, but the value it would continue
+ // with at column `width` (row `rows`) is the same one it started with -
+ // exactly what GL_REPEAT assumes when it wraps the sampling coordinate.
+ const width = 20, rows = 16, seed = 11, terms = seamlessNoiseTerms(seed);
+ const field = seamlessHeightField(width, rows, seed);
+ for (const x of [0, 4, 19]) {
+  const wrapped = Math.round(seamlessNoiseAt(x + width, 5, width, rows, terms) * 255);
+  assert.equal(field[5 * width + x], wrapped);
+ }
+});
+
+test('seamlessHeightField is not just a flat field', () => {
+ const field = seamlessHeightField(32, 24, 3);
+ const min = Math.min(...field), max = Math.max(...field);
+ assert.ok(max - min > 40, `expected real variation across the tile, got a range of only ${max - min}`);
+});
+
+test('seamlessHeightField is deterministic for a given seed and varies with a different one', () => {
+ const a = seamlessHeightField(16, 16, 42), b = seamlessHeightField(16, 16, 42), c = seamlessHeightField(16, 16, 43);
+ assert.deepEqual([...a], [...b]);
+ assert.notDeepEqual([...a], [...c]);
 });

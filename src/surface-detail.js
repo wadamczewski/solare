@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {shapeGeometry} from './scene-lod.js';
-import {heightFieldToNormals, equirectangularTexelSpan} from './surface-normal-detail.js';
+import {heightFieldToNormals, equirectangularTexelSpan, seamlessHeightField} from './surface-normal-detail.js';
 
 // A surface view has a single close body.  Its map can therefore use a dense
 // mesh and a local relief texture without asking the system map to keep every
@@ -91,6 +91,70 @@ function proceduralNormalMap(profile) {
  map.minFilter = THREE.LinearMipmapLinearFilter; map.magFilter = THREE.LinearFilter; map.generateMipmaps = true;
  map.needsUpdate = true; normalMaps.set(cacheKey, map); return map;
 }
+
+// However real a body's own map is, it is still a few thousand kilometres
+// per texel: the ground right under a standing observer is always well
+// inside a single texel of it. This is a second, much finer normal map -
+// generic rock/regolith grain, not tied to any body - tiled hundreds of
+// times across the surface and blended in close up, so that patch of
+// ground reads as textured rather than as a smooth interpolation of its
+// far-away neighbours. It is a cosmetic detail layer on top of the real
+// per-texel shading above, not a substitute for it.
+const DETAIL_SIZE = 128, DETAIL_REPEAT = 180, DETAIL_STRENGTH = .55;
+let detailNormalMapCache = null;
+function microDetailNormalMap() {
+ if (detailNormalMapCache) return detailNormalMapCache;
+ const field = seamlessHeightField(DETAIL_SIZE, DETAIL_SIZE, 401);
+ const {worldStepU, worldStepV} = equirectangularTexelSpan(DETAIL_SIZE, DETAIL_SIZE, 1);
+ // Not a real elevation model - just enough relief that the grain has a
+ // visible normal once it is repeated at DETAIL_REPEAT.
+ const normals = heightFieldToNormals(field, DETAIL_SIZE, DETAIL_SIZE, {relief: .015, worldStepU, worldStepV});
+ const rgba = new Uint8Array(DETAIL_SIZE * DETAIL_SIZE * 4);
+ for (let i = 0; i < DETAIL_SIZE * DETAIL_SIZE; i++) {
+  rgba[i * 4] = normals[i * 3]; rgba[i * 4 + 1] = normals[i * 3 + 1]; rgba[i * 4 + 2] = normals[i * 3 + 2]; rgba[i * 4 + 3] = 255;
+ }
+ const map = new THREE.DataTexture(rgba, DETAIL_SIZE, DETAIL_SIZE, THREE.RGBAFormat, THREE.UnsignedByteType);
+ map.wrapS = THREE.RepeatWrapping; map.wrapT = THREE.RepeatWrapping;
+ map.minFilter = THREE.LinearMipmapLinearFilter; map.magFilter = THREE.LinearFilter; map.generateMipmaps = true;
+ map.needsUpdate = true; detailNormalMapCache = map; return map;
+}
+// Blends the fine grain into whatever normal the standard chunks already
+// produced, using a triplanar projection (three axis-aligned samples of the
+// same small tile, blended by how face-on the surface is to each axis) so
+// there is no UV seam or pole pinch to hide - the equirectangular maps
+// above already carry that risk once; a second, much higher-frequency map
+// would make it far more visible.  Each projection's own tangent frame is
+// just the two object-space axes it does not sample along, so this needs
+// no derivatives and cannot go flat at grazing incidence the way Three's
+// screen-space bump chunk does.
+function applyMicroDetail(material) {
+ const previousCompile = material.onBeforeCompile, previousKey = material.customProgramCacheKey?.bind(material);
+ const detailMap = microDetailNormalMap();
+ material.onBeforeCompile = shader => {
+  previousCompile?.(shader);
+  shader.uniforms.detailNormalMap = {value: detailMap};
+  shader.uniforms.detailRepeat = {value: DETAIL_REPEAT};
+  shader.uniforms.detailStrength = {value: DETAIL_STRENGTH};
+  shader.vertexShader = 'varying vec3 vDetailPosition;\nvarying vec3 vDetailNormal;\n' + shader.vertexShader;
+  shader.vertexShader = shader.vertexShader.replace('#include <begin_vertex>', '#include <begin_vertex>\nvDetailPosition=position;vDetailNormal=normal;');
+  shader.fragmentShader = 'varying vec3 vDetailPosition;\nvarying vec3 vDetailNormal;\nuniform sampler2D detailNormalMap;\nuniform float detailRepeat;\nuniform float detailStrength;\n#if !defined(USE_NORMALMAP_OBJECTSPACE)\nuniform mat3 normalMatrix;\n#endif\n' + shader.fragmentShader;
+  shader.fragmentShader = shader.fragmentShader.replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>
+{
+ vec3 dn=normalize(vDetailNormal);
+ vec3 blend=pow(abs(dn),vec3(4.0));blend/=(blend.x+blend.y+blend.z+1e-5);
+ vec3 sampX=texture2D(detailNormalMap,vDetailPosition.zy*detailRepeat).xyz*2.0-1.0;
+ vec3 sampY=texture2D(detailNormalMap,vDetailPosition.xz*detailRepeat).xyz*2.0-1.0;
+ vec3 sampZ=texture2D(detailNormalMap,vDetailPosition.xy*detailRepeat).xyz*2.0-1.0;
+ vec3 detailObject=
+  vec3(sign(dn.x)*sampX.z,sampX.y,sampX.x)*blend.x+
+  vec3(sampY.x,sign(dn.y)*sampY.z,sampY.y)*blend.y+
+  vec3(sampZ.x,sampZ.y,sign(dn.z)*sampZ.z)*blend.z;
+ normal=normalize(normal+normalize(normalMatrix*detailObject)*detailStrength);
+}
+`);
+ };
+ material.customProgramCacheKey = () => `${previousKey?.() || ''}|surface-micro-detail-v1`;
+}
 function detailedIrregularGeometry(seed) {
  const geometry = new THREE.IcosahedronGeometry(1, 6), positions = geometry.attributes.position;
  for (let index = 0; index < positions.count; index++) {
@@ -142,6 +206,7 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
   };
   material.customProgramCacheKey = () => `${previousKey?.() || ''}|surface-lroc-colour-v1`;
  }
+ applyMicroDetail(material);
  if (material.map) material.map.anisotropy = Math.max(material.map.anisotropy || 1, Math.min(16, maxAnisotropy));
  material.needsUpdate = true;
 }
