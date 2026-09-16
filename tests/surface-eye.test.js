@@ -50,3 +50,11 @@ test('the near plane follows the eye down to the ground', () => {
   if (radiusKm < 3000) assert.ok(height < global * 3, `${radiusKm} km would have been safe anyway`);
  }
 });
+
+test('switching the standing body from its own picker keeps the HUD name in step', () => {
+ // window.solare.getView() reports surfaceView.name for automation and
+ // debugging; it used to be set once by startSurfaceView and never touched
+ // again, so it kept reporting the body a surface view was entered from
+ // after picking a different one from the #surface-body select.
+ assert.match(source, /surfaceView\.key=body\?\.key;surfaceView\.name=body\?\.name;/);
+});

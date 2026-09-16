@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {shapeGeometry} from './scene-lod.js';
+import {heightFieldToNormals, equirectangularTexelSpan} from './surface-normal-detail.js';
 
 // A surface view has a single close body.  Its map can therefore use a dense
 // mesh and a local relief texture without asking the system map to keep every
@@ -13,12 +14,12 @@ const ROCKY = Object.freeze({
  mimas: [.0045, .2], phobos: [.012, .32], deimos: [.009, .28]
 });
 const GAS = new Set(['jupiter','saturn','uranus','neptune']);
-const heightMaps = new Map();
+const heightMaps = new Map(), normalMaps = new Map();
 const detailTextures = new Map(), detailLoader = new THREE.TextureLoader();
 const MISSION_ASSETS = Object.freeze({
  earth: {color: '/textures/surface/earth-blue-marble-4k.jpg'},
- moon: {color: '/textures/surface/moon-lroc-color.jpg', height: '/textures/surface/moon-lola-height.jpg'},
- mars: {height: '/textures/surface/mars-mola-height.jpg'}
+ moon: {color: '/textures/surface/moon-lroc-color.jpg', height: '/textures/surface/moon-lola-height.jpg', normal: '/textures/surface/moon-lola-normal.jpg'},
+ mars: {height: '/textures/surface/mars-mola-height.jpg', normal: '/textures/surface/mars-mola-normal.jpg'}
 });
 
 function missionTexture(path, color) {
@@ -70,6 +71,26 @@ function heightMap(profile) {
  map.minFilter = THREE.LinearMipmapLinearFilter; map.magFilter = THREE.LinearFilter; map.generateMipmaps = true;
  map.needsUpdate = true; heightMaps.set(cacheKey, map); return map;
 }
+// A normal map derived from the same procedural field heightMap() displaces
+// the mesh with, so a world with no mission elevation data (every rocky body
+// but Mars and the Moon, including Earth today) still shades the slopes it
+// actually stands on rather than a flat or screen-space-derivative bump.
+function proceduralNormalMap(profile) {
+ const cacheKey = `${profile.key}:${profile.seed}:${profile.cloud}`;
+ if (normalMaps.has(cacheKey)) return normalMaps.get(cacheKey);
+ const source = heightMap(profile), {width, height} = source.image, field = source.image.data;
+ const {worldStepU, worldStepV} = equirectangularTexelSpan(width, height);
+ const normals = heightFieldToNormals(field, width, height, {relief: profile.relief, worldStepU, worldStepV});
+ // DataTexture needs an alpha channel (RGBFormat has no WebGL2 upload path).
+ const rgba = new Uint8Array(width * height * 4);
+ for (let i = 0; i < width * height; i++) {
+  rgba[i * 4] = normals[i * 3]; rgba[i * 4 + 1] = normals[i * 3 + 1]; rgba[i * 4 + 2] = normals[i * 3 + 2]; rgba[i * 4 + 3] = 255;
+ }
+ const map = new THREE.DataTexture(rgba, width, height, THREE.RGBAFormat, THREE.UnsignedByteType);
+ map.wrapS = THREE.RepeatWrapping; map.wrapT = THREE.ClampToEdgeWrapping;
+ map.minFilter = THREE.LinearMipmapLinearFilter; map.magFilter = THREE.LinearFilter; map.generateMipmaps = true;
+ map.needsUpdate = true; normalMaps.set(cacheKey, map); return map;
+}
 function detailedIrregularGeometry(seed) {
  const geometry = new THREE.IcosahedronGeometry(1, 6), positions = geometry.attributes.position;
  for (let index = 0; index < positions.count; index++) {
@@ -92,7 +113,7 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  const mission = MISSION_ASSETS[profile.key];
  view.surfaceDetail = {geometry: view.mesh.geometry, material: {
  displacementMap: material.displacementMap, displacementScale: material.displacementScale,
-  bumpMap: material.bumpMap, bumpScale: material.bumpScale, anisotropy: material.map?.anisotropy,
+  normalMap: material.normalMap, normalScale: material.normalScale?.clone(), anisotropy: material.map?.anisotropy,
   baseMap: material.map, dedicatedColor: !!mission?.color,
   onBeforeCompile: material.onBeforeCompile, customProgramCacheKey: material.customProgramCacheKey
  }};
@@ -101,7 +122,12 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  if (!body.irregular) {
   const map = mission?.height ? missionTexture(mission.height, false) : heightMap(profile);
   material.displacementMap = map; material.displacementScale = profile.relief;
-  material.bumpMap = map; material.bumpScale = profile.bump;
+  // A real per-texel gradient (see surface-normal-detail.js) instead of
+  // Three's screen-space bump chunk, which goes flat once a texel covers
+  // less than a screen pixel - the case for the whole time anyone is
+  // standing on the ground looking at anything nearby.
+  material.normalMap = mission?.normal ? missionTexture(mission.normal, false) : proceduralNormalMap(profile);
+  material.normalScale.set(profile.bump, profile.bump);
  }
  if (mission?.color) material.map = missionTexture(mission.color, true);
  // Moon's ordinary map deliberately reduces mission mosaics to a restrained
@@ -127,7 +153,7 @@ export function leaveSurfaceDetail(view) {
  if (state.ownedGeometry) view.mesh.geometry.dispose();
  view.mesh.geometry = state.geometry;
  material.displacementMap = state.material.displacementMap; material.displacementScale = state.material.displacementScale;
- material.bumpMap = state.material.bumpMap; material.bumpScale = state.material.bumpScale;
+ material.normalMap = state.material.normalMap; if (state.material.normalScale) material.normalScale.copy(state.material.normalScale);
  material.map = state.material.baseMap;
  material.onBeforeCompile = state.material.onBeforeCompile; material.customProgramCacheKey = state.material.customProgramCacheKey;
  if (material.map && state.material.anisotropy != null) material.map.anisotropy = state.material.anisotropy;

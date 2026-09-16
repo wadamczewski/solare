@@ -82,3 +82,14 @@ relief texture for interactive rendering,
 https://svs.gsfc.nasa.gov/4436/
 The Moon relief map is mission elevation data. Other bodies use a compact,
 deterministic relief field only where a comparable global DEM is not shipped.
+
+2026-09-16 surface-view ground normal maps:
+moon-lola-normal.jpg and mars-mola-normal.jpg are not new source imagery -
+each is a tangent-space normal map computed offline from the mission
+elevation data already listed above (tools/build-surface-normals.mjs; the
+gradient math is in src/surface-normal-detail.js). They replace Three.js's
+screen-space bump approximation, which goes flat once a texel of a
+several-thousand-kilometre map covers less than a screen pixel - exactly
+the situation standing on the ground puts it in. Earth and every other body
+without a shipped elevation map get the equivalent normal map computed from
+their existing procedural relief field instead of new imagery.
