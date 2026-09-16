@@ -71,3 +71,14 @@ Solar interior: educational opaque radiation-field schematic, not imagery
 or radiative-transfer simulation. Structure and approximate temperatures:
 https://solarscience.msfc.nasa.gov/interior.shtml
 https://www.esa.int/ESA_Multimedia/Images/2020/01/Anatomy_of_the_Sun
+
+Surface-view detail maps (loaded only while standing on the body):
+Earth: NASA SVS Blue Marble, 4K derivative of the 8192×4096 static mosaic,
+https://svs.gsfc.nasa.gov/4439/
+Moon: NASA SVS CGI Moon Kit — LROC WAC natural-colour mosaic and LOLA DEM,
+https://svs.gsfc.nasa.gov/4720/
+Mars: NASA SVS MOLA global elevation map, reduced to a single-channel 2K
+relief texture for interactive rendering,
+https://svs.gsfc.nasa.gov/4436/
+The Moon relief map is mission elevation data. Other bodies use a compact,
+deterministic relief field only where a comparable global DEM is not shipped.

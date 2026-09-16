@@ -5,7 +5,11 @@ import * as THREE from 'three';
 const geometries = Object.freeze({
  low: new THREE.SphereGeometry(1, 18, 12),
  medium: new THREE.SphereGeometry(1, 32, 22),
- high: new THREE.SphereGeometry(1, 56, 40)
+ high: new THREE.SphereGeometry(1, 56, 40),
+ // This mesh is assigned only to the one body under the surface observer.
+ // It is deliberately kept outside the normal LOD ladder: a 62k-vertex
+ // horizon is useful below the atmosphere, but wasteful on the system map.
+ surface: new THREE.SphereGeometry(1, 320, 192)
 });
 
 export const shapeGeometry = level => geometries[level] || geometries.medium;
@@ -28,7 +32,7 @@ export function shapeLodForDiameter(diameter) {
 }
 
 export function updateShapeLod(view, camera, viewportHeight) {
- if (!view || view.hasDamageGeometry || view.irregular) return view?.lodLevel;
+ if (!view || view.hasDamageGeometry || view.irregular || view.surfaceDetail) return view?.lodLevel;
  const diameter = projectedDiameterPixels(
   view.mesh.scale.x,
   camera.position.distanceTo(view.group.position),

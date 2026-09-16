@@ -41,6 +41,7 @@ import {changeSimulationRate} from './simulation-rate.js';
 import {createBodyPreview} from './preview.js';
 import {createImpactEffects} from './impact-effects.js';
 import {isShapeGeometry,keepsAuthoredGeometry,shapeGeometry,updateShapeLod} from './scene-lod.js';
+import {enterSurfaceDetail,leaveSurfaceDetail,surfaceReliefClearance} from './surface-detail.js';
 import {createOrbitRibbon,updateOrbitRibbon} from './orbit-ribbon.js';
 import {auRadius,maxViewDistance,scaleRatio,sceneRadius} from './scene-scale.js';
 import {configureSolarShadow,participatesInSolarShadow} from './solar-shadows.js';
@@ -264,8 +265,8 @@ const textureManifest={
 const textureAnisotropy=Math.min(8,renderer.capabilities.getMaxAnisotropy());
 function configureTexture(map){map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=textureAnisotropy;map.wrapS=THREE.RepeatWrapping;map.generateMipmaps=true;map.minFilter=THREE.LinearMipmapLinearFilter;map.magFilter=THREE.LinearFilter;return map}
 function loadTexture(key,onLoad,onError){if(textures[key]){onLoad?.(textures[key]);return textures[key]}const path=textureManifest[key];if(!path)return null;const map=loader.load(path,loaded=>onLoad?.(loaded),undefined,error=>{delete textures[key];onError?.(error)});textures[key]=configureTexture(map);return map}
-function requestSurfaceTexture(b){const key=b.textureKey||b.key;if(!textureManifest[key]||textureRequests.has(key))return;textureRequests.add(key);loadTexture(key,map=>{textureRequests.delete(key);for(const candidate of bs)if((candidate.textureKey||candidate.key)===key){const material=views.get(candidate.id)?.mesh.material;if(material){material.map=map;material.color.set('#ffffff');material.needsUpdate=true}}},()=>textureRequests.delete(key))}
-function requestMoonTexture(b){const profile=moonAppearance[b.name],path=profile&&moonMapPath(profile);if(!profile||!path||moonMaps[profile.id]||textureRequests.has(path))return;textureRequests.add(path);const map=loader.load(path,loaded=>{textureRequests.delete(path);moonMaps[profile.id]=configureTexture(loaded);for(const candidate of bs)if(candidate.name===b.name){const material=views.get(candidate.id)?.mesh.material;if(material){applyMoonAppearance(material,candidate,moonMaps);material.needsUpdate=true}}},undefined,()=>{textureRequests.delete(path);delete moonMaps[profile.id]});moonMaps[profile.id]=configureTexture(map)}
+function requestSurfaceTexture(b){const key=b.textureKey||b.key;if(!textureManifest[key]||textureRequests.has(key))return;textureRequests.add(key);loadTexture(key,map=>{textureRequests.delete(key);for(const candidate of bs)if((candidate.textureKey||candidate.key)===key){const view=views.get(candidate.id),material=view?.mesh.material;if(material){if(view.surfaceDetail?.material.dedicatedColor)view.surfaceDetail.material.baseMap=map;else material.map=map;if(view.surfaceDetail)map.anisotropy=Math.max(map.anisotropy||1,renderer.capabilities.getMaxAnisotropy());material.color.set('#ffffff');material.needsUpdate=true}}},()=>textureRequests.delete(key))}
+function requestMoonTexture(b){const profile=moonAppearance[b.name],path=profile&&moonMapPath(profile);if(!profile||!path||moonMaps[profile.id]||textureRequests.has(path))return;textureRequests.add(path);const map=loader.load(path,loaded=>{textureRequests.delete(path);moonMaps[profile.id]=configureTexture(loaded);for(const candidate of bs)if(candidate.name===b.name){const view=views.get(candidate.id),material=view?.mesh.material;if(material){applyMoonAppearance(material,candidate,moonMaps);if(view.surfaceDetail?.material.dedicatedColor)view.surfaceDetail.material.baseMap=moonMaps[profile.id];else material.map=moonMaps[profile.id];if(view.surfaceDetail)moonMaps[profile.id].anisotropy=Math.max(moonMaps[profile.id].anisotropy||1,renderer.capabilities.getMaxAnisotropy());material.needsUpdate=true}}},undefined,()=>{textureRequests.delete(path);delete moonMaps[profile.id]});moonMaps[profile.id]=configureTexture(map)}
 function requestDetailTexture(b){if(b.key==='moon')requestMoonTexture(b);else requestSurfaceTexture(b)}
 const vector=(a)=>new THREE.Vector3(...a);
 function mapped(p){const v=vector(p),r=v.length();return r?v.multiplyScalar(sceneRadius(r,compressed)/r):v}
@@ -524,7 +525,7 @@ const SURFACE_EXCLUDED = new Set(['Hyperion']);
 // and looks out through its culled back faces: the ground disappears and the
 // sky shows through the body. The lumpy ones get an eye outside that envelope.
 const SURFACE_EYE = 1.0008, SURFACE_EYE_IRREGULAR = 1.6;
-const surfaceEyeFactor = body => body.irregular ? SURFACE_EYE_IRREGULAR : SURFACE_EYE;
+const surfaceEyeFactor = body => (body.irregular ? SURFACE_EYE_IRREGULAR : SURFACE_EYE) + surfaceReliefClearance(body);
 const SURFACE_FOV = {min: 14, max: 100, start: 70};
 
 function surfaceCandidates(){
@@ -574,6 +575,7 @@ function startSurfaceView(bodyId){
  aimAtSomethingWorthSeeing(body);
  follow=null;selected=null;closePanel();
  compressed=false;controls.maxDistance=maxViewDistance(false);controls.enabled=false;
+ requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());
  speed=REAL_TIME;lag=0;last=performance.now();
  document.body.classList.add('on-a-surface');
  clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceCompass.hidden=false;buildSurfaceHud();updateSurfaceView();
@@ -581,6 +583,7 @@ function startSurfaceView(bodyId){
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
+ leaveSurfaceDetail(views.get(surfaceView.bodyId));
  clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
  document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceCompass.hidden=true;releaseSurfaceOrientation();
@@ -742,10 +745,10 @@ function buildSurfaceHud(){
  const earthLocation=surfaceView.key==='earth'?'<p id="surface-location" class="muted surface-location"></p>':'';
  surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}<div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
- document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;surfaceView.bodyId=id;
+ document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
   clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;
   if(isEarthSurface(body))beginEarthSurfaceContext();else clockShown='';
-  releaseSurfaceOrientation();aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
+  releaseSurfaceOrientation();requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
  document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;updateSurfaceView()};
  document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;updateSurfaceView()};
  requestAnimationFrame(layoutSurfaceHud);
