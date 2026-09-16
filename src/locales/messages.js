@@ -168,7 +168,7 @@ rows.push(
  ['Pobieranie lokalizacji urządzenia…','Getting device location…','Gerätestandort wird ermittelt…','Obteniendo la ubicación del dispositivo…'],
  ['Lokalizacja urządzenia niedostępna','Device location unavailable','Gerätestandort nicht verfügbar','Ubicación del dispositivo no disponible'],
  ['czas lokalny','local time','Ortszeit','hora local']
- ,['Kompas kierunku','Heading compass','Richtungskompass','Brújula de rumbo']
+ ,['Radar kierunku','Heading radar','Richtungsradar','Radar de rumbo']
 );
 // Known-places section in the object details pane, and the handful of place
 // names that aren't an official, un-translated IAU/Latin feature name (most

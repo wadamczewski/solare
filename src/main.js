@@ -30,7 +30,7 @@ import {systemBodyKey,systemBodyRadius,systemCameraDistance,systemDrawnExtent,sy
 import {angularDiameter,horizontal,rotatingBodies,skyObjects,surfaceFrame,synchronousFrame} from './surface-frame.js';
 import {earthObserverCoordinates,isEarthSurface} from './surface-observer.js';
 import {equirectangularSurfaceBasis} from './surface-texture-frame.js';
-import {compassPoint} from './surface-compass.js';
+import {createSurfaceRadar} from './surface-radar.js';
 import {moonIllumination,moonPhaseName} from './lunar-theory.js';
 import * as THREE from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -616,7 +616,7 @@ function startSurfaceView(bodyId){
  requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());
  speed=REAL_TIME;lag=0;last=performance.now();
  document.body.classList.add('on-a-surface');
- clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceCompass.hidden=false;skyLabels.hidden=false;buildSurfaceHud();updateSurfaceView();
+ clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceRadar.hidden=false;skyLabels.hidden=false;buildSurfaceHud();updateSurfaceView();
  if(isEarthSurface(body))requestEarthObserverLocation();
 }
 // Jumps straight into surface view already standing at a named "known place"
@@ -635,7 +635,7 @@ function stopSurfaceView(){
  leaveSurfaceDetail(views.get(surfaceView.bodyId));
  clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
- document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceCompass.hidden=true;skyLabels.hidden=true;skyLabels.replaceChildren();releaseSurfaceOrientation();
+ document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceRadar.hidden=true;skyLabels.hidden=true;skyLabels.replaceChildren();releaseSurfaceOrientation();
  controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
  if(previous){compressed=previous.compressed;follow=previous.follow;speed=previous.speed??2;lag=0;last=performance.now();
   controls.maxDistance=maxViewDistance(compressed);controls.enableDamping=false;
@@ -707,7 +707,7 @@ function updateSurfaceView(tick=0){
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));
  camera.updateMatrixWorld();
- if(tick%6===0){paintSurfaceHud(body,horizon);paintSurfaceCompass(body,horizon);paintSkyLabels(body,horizon)}
+ if(tick%6===0){paintSurfaceHud(body,horizon);paintSurfaceRadar(body,horizon);paintSkyLabels(body,horizon)}
 }
 // What is worth listing, and where it really is.
 //
@@ -772,12 +772,15 @@ function surfaceLookHandlers(element){
 }
 surfaceLookHandlers(renderer.domElement);
 const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';surfaceHud.hidden=true;document.body.append(surfaceHud);
-const surfaceCompass=document.createElement('aside');surfaceCompass.id='surface-compass';surfaceCompass.hidden=true;surfaceCompass.setAttribute('aria-label','Kompas kierunku');
-surfaceCompass.innerHTML='<i class="surface-compass-sweep" aria-hidden="true"></i><i class="surface-compass-ring" aria-hidden="true"></i><i class="surface-compass-reticle" aria-hidden="true"></i><strong id="surface-heading" aria-live="off"></strong><div id="surface-compass-cardinals" aria-hidden="true"></div><div id="surface-compass-markers" aria-hidden="true"></div>';
-for(const [name,bearing] of [['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270],['NW',315]]){
- const marker=document.createElement('span');marker.className='surface-compass-cardinal';marker.dataset.bearing=String(bearing);marker.textContent=name;surfaceCompass.querySelector('#surface-compass-cardinals').append(marker);
-}
-document.body.append(surfaceCompass);
+// A small rendered sky sphere standing in for the observer's surroundings -
+// see surface-radar.js - rather than a flat compass ring, so a tracked
+// body's full 3D direction (bearing *and* how far up or down to look) is
+// something to see at a glance instead of read off a number.
+const radarWidget=createSurfaceRadar();
+const surfaceRadar=document.createElement('aside');surfaceRadar.id='surface-radar';surfaceRadar.hidden=true;surfaceRadar.setAttribute('aria-label','Radar kierunku');
+surfaceRadar.innerHTML='<strong id="surface-heading" aria-live="off"></strong>';
+surfaceRadar.append(radarWidget.element);
+document.body.append(surfaceRadar);
 // Keep the horizon readout in the left column, directly after the controls
 // that open it.  Its height changes with the active locale and selected body,
 // so a fixed offset would either overlap the controls or waste usable space.
@@ -812,29 +815,21 @@ function paintEarthLocation(){
  else if(surfaceView.locationState==='unavailable')location.textContent=translate('Lokalizacja urządzenia niedostępna');
 }
 const compass=azimuth=>{const names=['N','NE','E','SE','S','SW','W','NW'];return names[Math.round(((azimuth%360)+360)%360/45)%8]};
-function positionCompassMarker(node,bearing,heading,radius){
- const point=compassPoint(bearing,heading,radius);
- node.style.transform=`translate3d(calc(-50% + ${point.x.toFixed(2)}px),calc(-50% + ${point.y.toFixed(2)}px),0)`;
-}
-function paintSurfaceCompass(body,frame){
- if(surfaceCompass.hidden)return;
+function paintSurfaceRadar(body,frame){
+ if(surfaceRadar.hidden)return;
  const heading=surfaceView.azimuth;
  const headingText=compass(heading);
  document.querySelector('#surface-heading').textContent=headingText;
- surfaceCompass.setAttribute('aria-label',`${translate('Kompas kierunku')}: ${headingText}`);
- for(const cardinal of document.querySelectorAll('.surface-compass-cardinal'))positionCompassMarker(cardinal,+cardinal.dataset.bearing,heading,72);
+ surfaceRadar.setAttribute('aria-label',`${translate('Radar kierunku')}: ${headingText}`);
+ // Not filtered to above the horizon: the radar's sphere is meant to be seen
+ // whole, so a body currently blocked by the ground still shows through,
+ // dimmed, on the far side - "is it even worth turning around for" is part
+ // of what a radar is for.
  const objects=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame)
-  .filter(item=>item.altitude>=0)
   .sort((one,two)=>two.diameter-one.diameter)
-  .slice(0,6);
- const markers=document.querySelector('#surface-compass-markers');markers.replaceChildren();
- for(const object of objects){
-  const marker=document.createElement('span');marker.className='surface-compass-marker';
-  marker.dataset.object=object.key||'';marker.innerHTML='<i></i><b></b>';
-  marker.querySelector('b').textContent=translate(object.name);
-  positionCompassMarker(marker,object.azimuth,heading,49);
-  markers.append(marker);
- }
+  .slice(0,6)
+  .map(object=>({...object,name:translate(object.name)}));
+ radarWidget.update({objects,heading,altitude:surfaceView.altitude});
 }
 // Name+outline markers drawn directly over the rendered sky, so a bright
 // point overhead can be matched to a body by eye instead of read off the

@@ -124,3 +124,18 @@ objects, now also get a name-and-outline marker drawn directly over their
 actual position in the rendered sky (src/sky-labels.js), rather than only on
 the compass ring or in the object list. No new imagery or data; it projects
 positions the simulation already computes.
+
+2026-09-16 sphere-based surface-view radar:
+The flat 2D compass ring (bearing only) is replaced by a small rendered
+sky-sphere (src/surface-radar.js) that plots each tracked body's full 3D
+direction - bearing and altitude/pitch together - as a dot on a dome
+standing in for the observer's surroundings, with a horizon ring and a
+marker for the current look direction. The dome itself never rotates, since
+a bare sphere looks the same from any heading; only the marker positions are
+recomputed each repaint from the observer's current heading and the pure
+projection math in src/surface-compass.js. A body below the horizon still
+renders, dimmed, seen through the translucent dome, so "is it worth turning
+around for" is visible at a glance rather than requiring a full turn. No new
+imagery or data; it is a second small Three.js scene, following the same
+reusable-renderer pattern as the existing detail preview, projecting
+positions the simulation already computes.
