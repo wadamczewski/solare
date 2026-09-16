@@ -454,14 +454,24 @@ function openReferenceImage(source){
  modal.originalLink.href=source.originalUrl||thumbnail;modal.originalLink.textContent=translate('Otwórz oryginał ↗');
  if(!modal.dialog.open)modal.dialog.showModal();
 }
-function mountWikipediaReference(subject,{description='',images=[]}={}){
- const section=document.createElement('section'),eyebrow=document.createElement('p'),copy=document.createElement('p'),gallery=document.createElement('div'),link=document.createElement('a');
+// `description` is shown once above the photos, with Wikipedia's own
+// summary as a fallback once it loads if there is no local text at all -
+// for a body whose panel has nowhere else to put a description. A caller
+// that already showed this same text higher up in the panel (a sky
+// object's own note, a star's appearance note) instead passes
+// `hasDescriptionElsewhere: true`, which drops this section's text
+// altogether - not the local note, and not the Wikipedia fallback either,
+// so the photos are not captioned with a second, differently-worded
+// description right under the first one.
+function mountWikipediaReference(subject,{description='',images=[],hasDescriptionElsewhere=false}={}){
+ const section=document.createElement('section'),eyebrow=document.createElement('p'),gallery=document.createElement('div'),link=document.createElement('a');
+ const copy=hasDescriptionElsewhere?null:document.createElement('p');
  section.className='object-reference';section.dataset.noTranslate='true';
  eyebrow.className='reference-eyebrow';eyebrow.textContent=translate('Zdjęcia');
- copy.className='reference-description';copy.textContent=description||translate('Ładowanie opisu i zdjęć…');
+ if(copy){copy.className='reference-description';copy.textContent=description||translate('Ładowanie opisu i zdjęć…')}
  gallery.className='reference-gallery';gallery.setAttribute('aria-busy','true');
  link.className='reference-wikipedia';link.target='_blank';link.rel='noopener noreferrer';link.href=wikipediaSearchUrl(wikipediaTitle(subject),getLanguage());link.textContent=translate('Wikipedia ↗');
- section.append(eyebrow,copy,gallery,link);const beforeActions=panel.querySelector('.primary-actions');if(beforeActions)panel.insertBefore(section,beforeActions);else panel.append(section);
+ section.append(eyebrow,...(copy?[copy]:[]),gallery,link);const beforeActions=panel.querySelector('.primary-actions');if(beforeActions)panel.insertBefore(section,beforeActions);else panel.append(section);
  const renderGallery=sources=>{
   const unique=sources.filter(Boolean).map(source=>typeof source==='string'?{thumbnailUrl:source,originalUrl:source}:source).filter((source,index,list)=>list.findIndex(candidate=>candidate.thumbnailUrl===source.thumbnailUrl)===index).slice(0,5);gallery.replaceChildren();gallery.setAttribute('aria-busy','false');
   for(const source of unique){const button=document.createElement('button'),image=document.createElement('img');button.className='reference-image-button';button.type='button';button.setAttribute('aria-label',translate('Otwórz zdjęcie obiektu'));image.loading='lazy';image.decoding='async';image.src=source.thumbnailUrl;image.alt=translate('Zdjęcie obiektu');image.onerror=()=>button.remove();button.onclick=()=>openReferenceImage(source);button.append(image);gallery.append(button)}
@@ -469,7 +479,7 @@ function mountWikipediaReference(subject,{description='',images=[]}={}){
  };
  wikipediaReference(subject,getLanguage()).then(reference=>{
   if(!section.isConnected)return;
-  copy.textContent=description||reference.description||translate('Opis artykułu jest niedostępny.');
+  if(copy)copy.textContent=description||reference.description||translate('Opis artykułu jest niedostępny.');
   link.href=reference.url;renderGallery([...images,...(reference.imageDetails||reference.images)]);
  }).catch(()=>{if(!section.isConnected)return;renderGallery(images)});
 }
@@ -486,7 +496,7 @@ function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const i
  const previewLighting=body=>{const sun=bs.find(candidate=>candidate.key==='sun');return {sunDirection:sun?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness}};const previewHost=document.createElement('div');previewHost.className='body-preview';panel.querySelector('.panel-head').prepend(previewHost);preview.attach(previewHost,b,views.get(b.id),previewLighting(b),places,showLandmarks);attachBodyLandmarks(b,views.get(b.id),places);
  const landmarksInput=document.querySelector('#landmarks-toggle');if(landmarksInput)landmarksInput.onchange=e=>setLandmarksVisible(e.target.checked);
  if(star){const note=document.createElement('p');note.className='muted appearance-note';note.textContent=star.note||'';if(star.source){const link=document.createElement('a');link.href=star.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' · Źródło ↗';note.append(link)}panel.querySelector('.panel-head').after(note)}
- const preset=catalog.find(item=>item.id===b.presetId||item.id===b.key);mountWikipediaReference({name:b.name,id:b.presetId||b.key},{description:translate(star?.note||b.note||preset?.note||''),images:bodyReferenceImages(b)});
+ const preset=catalog.find(item=>item.id===b.presetId||item.id===b.key);mountWikipediaReference({name:b.name,id:b.presetId||b.key},{description:translate(star?'':b.note||preset?.note||''),images:bodyReferenceImages(b),hasDescriptionElsewhere:!!star});
  document.querySelector('#apply').onclick=()=>{const m=+document.querySelector('#mass').value,r=+document.querySelector('#radius').value,s=+document.querySelector('#spin').value,t=+document.querySelector('#tilt').value,p=getVec('p'),v=getVec('v');if(![m,r,s,t,...p,...v].every(Number.isFinite)||!validDimensions(m,r)||s===0||p.some(x=>Math.abs(x)>1e5)||v.some(x=>Math.abs(x)>299792)){document.querySelector('#validation').textContent='Sprawdź wartości: masa i promień muszą być dodatnie, obrót różny od zera.';return}b.mass=m/SOLAR_MASS;b.radius=b.key==='blackhole'?horizonRadius(m):r;b.spin=s;b.tilt=t;b.p=p;b.v=v.map(x=>x*86400/AU);if(b.key==='sun')applySolarBrightness();clearTrails();updateOrbits();document.querySelector('#validation').textContent='Zapisano parametry.'};document.querySelector('#focus').onclick=()=>focusBody(b.id,{keepPanel:true});const surfaceOpen=document.querySelector('#surface-open');if(surfaceOpen)surfaceOpen.onclick=()=>startSurfaceView(b.id);document.querySelector('#tools').onclick=showTools;document.querySelector('#remove').onclick=()=>{bs=bs.filter(x=>x.id!==b.id);disposeView(b.id);closePanel();updateOrbits()};document.querySelector('#swap').onchange=e=>{const other=bs.find(x=>x.id===+e.target.value);if(!other)return;const oldP=[...b.p],oldV=[...b.v],otherP=[...other.p],otherV=[...other.v];for(const moon of bs.filter(x=>x.parent===b.id)){moon.p=moon.p.map((x,k)=>x+otherP[k]-oldP[k]);moon.v=moon.v.map((x,k)=>x+otherV[k]-oldV[k])}for(const moon of bs.filter(x=>x.parent===other.id)){moon.p=moon.p.map((x,k)=>x+oldP[k]-otherP[k]);moon.v=moon.v.map((x,k)=>x+oldV[k]-otherV[k])}b.p=otherP;b.v=otherV;other.p=oldP;other.v=oldV;clearTrails();updateOrbits();showBody()}}
 function showSpawner(presetId='comet'){
  if(lightFlight)stopLightFlight();selected=null;
@@ -1045,7 +1055,7 @@ function skyPanel(title,rows,note,source,subject){
  // The note is already written in the viewer's language, so the interface
  // phrase substituter must leave it alone; it only knows single labels.
  shell(title,`${rows.join('')}${note?`<p class="sky-note" data-no-translate>${note}</p>`:''}<p class="muted">${source}</p><div class="actions"><button class="action primary" id="sky-center">Wyśrodkuj</button></div>`);
- mountWikipediaReference(subject,{description:note});
+ mountWikipediaReference(subject,{hasDescriptionElsewhere:!!note});
 }
 function showConstellation(entry){
  skySubject={kind:'constellation',entry};

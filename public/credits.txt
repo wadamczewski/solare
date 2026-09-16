@@ -229,6 +229,20 @@ different body's panel opens, or the body is removed. No new imagery or
 data; the same pins, drawn a second time in the one place they were
 actually expected.
 
+2026-09-16 no more repeated description under "Photos":
+A sky object's own note (its "sky-note" paragraph) and a central star's
+appearance note were already shown once, higher up in the details panel -
+but the same text was then also dropped into the "Photos" section's own
+description line, right above the image gallery, so it read twice on the
+same panel. mountWikipediaReference() in main.js takes a new
+hasDescriptionElsewhere flag: when the caller already displayed this text,
+the "Photos" section renders only the gallery and the Wikipedia link, never
+a second copy of the description or of Wikipedia's own summary as a
+fallback for it. Every other kind of body (planets, moons, asteroids,
+comets, black holes) keeps its note exactly where it always was, in that
+same description line, since nothing else in their panel shows it - the
+fix is only for the two cases that genuinely repeated themselves.
+
 2026-09-16 a known place overrides the device location, not the other way round:
 Clicking a known place (src/surface-places.js) now aims the surface-view
 camera down at the ground - 18 degrees below the horizon, so the ground
