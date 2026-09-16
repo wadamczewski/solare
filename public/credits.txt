@@ -215,6 +215,20 @@ still runs as a fallback for changes the camera orientation does not
 capture, such as the horizon filter drifting while standing on a surface as
 simulated time passes.
 
+2026-09-16 landmark pins also shown on the tracked body itself, not only its preview:
+The "Landmarks" toggle (above) only ever placed its pins on the small
+rotating preview in the object-details panel. Clicking "Track" (Śledź) and
+zooming the main camera in on that body - arguably the more natural way to
+actually look closely at it - showed nothing, since the pins were never
+added anywhere but that separate preview scene. main.js now also attaches
+the same marker group (built once by the now-exported
+preview.js:buildLandmarkMarkers, reused rather than duplicated) directly to
+the real body mesh in the main scene, kept in step with whichever body's
+details panel is currently open and cleared when that panel closes, a
+different body's panel opens, or the body is removed. No new imagery or
+data; the same pins, drawn a second time in the one place they were
+actually expected.
+
 2026-09-16 a known place overrides the device location, not the other way round:
 Clicking a known place (src/surface-places.js) now aims the surface-view
 camera down at the ground - 18 degrees below the horizon, so the ground

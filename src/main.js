@@ -40,7 +40,7 @@ import {LightFlight,lightTravelSeconds,flightRouteProgress,flightRouteStopPositi
 import {surfaceTemperatures} from './solar-thermal.js';
 import {resolveCollisions} from './collisions.js';
 import {changeSimulationRate} from './simulation-rate.js';
-import {createBodyPreview} from './preview.js';
+import {buildLandmarkMarkers,createBodyPreview} from './preview.js';
 import {createImpactEffects} from './impact-effects.js';
 import {isShapeGeometry,keepsAuthoredGeometry,shapeGeometry,updateShapeLod} from './scene-lod.js';
 import {enterSurfaceDetail,leaveSurfaceDetail,surfaceReliefClearance} from './surface-detail.js';
@@ -79,6 +79,17 @@ const loadSkyWhenIdle=()=>sky.load().then(info=>{skyInfo=info;sky.setConstellati
 if(typeof requestIdleCallback==='function')requestIdleCallback(loadSkyWhenIdle,{timeout:450});else setTimeout(loadSkyWhenIdle,80);
 const cometTails=createCometTails(scene);cometTails.setPixelRatio(renderer.getPixelRatio());
 let skyInfo=null,showConstellations=false,showDeepSkyMarkers=false,showLandmarks=false;
+// The landmark-marker group currently sitting on a real body mesh in the
+// main scene (not the small object-details preview, which keeps its own
+// separate copy) - at most one at a time, for whichever body's panel is
+// open, so a tracked body shows the same pins close up that the preview
+// already shows in miniature.
+let bodyLandmarks=null;
+function clearBodyLandmarks(){if(!bodyLandmarks)return;bodyLandmarks.group.parent?.remove(bodyLandmarks.group);bodyLandmarks=null}
+function attachBodyLandmarks(b,view,places){
+ clearBodyLandmarks();if(!places.length)return;
+ const group=buildLandmarkMarkers(places);group.visible=showLandmarks;view.mesh.add(group);bodyLandmarks={bodyId:b.id,group};
+}
 let epoch=new Date(),bs=initialSystem(epoch),views=new Map(),selected=null,follow=null,paused=false,speed=2,elapsed=0,compressed=true,spawnAt=new THREE.Vector3(),restoreFocus=null;
 let lightFlight=null,flightPrevious=null,flightStops=[],flightTrueScale=false,solarBrightness=100,solarInfall=0,blackHoleFall=null;
 // A loaded star system replaces the Solar System entirely: `systemMode` holds
@@ -334,7 +345,7 @@ function addView(b){const group=new THREE.Group();scene.add(group);const authore
  let ringEclipseShadow=null;if(['saturn','uranus'].includes(b.key)){const inner=b.key==='saturn'?1.14:1.35,outer=b.key==='saturn'?2.42:1.9,ringGeo=new THREE.RingGeometry(inner,outer,192,b.key==='saturn'?96:6),arr=ringGeo.attributes.position,colors=[];for(let i=0;i<arr.count;i++){const r=Math.hypot(arr.getX(i),arr.getY(i));let c;if(b.key==='uranus'){const f=.55+.28*Math.sin(r*100)+.13*Math.sin(r*270);c=new THREE.Color('#555555').multiplyScalar(f)}else{let tone;if(r<1.23)tone='#292a2e';else if(r<1.52)tone='#787875';else if(r<1.95)tone='#d8d3c8';else if(r<2.025)tone='#24262b';else if(r<2.14)tone='#beb8ac';else if(r<2.17)tone='#3b3c3c';else if(r<2.27)tone='#a9a39a';else if(r<2.32)tone='#353638';else if(r<2.39)tone='#d6cfc2';else tone='#151619';const texture=.89+.07*Math.sin(r*178)+.04*Math.sin(r*619);c=new THREE.Color(tone).multiplyScalar(texture)}colors.push(c.r,c.g,c.b)}ringGeo.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));const ringMaterial=new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,transparent:true,depthWrite:false,opacity:b.key==='uranus'?.25:.84,roughness:.82});ringEclipseShadow=applyExtendedSolarShadow(ringMaterial);const ring=new THREE.Mesh(ringGeo,ringMaterial);ring.castShadow=true;ring.receiveShadow=false;ring.rotation.x=Math.PI/2;mesh.add(ring)}const blackHoleVisual=b.key==='blackhole'?createBlackHoleVisual():null;if(blackHoleVisual)mesh.add(blackHoleVisual.group);const neutronStarVisual=b.key==='neutron-star'?createNeutronStarVisual(b):null;if(neutronStarVisual)mesh.add(neutronStarVisual.group);
  const orbit=createOrbitRibbon({color:b.color,opacity:b.parent?.13:.3});scene.add(orbit);
  const trailGeo=new THREE.BufferGeometry();trailGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(512*3),3).setUsage(THREE.DynamicDrawUsage));trailGeo.setDrawRange(0,0);const trail=new THREE.Line(trailGeo,new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:.3}));trail.frustumCulled=false;scene.add(trail);views.set(b.id,{group,axis,mesh,halo,spots,blackHoleVisual,neutronStarVisual,eclipseShadow,ringEclipseShadow,orbit,trail,orbitPath:Array.from({length:257},()=>new THREE.Vector3()),history:[],lodLevel:authoredGeometry?null:'medium',irregular:authoredGeometry});}
-function disposeView(id){const v=views.get(id);if(!v)return;scene.remove(v.group,v.orbit,v.trail);v.undamagedGeometry?.dispose();v.group.traverse(o=>{if(o.isMesh){if(!isShapeGeometry(o.geometry))o.geometry.dispose();o.material.dispose()}});v.orbit.geometry.dispose();v.orbit.material.dispose();v.trail.geometry.dispose();v.trail.material.dispose();views.delete(id);if(selected===id){selected=null;panel.hidden=true}if(follow===id)follow=null}
+function disposeView(id){const v=views.get(id);if(!v)return;scene.remove(v.group,v.orbit,v.trail);v.undamagedGeometry?.dispose();v.group.traverse(o=>{if(o.isMesh){if(!isShapeGeometry(o.geometry))o.geometry.dispose();o.material.dispose()}});v.orbit.geometry.dispose();v.orbit.material.dispose();v.trail.geometry.dispose();v.trail.material.dispose();views.delete(id);if(selected===id){selected=null;panel.hidden=true}if(follow===id)follow=null;if(bodyLandmarks?.bodyId===id)bodyLandmarks=null}
 bs.forEach(addView);applySolarBrightness();
 // Every solid is evaluated as an occulting disc in the current scene scale.
 // The material receives only bodies whose apparent disc can touch the Sun;
@@ -390,7 +401,7 @@ renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer
  if(id){selected=id;showBody()}else if(deepSky)showDeepSky(deepSky);else if(constellation)showConstellation(constellation);else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
 renderer.domElement.addEventListener('dblclick',e=>{const id=hit(e);if(id)focusBody(id)});
 function shell(title,content){preview.clear();restoreFocus=document.activeElement;panel.innerHTML=`<div class="panel-head"><h2>${title}</h2><button class="close" aria-label="Zamknij">×</button></div>${content}`;panel.hidden=false;panel.querySelector('.close').onclick=closePanel}
-function closePanel(){preview.clear();panel.hidden=true;selected=null;skySubject=null;restoreFocus?.focus?.()}
+function closePanel(){preview.clear();clearBodyLandmarks();panel.hidden=true;selected=null;skySubject=null;restoreFocus?.focus?.()}
 const row=(label,html)=>`<div class="row"><label>${label}</label>${html}</div>`;
 const inputLabel=id=>({mass:'Masa · kg','spawn-mass':'Masa · kg','spawn-solar-mass':'Masa · M☉',radius:'Promień · km','spawn-radius':'Promień · km',spin:'Obrót · godz.',tilt:'Nachylenie osi · °',launch:'Prędkość · km/s',angle:'Kierunek · °',pitch:'Wznoszenie · °'}[id]||`${id.startsWith('v')?'Prędkość':'Położenie'} ${id.slice(-1)} · ${id.startsWith('v')?'km/s':'AU'}`);
 const num=(id,value,step='any')=>`<input id="${id}" type="number" step="${step}" value="${Number(value.toPrecision(7))}" aria-label="${inputLabel(id)}">`;
@@ -472,7 +483,7 @@ function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const i
  if(views.get(b.id)?.lastImpactAxis){const button=document.createElement('button');button.className='action';button.textContent='Pokaż miejsce uderzenia';button.onclick=()=>{focusBody(b.id);const view=views.get(b.id);view.mesh.updateWorldMatrix(true,false);const direction=view.lastImpactAxis.clone().applyQuaternion(view.mesh.getWorldQuaternion(new THREE.Quaternion()));camera.position.copy(displayed(b)).addScaledVector(direction,Math.max(radius(b)*4,controls.minDistance*2));controls.target.copy(displayed(b));controls.update()};panel.querySelector('.actions').append(button)}
  const appearance=moonAppearance[b.name];if(b.key==='moon'&&appearance){const note=document.createElement('p');note.className='muted appearance-note';note.append(document.createTextNode(appearance.unknown?'Szczegóły powierzchni nieznane':appearance.haze?'Atmosfera w świetle widzialnym · barwa przybliżona':appearance.map?'Mapa misji · barwa przybliżona':'Wygląd orientacyjny · brak pełnej mapy'));const links=document.createElement('span');links.textContent=' · ';appearance.sources.forEach((url,i)=>{const a=document.createElement('a');a.href=url;a.target='_blank';a.rel='noopener noreferrer';a.textContent=`[${i+1}]`;a.setAttribute('aria-label',`Zdjęcia i źródła ${i+1}`);links.append(a)});note.append(links);panel.querySelector('.panel-head').after(note)}
  if(b.textureKey){const note=document.createElement('p');note.className='muted appearance-note';note.textContent='Wizualizacja naukowa · tekstura symulowana';if(b.visualSource){const link=document.createElement('a');link.href=b.visualSource;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' · Materiały źródłowe ↗';note.append(link)}panel.querySelector('.panel-head').after(note)}
- const previewLighting=body=>{const sun=bs.find(candidate=>candidate.key==='sun');return {sunDirection:sun?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness}};const previewHost=document.createElement('div');previewHost.className='body-preview';panel.querySelector('.panel-head').prepend(previewHost);preview.attach(previewHost,b,views.get(b.id),previewLighting(b),places,showLandmarks);
+ const previewLighting=body=>{const sun=bs.find(candidate=>candidate.key==='sun');return {sunDirection:sun?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness}};const previewHost=document.createElement('div');previewHost.className='body-preview';panel.querySelector('.panel-head').prepend(previewHost);preview.attach(previewHost,b,views.get(b.id),previewLighting(b),places,showLandmarks);attachBodyLandmarks(b,views.get(b.id),places);
  const landmarksInput=document.querySelector('#landmarks-toggle');if(landmarksInput)landmarksInput.onchange=e=>setLandmarksVisible(e.target.checked);
  if(star){const note=document.createElement('p');note.className='muted appearance-note';note.textContent=star.note||'';if(star.source){const link=document.createElement('a');link.href=star.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' · Źródło ↗';note.append(link)}panel.querySelector('.panel-head').after(note)}
  const preset=catalog.find(item=>item.id===b.presetId||item.id===b.key);mountWikipediaReference({name:b.name,id:b.presetId||b.key},{description:translate(star?.note||b.note||preset?.note||''),images:bodyReferenceImages(b)});
@@ -1024,7 +1035,7 @@ function setDeepSkyMarkersVisible(visible){showDeepSkyMarkers=visible;sky.setDee
 // Which named surface features (surface-places.js) show as pins on the
 // rotating object-details preview, off by default: most bodies have no such
 // list, and the ones that do are still recognisable by shape alone.
-function setLandmarksVisible(visible){showLandmarks=visible;preview.setLandmarksVisible(visible);const checkbox=document.querySelector('#landmarks-toggle');if(checkbox)checkbox.checked=visible;}
+function setLandmarksVisible(visible){showLandmarks=visible;preview.setLandmarksVisible(visible);if(bodyLandmarks)bodyLandmarks.group.visible=visible;const checkbox=document.querySelector('#landmarks-toggle');if(checkbox)checkbox.checked=visible;}
 function focusSkyTarget(direction){if(lightFlight)stopLightFlight();follow=null;const target=camera.position.clone().add(direction.clone().normalize().multiplyScalar(100));controls.target.copy(target);controls.update();}
 // A sky object has no simulated state to edit, so its panel is a read-only
 // sheet: measured values from the catalogues, then a note about what is there.

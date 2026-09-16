@@ -23,8 +23,11 @@ function landmarkGlowTexture(){
 // - the same calibration surface view uses to orient the ground itself).
 // Added as children of the mesh rather than the scene, so they turn with
 // whatever is currently animating it: the ordinary decorative spin here, or
-// the astronomically exact orientation once standing on the surface.
-function buildLandmarkMarkers(places){
+// the astronomically exact orientation once standing on the surface. Shared
+// with main.js, which adds a second copy of the same group to the real body
+// mesh in the main scene - not only this module's small rotating preview -
+// so a tracked body shows its landmarks close up as well as in the preview.
+export function buildLandmarkMarkers(places){
  const group=new THREE.Group();group.name='landmark-markers';
  const texture=landmarkGlowTexture();
  for(const place of places){
