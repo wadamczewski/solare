@@ -21,6 +21,7 @@ import {constellationLabel,createSky,deepSkyKind,equatorialFromDirection,RADIUS 
 import {knownPlacesFor} from './surface-places.js';
 import {deepSkyRingPixelRadius,projectedPoint,quaternionChanged,ringPixelRadius} from './sky-labels.js';
 import {findOccluder} from './marker-occlusion.js';
+import {nearestMarkerId} from './marker-hit.js';
 import {constellationNote,deepSkyNote} from './sky-descriptions.js';
 import {formatAngularSize,formatDeclination,formatRightAscension} from './sky-detail.js';
 import {wikipediaReference,wikipediaSearchUrl,wikipediaTitle} from './wikipedia-reference.js';
@@ -412,7 +413,27 @@ function updateOrbits(){
 updateOrbits();
 const ray=new THREE.Raycaster(),pointer=new THREE.Vector2(),plane=new THREE.Plane(new THREE.Vector3(0,1,0),0);let down=null,lastTouchTimer,hoveredConstellation=null,hoveredDeepSky=null;
 function pointRay(e){pointer.set(e.clientX/innerWidth*2-1,-e.clientY/innerHeight*2+1);ray.setFromCamera(pointer,camera)}
-function hit(e){pointRay(e);const hits=ray.intersectObjects([...views.values()].map(v=>v.mesh),false);return hits[0]?.object.userData.id||null}
+function hit(e){pointRay(e);const hits=ray.intersectObjects([...views.values()].map(v=>v.mesh),false);return hits[0]?.object.userData.id||nearestBodyMarker(e)}
+// The exact-mesh raycast above needs the pointer on the sphere's own drawn
+// pixels, which a distant or physically small body may barely have. This
+// fallback projects every body's centre to screen space - the same
+// projection getView() reports - and hands it to nearestMarkerId, the same
+// idea already given to deep-sky markers (sky.pickDeepSkyMarker's
+// Points.threshold) and constellation lines (pickConstellation's
+// Line.threshold), just measured in screen pixels here since a body's
+// apparent size spans many more orders of magnitude with distance than
+// anything drawn on the fixed-radius sky dome.
+const MARKER_HIT_PIXELS=16;
+function nearestBodyMarker(e){
+ const candidates=[];
+ for(const b of bs){
+  const world=displayed(b),screen=world.clone().project(camera);
+  if(!(screen.z>-1&&screen.z<1))continue;
+  candidates.push({id:b.id,x:(screen.x+1)*innerWidth/2,y:(1-screen.y)*innerHeight/2,
+   radius:radius(b)*innerHeight/(2*world.distanceTo(camera.position)*Math.tan(camera.fov*Math.PI/360))});
+ }
+ return nearestMarkerId({x:e.clientX,y:e.clientY},candidates,MARKER_HIT_PIXELS);
+}
 // A landmark pin (attachBodyLandmarks, above) is a real sprite in the main
 // scene - unlike a deep-sky marker, which sky.pickDeepSkyMarker locates by
 // screen-space projection since those sit at effectively infinite distance

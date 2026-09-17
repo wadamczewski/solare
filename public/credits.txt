@@ -629,3 +629,28 @@ toward .34 over a further thirty on hovering out, both strictly monotonic
 with no jump between any two consecutive samples; a coarse on-screen scan
 confirmed a hover roughly 30 pixels off the drawn line still highlighted the
 correct figure.
+
+2026-09-18 clicking a body no longer needs pixel-hunting once it is tiny on screen:
+A distant or physically small body - a moon at Neptune's distance in the
+readable view, say - can draw as a single pixel or less. Clicking it meant
+hitting the exact rendered geometry, since the raycast used for body
+selection had no margin at all, unlike the forgiving Points.threshold
+already given to deep-sky markers or the Line.threshold constellation lines
+just received above. A new pure module, `src/marker-hit.js`
+(`nearestMarkerId`), picks the nearest body whose on-screen marker - its own
+projected size, or a comfortable 16-pixel minimum, whichever is larger -
+contains the pointer; `hit()` in `main.js` falls back to it only when the
+exact-mesh raycast finds nothing, so a large, clearly-hit body is never
+second-guessed by a smaller one happening to project nearby. The fallback
+feeds the same screen-space projection getView() already reports, and
+drives both the hover cursor/tooltip and the actual click, since both call
+the same function.
+Verified two ways: five Node unit tests on the pure picker (a marker smaller
+than the minimum still catches a nearby click, a marker already larger than
+the minimum keeps its own size, the nearer of two overlapping markers wins,
+a pointer outside every marker's reach misses, and an empty candidate list
+never matches), and a paused, zoomed-out Playwright run against the live
+app - a real mouse click dead-centre on a sub-pixel moon (Deimos, 0.00px
+across at that zoom) opened its panel as before, a click 10 pixels off
+centre now also opened it where it previously would have missed, and a
+click 40 pixels off no longer matched that same moon.
