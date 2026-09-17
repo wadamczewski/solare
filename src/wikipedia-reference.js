@@ -1,26 +1,55 @@
-// Article titles are kept in English because they are stable identifiers for
-// the Wikimedia search fallback. The lookup starts on the selected Wikipedia,
-// so a Polish, German or Spanish page is used whenever that wiki has it.
-const TITLES={
- 'Słońce':'Sun','Merkury':'Mercury','Wenus':'Venus','Ziemia':'Earth','Mars':'Mars','Jowisz':'Jupiter','Saturn':'Saturn','Uran':'Uranus','Neptun':'Neptune',
- 'Księżyc':'Moon','Fobos':'Phobos (moon)','Deimos':'Deimos (moon)','Io':'Io (moon)','Europa':'Europa (moon)','Ganimedes':'Ganymede (moon)','Kallisto':'Callisto (moon)',
- 'Mimas':'Mimas (moon)','Enceladus':'Enceladus (moon)','Tetyda':'Tethys (moon)','Dione':'Dione (moon)','Rea':'Rhea (moon)','Tytan':'Titan (moon)','Japet':'Iapetus (moon)','Hyperion':'Hyperion (moon)',
- 'Miranda':'Miranda (moon)','Ariel':'Ariel (moon)','Umbriel':'Umbriel (moon)','Tytania':'Titania (moon)','Oberon':'Oberon (moon)','Tryton':'Triton (moon)','Proteusz':'Proteus (moon)','Nereida':'Nereid (moon)',
- 'Kometa':'Comet','1P/Halley':"Halley's_Comet",'Shoemaker-Levy 9 (fragment)':'Comet_Shoemaker–Levy_9','Supermasywna czarna dziura':'Supermassive_black_hole','Własna czarna dziura':'Black_hole',
- 'Sagittarius A*':'Sagittarius_A*','M87*':'M87*','Cygnus X-1':'Cygnus_X-1','PSR J0740+6620':'PSR_J0740+6620','Pulsar Kraba':'Crab_Pulsar','Pulsar Vela':'Vela_Pulsar','Magnetar SGR 1806−20':'SGR_1806−20',
- 'Dimorphos':'Dimorphos','99942 Apophis':'99942_Apophis','101955 Bennu':'101955_Bennu','Impaktor Chicxulub':'Chicxulub_impactor','4 Westa':'4_Vesta','1 Ceres':'Ceres_(dwarf_planet)','Theia (hipotetyczna)':'Theia_(planet)',
- 'Proxima Centauri b':'Proxima_Centauri_b','TRAPPIST-1 e':'TRAPPIST-1e','51 Pegasi b':'51_Pegasi_b','55 Cancri e':'55_Cancri_e',
- 'Sirius A':'Sirius','Vega':'Vega','Betelgeuse':'Betelgeuse','R136a1':'R136a1','WOH G64':'WOH_G64',
- 'M 16':'Eagle_Nebula','M 45':'Pleiades','M 31':'Andromeda_Galaxy','M 42':'Orion_Nebula','M 44':'Beehive_Cluster','M 7':'Ptolemy_Cluster','M 8':'Lagoon_Nebula','M 4':'Messier_4','M 33':'Triangulum_Galaxy','M 6':'Butterfly_Cluster','LMC':'Large_Magellanic_Cloud','SMC':'Small_Magellanic_Cloud','η Car':'Carina_Nebula','GalCtr':'Galactic_Center','h Per':'Double_Cluster','χ Per':'Double_Cluster','ω Cen':'Omega_Centauri','47 Tuc':'47_Tucanae','Serpens Caput':'Serpens','Serpens Cauda':'Serpens',
- 'M 1':'Crab_Nebula','M 11':'Wild_Duck_Cluster','M 17':'Omega_Nebula','M 20':'Trifid_Nebula','M 27':'Dumbbell_Nebula','M 51':'Whirlpool_Galaxy','M 57':'Ring_Nebula','M 63':'Sunflower_Galaxy','M 97':'Owl_Nebula','M 101':'Pinwheel_Galaxy','M 104':'Sombrero_Galaxy'
+// Wikipedia and photo lookups use the object's own proper name in the
+// selected interface language, not a fixed English/IAU identifier. The
+// scene's own translation table (src/locales/messages.js) already carries
+// accurate pl/en/de/es proper names for every planet, moon and named
+// deep-sky object - the same names shown in the interface itself - so this
+// module reuses that table directly instead of keeping a second, English
+// -only copy that could drift out of sync with it.
+import {rows} from './locales/messages.js';
+const LANGUAGES=['pl','en','de','es'];
+const properNames=new Map(rows.map(row=>[row[0],row]));
+
+// A handful of names collide with a translation meant for interface chrome
+// rather than the object itself - "Własna czarna dziura" translates to the
+// English UI label "Custom black hole", which no encyclopedia article is
+// titled - so those are excluded from the reuse above and fall back to the
+// generic identifier below instead.
+const EXCLUDE_PROPER_NAME=new Set(['Własna czarna dziura']);
+
+// Objects with no interface translation row, either because their name is
+// already the same across languages (catalogue and scientific designators)
+// or because only a couple of languages need a distinct search term. Each
+// entry gives the identifier used for the REST lookup / URL (English is
+// mandatory, since it is also the last-resort language) plus any language
+// that needs its own proper name.
+const FALLBACK_NAMES={
+ 'Kometa':{en:'Comet'},'1P/Halley':{en:"Halley's_Comet",de:'Halleyscher Komet',es:'Cometa Halley'},
+ 'Supermasywna czarna dziura':{en:'Supermassive_black_hole'},'Własna czarna dziura':{en:'Black_hole',de:'Schwarzes Loch',es:'Agujero negro'},
+ 'Sagittarius A*':{en:'Sagittarius_A*'},'M87*':{en:'M87*'},'Cygnus X-1':{en:'Cygnus_X-1'},'PSR J0740+6620':{en:'PSR_J0740+6620'},
+ 'Pulsar Kraba':{en:'Crab_Pulsar',de:'Krebspulsar',es:'Púlsar del Cangrejo'},'Pulsar Vela':{en:'Vela_Pulsar',de:'Vela-Pulsar',es:'Púlsar Vela'},
+ 'Magnetar SGR 1806−20':{en:'SGR_1806−20'},
+ 'Dimorphos':{en:'Dimorphos'},'99942 Apophis':{en:'99942_Apophis'},'101955 Bennu':{en:'101955_Bennu'},'1 Ceres':{en:'Ceres_(dwarf_planet)',de:'Ceres (Zwergplanet)',es:'Ceres (planeta enano)'},
+ 'Proxima Centauri b':{en:'Proxima_Centauri_b'},'TRAPPIST-1 e':{en:'TRAPPIST-1e'},'51 Pegasi b':{en:'51_Pegasi_b'},'55 Cancri e':{en:'55_Cancri_e'},
+ 'Sirius A':{en:'Sirius'},'Vega':{en:'Vega',de:'Wega'},'Betelgeuse':{en:'Betelgeuse'},'R136a1':{en:'R136a1'},'WOH G64':{en:'WOH_G64'},
+ // Deep-sky objects whose scene label is either just its catalogue code
+ // (no distinct proper name to look up) or, for the two Double Cluster
+ // components, a label the interface table only translates in part.
+ 'M 6':{en:'Butterfly_Cluster'},'M 4':{en:'Messier_4'},'ω Cen':{en:'Omega_Centauri'},'47 Tuc':{en:'47_Tucanae'},
+ 'h Per':{en:'Double_Cluster',de:'Doppelsternhaufen',es:'Cúmulo Doble'},'χ Per':{en:'Double_Cluster',de:'Doppelsternhaufen',es:'Cúmulo Doble'},
+ 'Serpens Caput':{en:'Serpens'},'Serpens Cauda':{en:'Serpens'}
 };
 
 const fallbackArticle=subject=>String(subject?.id||subject?.name||subject?.label||'Astronomical object')
  .replace(/\s+→.*$/,'').trim().replaceAll(' ','_');
 
-export function wikipediaTitle(subject={}){
+export function wikipediaTitle(subject={},language='en'){
  const name=String(subject.name||subject.label||'').replace(/\s+→.*$/,'').trim();
- return TITLES[name]||TITLES[subject.id]||fallbackArticle(subject);
+ if(!name)return FALLBACK_NAMES[subject.id]?.[language]||FALLBACK_NAMES[subject.id]?.en||fallbackArticle(subject);
+ if(language==='pl')return name;
+ const row=!EXCLUDE_PROPER_NAME.has(name)&&properNames.get(name);
+ if(row)return row[LANGUAGES.indexOf(language)];
+ const fallback=FALLBACK_NAMES[name]||FALLBACK_NAMES[subject.id];
+ return fallback?.[language]||fallback?.en||fallbackArticle(subject);
 }
 
 export function wikipediaSearchUrl(title,language='en'){
@@ -76,11 +105,10 @@ async function imageDetailsFor(title,language,fetcher){
 const referenceCache=new Map();
 async function loadWikipediaReference(subject,language,fetcher){
  const preferred=['pl','en','de','es'].includes(language)?language:'en';
- const title=wikipediaTitle(subject);
- let page,usedLanguage=preferred;
+ let title=wikipediaTitle(subject,preferred),page,usedLanguage=preferred;
  try{page=await resolveTitle(title,preferred,fetcher)}catch{
   if(preferred==='en')throw new Error('Wikipedia article unavailable');
-  usedLanguage='en';page=await resolveTitle(title,'en',fetcher);
+  usedLanguage='en';title=wikipediaTitle(subject,'en');page=await resolveTitle(title,'en',fetcher);
  }
  const articleUrl=page.content_urls?.desktop?.page||wikipediaSearchUrl(title,usedLanguage);
  const gallery=await imageDetailsFor(page.titles?.canonical||page.title||title,usedLanguage,fetcher);
@@ -98,10 +126,11 @@ async function loadWikipediaReference(subject,language,fetcher){
 }
 
 export function wikipediaReference(subject,language='en',fetcher=fetch){
- // A supplied fetcher is used by tests; browser lookups are cached per article
- // and language so reopening a body never asks the network twice.
+ // A supplied fetcher is used by tests; browser lookups are cached per
+ // article language and localized title so reopening a body, or switching
+ // language, never asks the network twice for the same search.
  if(fetcher!==globalThis.fetch)return loadWikipediaReference(subject,language,fetcher);
- const key=`${language}:${wikipediaTitle(subject)}`;
+ const key=`${language}:${wikipediaTitle(subject,language)}`;
  if(!referenceCache.has(key))referenceCache.set(key,loadWikipediaReference(subject,language,fetcher).catch(error=>{referenceCache.delete(key);throw error}));
  return referenceCache.get(key);
 }

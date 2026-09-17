@@ -654,3 +654,39 @@ app - a real mouse click dead-centre on a sub-pixel moon (Deimos, 0.00px
 across at that zoom) opened its panel as before, a click 10 pixels off
 centre now also opened it where it previously would have missed, and a
 click 40 pixels off no longer matched that same moon.
+
+2026-09-17 the Wikipedia and photo links now search for an object's own name,
+not its fixed IAU/English identifier:
+`wikipediaTitle()` always looked up a single, English-only article slug -
+"Phobos (moon)", "Eagle_Nebula" - and used it as the Wikipedia search term
+on whichever wiki the interface happened to be set to, so a German or
+Spanish reader searched de.wikipedia.org or es.wikipedia.org for an English
+phrase instead of the object's own name in their language. The interface
+already carries accurate pl/en/de/es proper
+names for every planet, moon and named deep-sky object, in
+`src/locales/messages.js` - the very names shown in the panel itself - so
+`wikipediaTitle(subject, language)` now looks a body's Polish name up there
+first and searches with the matching localized name, only falling back to
+the old English identifier for objects with no distinct name in a given
+language (most star and catalogue designators, which are the same in every
+language anyway) or no interface translation at all. One name -
+"Własna czarna dziura", a user's custom black hole - translates to interface
+chrome ("Custom black hole") rather than an encyclopedia subject, so it is
+excluded from the reuse and kept on the generic "Black hole" fallback. A
+handful of objects with no interface row of their own (the two Crab/Vela
+pulsars, 1 Ceres, 1P/Halley, the Double Cluster's two halves, Vega's German
+"Wega") get a small hand-picked table alongside it. This also fixes a
+latent mismatch for the star-system Sirius pair: their body name is the
+Polish "Syriusz A"/"Syriusz B", which never matched the old English-only
+key "Sirius A" at all outside English, so the search silently fell back to
+the raw Polish text on every other wiki.
+Verified with new Node unit tests (a planet resolves to its own name in all
+four languages rather than the previous English default; the custom-black-
+hole exclusion holds; the Double Cluster and Crab Pulsar still resolve
+without an interface row of their own; a mocked non-English lookup's
+request URL contains the localized name, not the English one) and a
+Playwright run against the live app: switching the interface language on an
+open body panel (German → Spanish → Polish, via the existing live-refresh
+already wired to `languagechange`) changed Mercury's Wikipedia link from
+`.../de.wikipedia.org/...search=Merkur` to `.../es.wikipedia.org/...search=Mercurio`
+to `.../pl.wikipedia.org/...search=Merkury` with no other interaction.
