@@ -580,3 +580,27 @@ rendered scene shows the full set of orbit ellipses; clicking it clears the
 checkbox and the next frame's screenshot shows every orbit line gone while
 every planet, moon and trail stays exactly where it was; clicking again
 brings every orbit back.
+
+2026-09-17 sky markers in the surface view no longer lag behind a fast clock:
+Standing on a body and looking at the sky, the HUD, direction radar and the
+markers for the Sun, Moon and planets were only ever repainted every sixth
+rendered frame - a fixed DOM-cost throttle, unrelated to how much sky time
+had actually passed. At a slow tempo six frames is a fraction of a degree of
+motion, too small to notice between repaints. At a fast one - the exact
+complaint reported - the same six frames can carry a body a visible arc
+across the sky, so what should read as smooth motion instead reads as a
+handful of jumps a second, stepping several frames at a time rather than
+animating every one. The dragged-view case was never affected: turning the
+view by hand already forces a full repaint on every pointer move, bypassing
+the throttle entirely, which is why only the passive "simulation running, no
+one touching the view" case showed it. The fix makes the repaint interval
+follow the simulation tempo the same way the orbit-line refresh below it
+already does: every sixth frame below 2 days/s, every third from 2 up to
+100, and every single frame at 100 or above, so the repaint keeps pace with
+however much sky motion a fast clock is actually producing.
+Verified with a Playwright run measuring the ratio of rendered frames that
+triggered a repaint (via a MutationObserver on the radar's heading label)
+over several seconds in the surface view: about 1 in 10 at 0.02 days/s, 1 in
+3 at 10 days/s, and every single frame at 365 days/s - the interval
+shortening exactly as the tempo rises, in place of the old constant 1-in-6
+regardless of speed.

@@ -911,7 +911,18 @@ function updateSurfaceView(tick=0){
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));
  camera.updateMatrixWorld();
- if(tick%6===0){paintSurfaceHud(body,horizon);paintSurfaceRadar(body,horizon);paintSkyLabels(body,horizon)}
+ // The HUD, radar and sky-label overlays are DOM work, worth skipping most
+ // frames when nothing has moved far - a dragged view already forces a full
+ // repaint on every pointer move (tick defaults to 0 there, always a match),
+ // so this throttle only ever governs the passive case: sitting still while
+ // simulated time carries the sky past. At a slow tempo six rendered frames
+ // is a fraction of a degree of sky motion, invisible between repaints; at a
+ // fast one the same six frames can be a large arc, so what looked like
+ // smooth motion turns into a visible stepped jump every sixth frame. The
+ // interval shortens as the simulation speeds up, the same way the orbit
+ // lines below refresh every frame once the tempo is fast enough.
+ const surfaceRefreshStep=speed>=100?1:speed>=2?3:6;
+ if(tick%surfaceRefreshStep===0){paintSurfaceHud(body,horizon);paintSurfaceRadar(body,horizon);paintSkyLabels(body,horizon)}
 }
 // What is worth listing, and where it really is.
 //
