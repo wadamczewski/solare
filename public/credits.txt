@@ -690,3 +690,35 @@ open body panel (German → Spanish → Polish, via the existing live-refresh
 already wired to `languagechange`) changed Mercury's Wikipedia link from
 `.../de.wikipedia.org/...search=Merkur` to `.../es.wikipedia.org/...search=Mercurio`
 to `.../pl.wikipedia.org/...search=Merkury` with no other interaction.
+
+2026-09-17 clicking a known place now opens the same kind of panel as every
+other clickable thing in the scene:
+Selecting a named surface feature - from the surface-view HUD's own list, or
+from a landmark pin back in the standard orbital view - always jumped
+straight into surface view standing at that spot, with no further
+information offered about the place itself, unlike a body, constellation,
+or deep-sky object, each of which opens its own detail panel with a
+Wikipedia link and photo gallery. Both of those entry points already funnel
+through the single `goToKnownPlace()` function, so it now also opens that
+same kind of panel (`showKnownPlace()`, reusing the existing `skyPanel()` /
+`mountWikipediaReference()` machinery unchanged) after the jump: the place's
+name as the title, its host body and planetographic coordinates as rows,
+and a Wikipedia section - a known place has no hand-written note the way a
+constellation or deep-sky object does, so the description shown there is
+whatever the linked Wikipedia article's own summary says, or nothing if no
+article resolves. The surface-view HUD stays visible alongside the panel,
+since the two are laid out on opposite sides of the screen and neither
+depends on the other. A repeat click on the same or a different place, or
+switching language while the panel is open, replaces its content exactly
+as an already-open body or sky panel already does.
+Verified with a Playwright run against the live app: opening Earth's known
+places from its surface-view panel listed all three entries; clicking
+"Everest" opened a panel titled "Everest" with its body and coordinates and
+a Wikipedia search link for "Everest", with the surface HUD still visible
+alongside it and the view still standing on the mountain; clicking a second
+place ("Grand Canyon") replaced the panel's content in place, and the
+panel's own "Center" button re-ran the jump without losing that content.
+The main-scene landmark-pin entry point was not separately driven by a real
+click in this run - it calls the identical `goToKnownPlace()` function this
+change modifies, with a click handler this change does not touch - so it is
+covered by the same fix rather than by a second, independent code path.

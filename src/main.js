@@ -445,7 +445,7 @@ renderer.domElement.addEventListener('pointerdown',e=>{down={x:e.clientX,y:e.cli
 renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.clientX-down.x,e.clientY-down.y)>6)clearTimeout(lastTouchTimer);if(e.buttons){hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true;return}const landmark=pickLandmark(e),id=landmark?null:hit(e),deepSky=id||landmark?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null,constellation=id||landmark||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;hoveredConstellation=constellation;hoveredDeepSky=deepSky;if(id||deepSky||!constellation)sky.clearConstellationHighlight();if(id||constellation||!deepSky)sky.clearDeepSkyHighlight();renderer.domElement.style.cursor=id||constellation||deepSky||landmark?'pointer':'grab';tip.hidden=!id&&!constellation&&!deepSky&&!landmark;if(id||constellation||deepSky||landmark){tip.textContent=landmark?landmark.name:id?bs.find(b=>b.id===id)?.name:deepSky?deepSky.label:constellationLabel(constellation,getLanguage());tip.style.left=Math.min(innerWidth-180,e.clientX+16)+'px';tip.style.top=(e.clientY+16)+'px'}});
 renderer.domElement.addEventListener('pointerleave',()=>{hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true});
 document.addEventListener('languagechange',()=>{if(hoveredConstellation&&!tip.hidden)tip.textContent=constellationLabel(hoveredConstellation,getLanguage())});
-document.addEventListener('languagechange',()=>{if(panel.hidden||!skySubject)return;const subject=skySubject;if(subject.kind==='constellation')showConstellation(subject.entry);else showDeepSky(subject.entry)});
+document.addEventListener('languagechange',()=>{if(panel.hidden||!skySubject)return;const subject=skySubject;if(subject.kind==='constellation')showConstellation(subject.entry);else if(subject.kind==='place')showKnownPlace(subject.bodyId,subject.place);else showDeepSky(subject.entry)});
 renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const landmark=pickLandmark(e);const id=landmark?null:hit(e);
  // Picking again rather than trusting the hover state, which a touch pointer
  // never produces. A marker, a landmark pin, or a figure under the cursor
@@ -843,6 +843,14 @@ function goToKnownPlace(bodyId,place){
  surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;surfaceView.locationOverride=true;
  aimAtLocalGround();
  buildSurfaceHud();updateSurfaceView();paintEarthLocation();
+ // A known place deserves the same treatment as a body, constellation, or
+ // deep-sky object: a panel with what it is and, when Wikipedia has an
+ // article on it, a description and photos - not just a silent camera jump.
+ // startSurfaceView() above already closed any previously open panel, so
+ // this reopens it, and it works identically whether the place was clicked
+ // from the surface-view HUD's own list or from a landmark pin back in the
+ // standard orbital view, since both paths call this same function.
+ showKnownPlace(bodyId,place);
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
@@ -1285,6 +1293,20 @@ function showDeepSky(object){
   skyRow('Deklinacja',formatDeclination(object.dec))
  ],deepSkyNote(object.id,getLanguage()),'Współrzędne i jasności z katalogu obiektów sceny',{name:object.label,id:object.id});
  document.querySelector('#sky-center').onclick=()=>focusSkyTarget(object.target);
+}
+// A known place (surface-places.js) has no hand-written note the way a
+// constellation or deep-sky object does, so its Wikipedia section is left to
+// show the article's own description - it is the only place that
+// description comes from - rather than duplicating it here.
+function showKnownPlace(bodyId,place){
+ skySubject={kind:'place',bodyId,place};
+ const body=bs.find(b=>b.id===bodyId);
+ skyPanel(place.name,[
+  skyRow('Ciało',body?translate(body.name):'—'),
+  skyRow('Szerokość',`${formatNumber(place.latitude,0)}°`),
+  skyRow('Długość',`${formatNumber(place.longitude,0)}°`)
+ ],null,'Nazwa wg oficjalnego nazewnictwa IAU · planetarynames.wr.usgs.gov',{name:place.name,id:place.name});
+ document.querySelector('#sky-center').onclick=()=>goToKnownPlace(bodyId,place);
 }
 function setupBodySearch(){
  const input=document.querySelector('#body-search'),list=document.querySelector('#body-results');
