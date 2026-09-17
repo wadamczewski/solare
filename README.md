@@ -6,15 +6,24 @@ Pełnoekranowa piaskownica WebGL z wzajemną grawitacją N-body. Stale widoczne 
 
 Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` sprawdza integrator i zachowanie układu.
 
+## Aktualne funkcje
+
+- **Wybór gwiazdy centralnej:** oprócz Słońca dostępne są Syriusz A, Wega, Betelgeza, R136a1 i WOH G64. Zmiana aktualizuje masę używaną przez grawitację, promień, temperaturę barwową, jasność i odczyty temperatur obiektów. Pozycje planet zostają zachowane, a ich prędkości heliocentryczne są przeskalowane do nowej masy gwiazdy, aby nie wprowadzać sztucznego wyrzutu całego układu.
+- **Scenariusze kolizji:** panel symulacji udostępnia dziesięć gotowych kursów (m.in. 1P/Halley → Ziemia, Theia → Ziemia i Shoemaker–Levy 9 → Jowisz) oraz własny kurs między dowolnym obiektem katalogowym a istniejącym ciałem. Podejście jest ustawiane na 32 dni symulacji, czyli około 16 s przy 2 dniach/s.
+- **Światło i przesłanianie:** Słońce jest źródłem o skończonym rozmiarze. Cienie mają miękką umbrę i półcień; ten sam model obejmuje pierścienie Saturna i Urana. To geometryczne przybliżenie w shaderze, a nie globalne śledzenie promieni.
+- **Płynność sceny:** geometria zwykłych brył ma trzy poziomy szczegółowości zależne od wielkości na ekranie; szczegółowa geometria jest zachowana dla komet, obiektów nieregularnych i trwałych śladów zderzeń. Orbity oskulacyjne są odświeżane w każdej klatce przy szybkim tempie czasu.
+- **Mapa nieba:** wyszukiwanie znajduje ciała symulacji, gwiazdozbiory i obiekty głębokiego nieba; wybór włącza właściwą warstwę mapy i ustawia kamerę na wyniku. Nałożone obiekty reagują na najechanie kursorem.
+
 ## Obsługa
 
-- Przeciągnięcie: obrót; kółko / pinch: zoom do kursora; prawy przycisk / dwa palce: przesunięcie.
+- Lewy przycisk / przeciągnięcie: obrót; Shift + lewy przycisk: przesunięcie; kółko / pinch: zoom do kursora.
+- Swobodny lot: W/S porusza kamerą w przód i w tył, A/D w bok, Q/E w dół i w górę, a Shift przyspiesza ruch czterokrotnie. Prawy przycisk lub rozpoczęcie ruchu przechwytuje wskaźnik jak w grze; mysz steruje spojrzeniem, a Escape go zwalnia.
 - Kliknięcie ciała: podgląd WebGL obok nazwy oraz edycja masy, promienia, prędkości, położenia, okresu i nachylenia osi.
 - Dwuklik: śledzenie ciała. Wybór ciała możliwy także pod logo.
 - Kliknięcie pustego miejsca: utworzenie komety, czarnej dziury lub planety. Wskazany punkt leży na płaszczyźnie ekliptyki; wysokość można zmienić polem Y.
-- Logo / S: narzędzia czasu i nawigacji, wyszukiwanie i wybór ciał (filtrowanie po nazwie, bez rozróżniania wielkości liter i polskich znaków diakrytycznych), przełącznik rzeczywistej skali, restart symulacji.
+- Panel pod logo: narzędzia czasu i nawigacji, wyszukiwanie i wybór ciał (filtrowanie po nazwie, bez rozróżniania wielkości liter i polskich znaków diakrytycznych), przełącznik rzeczywistej skali i wybór gwiazdy centralnej.
 - Nad dolnym paskiem widnieje data i godzina symulacji (UTC) w formacie „Data - Czas”; zegar rusza od momentu wczytania i biegnie razem z upływem czasu symulacji.
-- Spacja: pauza; A: dodawanie; R / Reset: pełne przywrócenie początkowego układu, ustawień i kamery; Escape: zamknięcie panelu.
+- Spacja: pauza; N: dodawanie ciała; T: panel symulacji; R / Reset: pełne przywrócenie początkowego układu, ustawień i kamery; Escape: zamknięcie panelu lub wskaźnika.
 - „Zamień orbitę” przenosi także księżyce wraz z pozycją i prędkością ich planety.
 
 ## Widok z powierzchni
@@ -46,6 +55,8 @@ Te znaczniki są nakładką DOM, nie częścią sceny WebGL, więc — inaczej n
 ## Model i granice dokładności
 
 Fizyka pracuje w AU, masach słonecznych i dniach, niezależnie od wizualnego powiększenia planet. Wszystkie 32 domyślne ciała (Słońce, osiem planet, 23 wybrane księżyce) i dodane obiekty wzajemnie oddziałują według grawitacji Newtona. Velocity Verlet z krokiem ograniczanym przez czas dynamiczny i zbliżenia. Kolizje przy rzeczywistych promieniach rozróżniają łączenie, wyrzut odłamków, rozbijające uderzenie, skośne zderzenie i pochłanianie. Masa i pęd liniowy są zachowane. Początkowy układ jest barycentryczny. Parametry planet bazują na tabelach JPL.
+
+Zamiana gwiazdy centralnej nie odtwarza rzeczywistego, niezależnego układu planetarnego tej gwiazdy. Zachowuje aktualne pozycje planet i dostosowuje jedynie ich prędkości do masy wybranego źródła, dlatego jest eksperymentem dynamiki N-body, a nie katalogiem egzoplanet.
 
 ## Położenia planet na bieżącą chwilę
 
@@ -149,7 +160,7 @@ Wartości są przybliżone, bez przedziałów niepewności; używamy tabel param
 
 Kolizje zależą od skali widoku: rzeczywista skala używa fizycznych powierzchni, a widok czytelny używa widocznych sfer (z uwzględnieniem osobnego mapowania księżyców). Test odcinka między kolejnymi krokami ogranicza przenikanie szybkich obiektów. Kamera i zoom nie zmieniają granicy kolizji; poświaty oraz pierścienie nie są powierzchniami zderzeń. W widoku czytelnym pomijamy model otarcia, którego fizyczne odsunięcie nie rozdzielałoby powiększonych brył. Masa, pęd i grawitacja pozostają w jednostkach fizycznych; kolizje w tym trybie są świadomym uproszczeniem wizualnym.
 
-Nawigacja: W/S przód/tył, A/D ruch w bok, Q/E dół/góra względem kamery. Przytrzymanie prawego przycisku myszy pozwala się rozglądać, Shift przyspiesza ruch czterokrotnie. Lewy przycisk zachowuje orbitowanie, Shift + lewy przesuwanie, kółko zoom. Prędkość ruchu maleje przy powierzchniach i dopasowuje się do skali. Ruch odłącza śledzenie ciała; edycja formularza i automatyczny lot blokują nawigację. Utrata fokusu, puszczenie klawisza i Reset zatrzymują ruch. Skróty narzędzi przeniesiono na N (nowe ciało) i T (symulacja), aby A/S służyły do nawigacji.
+Nawigacja: W/S przód/tył, A/D ruch w bok, Q/E dół/góra względem kamery. Prawy przycisk myszy lub rozpoczęcie ruchu klawiszami włącza Pointer Lock: mysz obraca kamerę bez zatrzymywania się na krawędzi ekranu, a Escape zwalnia wskaźnik. Shift przyspiesza ruch czterokrotnie. Lewy przycisk zachowuje orbitowanie, Shift + lewy przesuwanie, kółko zoom. Prędkość ruchu maleje przy powierzchniach i dopasowuje się do skali. Ruch odłącza śledzenie ciała; edycja formularza i automatyczny lot blokują nawigację. Utrata fokusu, puszczenie klawisza i Reset zatrzymują ruch. Skróty narzędzi przeniesiono na N (nowe ciało) i T (symulacja), aby A/S służyły do nawigacji.
 
 Poprawka resetu: początkowy układ ma 32 ciała. Czytelne orbity księżyców mają większe odstępy promieniowe, a test przecięcia odcinka nie jest stosowany do księżyców tego samego gospodarza (cięciwa kroku nie opisuje ich zakrzywionej orbity). Ich kontakt nadal jest sprawdzany w położeniach końcowych. Zderzenia odłamków zachowują masę i pęd przez łączenie, bez rekurencyjnego tworzenia kolejnych generacji. Test regresji kontroluje pierwsze 10 dni po resecie. W długiej symulacji powiększone ciała nadal mogą rzeczywiście zetknąć się w widoku czytelnym.
 
