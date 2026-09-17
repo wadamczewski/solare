@@ -604,3 +604,28 @@ over several seconds in the surface view: about 1 in 10 at 0.02 days/s, 1 in
 3 at 10 days/s, and every single frame at 365 days/s - the interval
 shortening exactly as the tempo rises, in place of the old constant 1-in-6
 regardless of speed.
+
+2026-09-18 an easier target and a smooth fade for constellation lines:
+Hovering a constellation's stick figure took several tries to land on: the
+raycaster's line-hit tolerance was 2.4 world units against a sky dome 900
+units across, a margin of a couple of screen pixels at most. Raised it to 9,
+a generous click target that still hugs the drawn shape itself - each
+segment gets a wider tube of tolerance along its own length, not a
+replacement bounding box - measured afterward at roughly 30-40 screen pixels
+of slack around an exact hit at the default field of view. Separately, the
+hover highlight used to set its lit color, opacity and glow visibility
+outright the instant the pointer crossed onto or off a line, popping in and
+out in a single frame. Each figure's line and its three glow layers now ease
+a numeric strength toward 1 (hovered) or 0 (not) every frame instead, at a
+rate independent of the frame time, so quickly moving the pointer between
+two adjacent figures resumes a fade from wherever it had gotten to rather
+than restarting or jumping. Toggling constellations off, or starting a
+camera drag, still resets everything to its resting look immediately - nothing
+is left mid-fade with no further frames to finish it.
+Verified with a Playwright run that stepped the fade with a fixed simulated
+frame time and sampled the line's material every step: opacity rose from
+.34 to .93 over twenty 60fps frames on hovering in, and fell back from .84
+toward .34 over a further thirty on hovering out, both strictly monotonic
+with no jump between any two consecutive samples; a coarse on-screen scan
+confirmed a hover roughly 30 pixels off the drawn line still highlighted the
+correct figure.

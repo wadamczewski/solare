@@ -269,7 +269,22 @@ export function createSky(dpr) {
  const constellationGlowMaterials = [];
  const lineResolution = new THREE.Vector2(1, 1);
  const constellationRay = new THREE.Raycaster();
- constellationRay.params.Line.threshold = 2.4;
+ // A raw stick figure is a fraction of a degree wide on screen - clicking
+ // exactly on one of its segments takes several tries. The threshold below
+ // is a world-space distance from the ray to the nearest segment, at the
+ // sky dome's fixed radius, so it grows the hit region evenly along the
+ // whole drawn shape rather than replacing it with a bounding box: near a
+ // line the extra margin is generous, and it still tapers off away from
+ // every segment the same way the line itself bends.
+ constellationRay.params.Line.threshold = 9;
+ // The hover highlight used to snap instantly between its dim and lit
+ // states, popping rather than fading. Each figure's line and glow now ease
+ // toward a target strength (0 dim, 1 lit) every frame instead, and the map
+ // below keeps that per-line state only for as long as a figure is
+ // animating - entries are dropped once a fade-out finishes.
+ const constellationFades = new Map();
+ const CONSTELLATION_DIM_COLOR = new THREE.Color('#5f7fa8'), CONSTELLATION_LIT_COLOR = new THREE.Color('#d8edff');
+ const CONSTELLATION_DIM_OPACITY = .34, CONSTELLATION_LIT_OPACITY = .96, CONSTELLATION_FADE_RATE = 12;
 
  const place = (ra, dec, target, index) => {
   const [x, y, z] = skyDirection(ra, dec);
@@ -362,6 +377,9 @@ export function createSky(dpr) {
     const material = new LineMaterial({color:'#bfeaff',linewidth,transparent:true,opacity,depthWrite:false,depthTest:true,blending:THREE.AdditiveBlending,toneMapped:false});
     material.resolution.copy(lineResolution);
     const glow = new LineSegments2(glowGeometry, material);
+    // The fade animates opacity down from this value, not to zero flat out -
+    // each of the three layered strokes keeps its own peak brightness.
+    glow.userData.litOpacity=opacity;
     glow.visible=false;glow.frustumCulled=false;glow.renderOrder=-1;
     constellationGlowMaterials.push(material);
     return glow;
@@ -375,6 +393,37 @@ export function createSky(dpr) {
    layer.add(figureGroup);
   }
   layer.frustumCulled=false;layer.visible=constellationVisible;layer.renderOrder=-1;group.add(layer);
+ }
+
+ // Snaps a figure straight back to its resting look, with no further
+ // animation - the endpoint every fade converges toward, and also what a
+ // hard clear applies immediately.
+ function resetConstellationLine(line, glows) {
+  line.material.color.copy(CONSTELLATION_DIM_COLOR);
+  line.material.opacity = CONSTELLATION_DIM_OPACITY;
+  for (const glow of glows) glow.visible = false;
+ }
+ function constellationFadeState(line) {
+  let state = constellationFades.get(line);
+  if (!state) { state = {glows: line.parent.userData.glows, strength: 0, target: 0}; constellationFades.set(line, state); }
+  return state;
+ }
+ // Eases every animating figure's strength toward its target (1 hovered, 0
+ // not) at a rate independent of frame time, so a quick re-hover resumes
+ // from wherever the previous fade had gotten to instead of jumping. A
+ // figure is dropped from the map once it finishes fading out, leaving
+ // nothing left to update until the next hover.
+ function stepConstellationFades(dt) {
+  const step = 1 - Math.exp(-dt * CONSTELLATION_FADE_RATE);
+  for (const [line, state] of constellationFades) {
+   state.strength += (state.target - state.strength) * step;
+   if (Math.abs(state.target - state.strength) < .002) state.strength = state.target;
+   const t = state.strength;
+   line.material.color.copy(CONSTELLATION_DIM_COLOR).lerp(CONSTELLATION_LIT_COLOR, t);
+   line.material.opacity = CONSTELLATION_DIM_OPACITY + (CONSTELLATION_LIT_OPACITY - CONSTELLATION_DIM_OPACITY) * t;
+   for (const glow of state.glows) { glow.visible = t > .002; glow.material.opacity = glow.userData.litOpacity * t; }
+   if (state.strength === 0 && state.target === 0) constellationFades.delete(line);
+  }
  }
 
  async function refineSky(stars,grab) {
@@ -398,9 +447,10 @@ export function createSky(dpr) {
   // The sphere is anchored to the camera, so the sky shows no parallax as the
   // viewpoint crosses the solar system - correct, since the nearest star is
   // some 268 000 AU away.
-  update(camera) {
+  update(camera, dt=0) {
    group.matrix.makeTranslation(camera.position.x, camera.position.y, camera.position.z);
    group.matrixWorldNeedsUpdate = true;
+   if (constellationFades.size) stepConstellationFades(dt);
   },
   setConstellations(visible) {
    constellationVisible=visible;
@@ -432,12 +482,14 @@ export function createSky(dpr) {
    layers.deepSkyHighlight.visible=true;activeDeepSky=entry;
    return entry;
   },
+  // A hard, immediate reset - used when the whole layer is hidden or a drag
+  // starts, where an in-progress fade would otherwise be left stranded
+  // half-lit with nothing left driving it toward either end.
   clearConstellationHighlight() {
-   if (!activeConstellation) return;
-   activeConstellation.line.material.color.set('#5f7fa8');
-   activeConstellation.line.material.opacity = .34;
-   activeConstellation.glows.forEach(glow=>glow.visible=false);
    activeConstellation = null;
+   if (!constellationFades.size) return;
+   for (const [line, state] of constellationFades) resetConstellationLine(line, state.glows);
+   constellationFades.clear();
   },
   pickConstellation(event, camera, element) {
    if (!layers.constellations?.visible) return null;
@@ -446,13 +498,10 @@ export function createSky(dpr) {
    group.updateMatrixWorld(true);
    const line = constellationRay.intersectObjects(layers.constellations.children, true).find(hit=>hit.object.isLineSegments)?.object || null;
    const constellation = line?.userData.constellation || null;
-   if (line === activeConstellation?.line) return constellation;
-   this.clearConstellationHighlight();
-   if (!line) return null;
-   activeConstellation = {line, glows:line.parent.userData.glows};
-   line.material.color.set('#d8edff');
-   line.material.opacity = .96;
-   activeConstellation.glows.forEach(glow=>glow.visible=true);
+   if (line === activeConstellation) return constellation;
+   if (activeConstellation) constellationFadeState(activeConstellation).target = 0;
+   activeConstellation = line;
+   if (line) constellationFadeState(line).target = 1;
    return constellation;
   },
   // Star sizes are in device pixels, so a real-scale flyby needs no change, but
