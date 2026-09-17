@@ -234,5 +234,7 @@ rows.push(
  ['Półcieniowe zaćmienie Księżyca','Penumbral lunar eclipse','Halbschatten-Mondfinsternis','Eclipse penumbral lunar'],
  ['Faza całkowita','Total phase','Totale Phase','Fase total'],
  ['Faza częściowa','Partial phase','Partielle Phase','Fase parcial'],
- ['Faza półcieniowa','Penumbral phase','Halbschattenphase','Fase penumbral']
+ ['Faza półcieniowa','Penumbral phase','Halbschattenphase','Fase penumbral'],
+ ['Orbity','Orbits','Umlaufbahnen','Órbitas'],
+ ['Pokaż orbity wszystkich ciał niebieskich','Show the orbits of every body','Umlaufbahnen aller Himmelskörper anzeigen','Mostrar las órbitas de todos los cuerpos celestes']
 );

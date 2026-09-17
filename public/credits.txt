@@ -560,3 +560,23 @@ Saturn's rings just past its shadowed limb: the same patch of ring measured
 a mean brightness of 115.7 (0-255 per channel) in the old build and 77.1 in
 the new one, a real, visible dark band exactly where Saturn's shadow should
 fall, absent before and present after with nothing else in the scene changed.
+
+2026-09-17 an "Orbits" toggle in the left-hand panel:
+Every body's elliptical orbit path was always drawn, with no way to turn it
+off - useful for seeing the shape of the solar system at a glance, but
+sometimes just clutter over the planets and trails themselves. A third
+switch joins Constellations and Deep-sky objects in the left panel (right
+under the star-brightness slider, since it governs the main view rather than
+the sky overlay those two control), defaulting on to match the app's
+existing behaviour. Flipping it off sets a single module-level flag that
+updateOrbits() now checks first: off, it hides every orbit line in one pass
+and skips the per-body ellipse math entirely instead of computing 257 points
+a body only to hide the result; on, the next call rebuilds them as before.
+The system-library, light-flight and surface-view modes already forced
+every orbit hidden regardless of this flag, so the toggle only ever changes
+anything in the view it is meant for.
+Verified with a Playwright run: the checkbox exists, starts checked, and the
+rendered scene shows the full set of orbit ellipses; clicking it clears the
+checkbox and the next frame's screenshot shows every orbit line gone while
+every planet, moon and trail stays exactly where it was; clicking again
+brings every orbit back.

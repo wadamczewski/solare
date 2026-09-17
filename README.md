@@ -71,7 +71,7 @@ Nie obejmuje wszystkich znanych księżyców. Mapy planet i ziemskiego Księżyc
 
 Scena trzyma ekliptykę w płaszczyźnie XZ, a biegun ekliptyki na osi +Y. Odwzorowanie jest obrotem, nie odbiciem: trzecia współrzędna zmienia znak. Sama zamiana dwóch osi byłaby permutacją nieparzystą, czyli lustrem — planety krążyłyby zgodnie z ruchem wskazówek zegara patrząc od bieguna północnego ekliptyki, a każdy gwiazdozbiór wyszedłby jako własne odbicie. Test na zachowanie iloczynu wektorowego pilnuje tego znaku.
 
-Widok „Czytelny” powiększa promienie i nieliniowo skraca odległości. „Rzeczywista skala” przywraca proporcje przestrzeni i promieni. Cienkie orbity to chwilowe oskulacyjne rozwiązania dwuciałowe, aktualizowane z bieżących stanów; ślady pokazują faktyczny przebieg symulacji. Przy bardzo bliskich spotkaniach i szybkim tempie limit pracy klatki spowalnia upływ symulacji, zamiast zwiększać krok i destabilizować układ.
+Widok „Czytelny” powiększa promienie i nieliniowo skraca odległości. „Rzeczywista skala” przywraca proporcje przestrzeni i promieni. Cienkie orbity to chwilowe oskulacyjne rozwiązania dwuciałowe, aktualizowane z bieżących stanów; ślady pokazują faktyczny przebieg symulacji. Przełącznik „Orbity” w panelu Symulacja pozwala je całkiem ukryć, gdy przeszkadzają w oglądaniu samych ciał i śladów; domyślnie są widoczne. Przy bardzo bliskich spotkaniach i szybkim tempie limit pracy klatki spowalnia upływ symulacji, zamiast zwiększać krok i destabilizować układ.
 
 WebGL używa high-performance, dynamicznych buforów pozycji, wielkości, koloru, jasności i parametrów punktów, limitu DPR 2 i lokalnych tekstur. Maksymalnie 100 ciał. Brak Canvas 2D, zdalnych zapytań podczas działania i serwera danych.
 
