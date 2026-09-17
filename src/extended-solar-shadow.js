@@ -74,7 +74,24 @@ float solarEclipseVisibility(vec3 receiver){
 }
 `;
 
-const shadowHook='directLight.color *= ( directLight.visible && receiveShadow ) ? getPointShadow( pointShadowMap[ i ], pointLightShadow.shadowMapSize, pointLightShadow.shadowIntensity, pointLightShadow.shadowBias, pointLightShadow.shadowRadius, vPointShadowCoord[ i ], pointLightShadow.shadowCameraNear, pointLightShadow.shadowCameraFar ) : 1.0;';
+// onBeforeCompile only ever sees the *unexpanded* template - three.js does
+// not inline a material's #include<name> directives (lights_fragment_begin
+// among them) until later, inside WebGLProgram's own resolveIncludes(), well
+// after onBeforeCompile has already returned. Matching against the resolved
+// text of a stock chunk here - what an earlier version of this file did -
+// can never find anything: the point-light shadow line this used to search
+// for does not exist yet at that point, so the match silently failed for
+// every material, every time, and this code has never actually run.
+// The supported way to reach inside a chunk that has not been expanded yet
+// is to patch the chunk itself, once, before any shader ever compiles: every
+// material that includes it gets the patched body, and an #ifdef confines
+// the effect to the ones that opt in via a define. This is done once at
+// module load, guarded so importing this module twice cannot double-patch.
+const pointLightDirectCall='RE_Direct( directLight, geometryPosition, geometryNormal, geometryViewDir, geometryClearcoatNormal, material, reflectedLight );';
+if(!THREE.ShaderChunk.lights_fragment_begin.includes('USE_EXTENDED_SOLAR_SHADOW')){
+ THREE.ShaderChunk.lights_fragment_begin=THREE.ShaderChunk.lights_fragment_begin.replace(pointLightDirectCall,
+  `#ifdef USE_EXTENDED_SOLAR_SHADOW\n\t\tdirectLight.color *= solarEclipseVisibility( geometryPosition );\n\t\t#endif\n\t\t${pointLightDirectCall}`);
+}
 
 export function applyExtendedSolarShadow(material){
  const positions=Array.from({length:MAX_SOLAR_OCCLUDERS},()=>new THREE.Vector3(1e6,1e6,1e6));
@@ -82,13 +99,13 @@ export function applyExtendedSolarShadow(material){
  const uniforms={solarOccluderCount:{value:0},solarSourcePosition:{value:new THREE.Vector3()},solarSourceRadius:{value:0},solarOccluderPosition:{value:positions},solarOccluderRadius:{value:radii}};
  const previousCompile=material.onBeforeCompile;
  const previousKey=material.customProgramCacheKey?.bind(material);
+ material.defines={...material.defines,USE_EXTENDED_SOLAR_SHADOW:1};
  material.onBeforeCompile=shader=>{
   previousCompile?.(shader);
   Object.assign(shader.uniforms,uniforms);
   shader.fragmentShader=fragmentPreamble+'\n'+shader.fragmentShader;
-  shader.fragmentShader=shader.fragmentShader.replace(shadowHook,`${shadowHook}\n\t\tdirectLight.color *= solarEclipseVisibility( geometryPosition );`);
  };
- material.customProgramCacheKey=()=>`${previousKey?.()||''}|extended-solar-shadow-v2`;
+ material.customProgramCacheKey=()=>`${previousKey?.()||''}|extended-solar-shadow-v3`;
  material.needsUpdate=true;
  return {
   update({sourcePosition,sourceRadius,occluders,viewMatrix}){

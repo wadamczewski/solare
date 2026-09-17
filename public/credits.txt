@@ -524,3 +524,39 @@ Saturn and Neptune - before the fix this listed all thirteen bodies
 stacked on the same two pixels; after it, exactly two labels remain,
 "Saturn" and "Neptune", each correctly standing for every moon now
 correctly recognised as hidden behind it.
+
+2026-09-17 Saturn's own shadow finally reaches its rings (extended-solar-shadow.js):
+The earlier fix that let a planet shadow its own rings (a6d3d58) changed the
+right numbers - the JS side correctly worked out that Saturn belonged in its
+ring's list of things that can block the Sun - but nothing appeared on
+screen, because the GLSL side of that same mechanism has never actually run,
+for any body, since the day it was written. It patched a material's shader
+in onBeforeCompile by searching the fragment source for a specific line of
+built-in three.js code and inserting a call to this file's own eclipse
+function right after it. That line only exists once three.js expands a
+material's #include<lights_fragment_begin> directive - and that expansion
+happens later, inside three.js's own program-building step, well after
+onBeforeCompile has already returned and handed back whatever fragment
+source it was given. The search was therefore always looking for text that
+was not there yet, matched nothing, and quietly changed nothing, for every
+body that was ever set up to receive this shadow - not only the rings.
+Confirmed directly: logging whether that search ever matched, across every
+material in the scene over several seconds of normal running, it never did
+once.
+Three.js does support changing what a stock chunk expands to, just not
+through onBeforeCompile - by replacing the chunk's entry in THREE.ShaderChunk
+before anything compiles, so every material that includes it picks up the
+replacement when it is expanded later. Done once, at module load: the
+built-in lights_fragment_begin chunk gets a small addition right before its
+point-light contribution is applied, guarded by a per-material #ifdef so it
+only changes anything for a material that opts in (a define
+applyExtendedSolarShadow now sets), leaving every other material's lighting
+untouched. Saturn's rings needed no change at all beyond this - they already
+called applyExtendedSolarShadow and already received a correctly-computed
+occluder list; they were only ever missing the GLSL that would have read it.
+Checked by comparing two builds - the previous commit and this fix - from
+the same frozen simulation time and the same camera position, framing
+Saturn's rings just past its shadowed limb: the same patch of ring measured
+a mean brightness of 115.7 (0-255 per channel) in the old build and 77.1 in
+the new one, a real, visible dark band exactly where Saturn's shadow should
+fall, absent before and present after with nothing else in the scene changed.
