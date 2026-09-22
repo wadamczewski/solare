@@ -65,6 +65,7 @@ import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
 import {createShareState,shareTokenFromLocation,shareUrl} from './share-state.js';
 import {timelineEvents} from './event-timeline.js';
 import {surfaceAtmosphere,surfaceLightLabel} from './surface-atmosphere.js';
+import {moveSurfaceCoordinates} from './surface-navigation.js';
 import {educationMetrics,vectorLength} from './education-metrics.js';
 import {CINEMATIC_DURATION_SECONDS,cinematicPose} from './cinematic-camera.js';
 import {createAdaptiveQuality} from './adaptive-quality.js';
@@ -847,7 +848,7 @@ function startSurfaceView(bodyId){
  surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null,locationOverride:false};
  if(isEarthSurface(body))beginEarthSurfaceContext();
  aimAtSomethingWorthSeeing(body);
- follow=null;selected=null;closePanel();
+ navigation.reset();surfaceNavigation.reset();follow=null;selected=null;closePanel();
  compressed=false;controls.maxDistance=maxViewDistance(false);controls.enabled=false;
  requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());
  speed=REAL_TIME;lag=0;last=performance.now();
@@ -879,6 +880,7 @@ function goToKnownPlace(bodyId,place){
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
+ surfaceNavigation.reset();
  leaveSurfaceDetail(views.get(surfaceView.bodyId));
  clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
@@ -1024,10 +1026,52 @@ function surfaceEntries(body){
   .map(other=>({id:other.id,name:other.name,key:other.key,position:other.p,radiusKm:other.radius}));
 }
 const surfaceEye=(body,horizon)=>body.p.map((value,axis)=>value+horizon.zenith[axis]*body.radius*surfaceEyeFactor(body)/AU);
-// Looking around from the ground. The orbit controls are disabled while a
-// surface view is up, so dragging turns the head instead of the system, and
-// the wheel changes the field of view the way a pair of binoculars would.
+// Looking around and walking from the ground uses the same native pointer-lock
+// primitive as desktop games.  Camera orientation stays local to the body,
+// while WSAD changes latitude/longitude along its tangent plane.
 let surfaceDrag=null;
+function createSurfaceNavigation(element){
+ const keys=new Set(),movement=new Set(['KeyW','KeyA','KeyS','KeyD']),surfaceKeys=new Set([...movement,'ShiftLeft','ShiftRight']);
+ const editable=event=>event.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(event.target?.tagName);
+ let pointerLocked=false;
+ const active=()=>!!surfaceView&&([...keys].some(key=>movement.has(key))||pointerLocked);
+ function release(){keys.clear();if(document.pointerLockElement===element)document.exitPointerLock?.();pointerLocked=false;element.classList.remove('mouse-steering')}
+ function requestLook(){if(!surfaceView||pointerLocked||!element.requestPointerLock)return;const lock=element.requestPointerLock();lock?.catch?.(()=>{})}
+ function turn(dx,dy){
+  if(!surfaceView)return;
+  const scale=surfaceView.fov/innerHeight;
+  surfaceView.azimuth=((surfaceView.azimuth-dx*scale)%360+360)%360;
+  surfaceView.altitude=Math.max(-89,Math.min(89,surfaceView.altitude+dy*scale));
+  updateSurfaceView();
+ }
+ document.addEventListener('pointerlockchange',()=>{
+  pointerLocked=document.pointerLockElement===element;
+  if(pointerLocked)element.classList.add('mouse-steering');else element.classList.remove('mouse-steering');
+ });
+ window.addEventListener('keydown',event=>{
+  if(!surfaceView||editable(event)||event.ctrlKey||event.metaKey||event.altKey||!surfaceKeys.has(event.code))return;
+  event.preventDefault();event.stopImmediatePropagation();keys.add(event.code);requestLook();
+ },true);
+ window.addEventListener('keyup',event=>{if(surfaceKeys.has(event.code))keys.delete(event.code)},true);
+ window.addEventListener('blur',release);
+ element.addEventListener('pointerdown',event=>{
+  if(!surfaceView||event.button!==2)return;
+  event.preventDefault();event.stopImmediatePropagation();element.focus();requestLook();
+ },true);
+ document.addEventListener('mousemove',event=>{if(pointerLocked&&surfaceView){event.preventDefault();event.stopImmediatePropagation();turn(event.movementX,event.movementY)}},true);
+ return {reset:release,active,update(delta){
+  if(!surfaceView||![...keys].some(key=>movement.has(key)))return;
+  const body=surfaceBody();if(!body)return;
+  const forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
+  const right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
+  if(!forward&&!right)return;
+  const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight');
+  const speedKmS=sprint ? .12 : .02;
+  const next=moveSurfaceCoordinates({latitude:surfaceView.latitude,longitude:surfaceView.longitude,azimuth:surfaceView.azimuth,radiusKm:body.radius,distanceKm:speedKmS*Math.min(delta,.05),forward,right});
+  surfaceView.latitude=next.latitude;surfaceView.longitude=next.longitude;surfaceView.locationOverride=true;
+  paintEarthLocation();
+ }};
+}
 function surfaceLookHandlers(element){
  element.addEventListener('pointerdown',event=>{
   if(!surfaceView||event.button!==0)return;
@@ -1050,6 +1094,7 @@ function surfaceLookHandlers(element){
  },{passive:false});
 }
 surfaceLookHandlers(renderer.domElement);
+const surfaceNavigation=createSurfaceNavigation(renderer.domElement);
 const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';surfaceHud.hidden=true;document.body.append(surfaceHud);
 const surfaceAtmosphereLayer=document.createElement('div');surfaceAtmosphereLayer.id='surface-atmosphere';surfaceAtmosphereLayer.hidden=true;surfaceAtmosphereLayer.setAttribute('aria-hidden','true');document.body.append(surfaceAtmosphereLayer);
 // A small rendered sky sphere standing in for the observer's surroundings -
@@ -1081,7 +1126,7 @@ function buildSurfaceHud(){
  // panel - that panel is about a body's physics, reachable for any body
  // whether or not it is the one under the observer's feet.
  const places=body?knownPlacesFor(body):[];
- surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
+ surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">WSAD · ruch po powierzchni. Mysz lub przeciąganie · rozglądanie. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
   clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.trackBrightest=false;
@@ -1415,7 +1460,7 @@ function setupBodySearch(){
  list.addEventListener('mousedown',e=>{const li=e.target.closest('[data-key]');if(li){e.preventDefault();pick(matches.find(item=>item.key===li.dataset.key))}});
 }
 function focusBody(id,{keepPanel=false}={}){if(blackHoleFall)stopBlackHoleFall();if(lightFlight)stopLightFlight();const b=bs.find(x=>x.id===id);if(!b)return;follow=id;setEducationSubject(id);const target=displayed(b),distance=Math.max(radius(b)*3,compressed?.3:.00001);controls.target.copy(target);if(b.key==='comet'){const sun=bs.find(candidate=>candidate.key==='sun'),sunward=sun?displayed(sun).sub(target).normalize():new THREE.Vector3(0,0,1),side=new THREE.Vector3(0,1,0).cross(sunward).normalize();camera.position.copy(target).addScaledVector(sunward,distance*4.3).addScaledVector(side,distance*1.4)}else camera.position.copy(target).add(new THREE.Vector3(0,2,4).multiplyScalar(distance));if(!keepPanel)panel.hidden=true}
-const navigation=createNavigation({camera,controls,element:renderer.domElement,blocked:()=>!!lightFlight||!panel.hidden,onMove:()=>{follow=null;tip.hidden=true},pace:()=>{let distance=Infinity;for(const b of bs)distance=Math.min(distance,Math.max(0,camera.position.distanceTo(displayed(b))-radius(b)));return Math.max(compressed?.08:.000002,Math.min(40,distance*.6))}});
+const navigation=createNavigation({camera,controls,element:renderer.domElement,blocked:()=>!!lightFlight||!!surfaceView||!panel.hidden,onMove:()=>{follow=null;tip.hidden=true},pace:()=>{let distance=Infinity;for(const b of bs)distance=Math.min(distance,Math.max(0,camera.position.distanceTo(displayed(b))-radius(b)));return Math.max(compressed?.08:.000002,Math.min(40,distance*.6))}});
 function resetView(){navigation.reset();camera.fov=43;camera.updateProjectionMatrix();if(lightFlight)stopLightFlight();follow=null;controls.enabled=true;controls.enableDamping=false;controls.maxDistance=maxViewDistance(compressed);camera.position.copy(home).multiplyScalar(scaleRatio(home.length(),true,compressed));controls.target.set(0,0,0);controls.update();controls.enableDamping=true;closePanel()}
 function clearTrails(){for(const v of views.values()){v.history=[];v.trail.geometry.setDrawRange(0,0)}}
 // Rebuild the system at a given instant. Restart uses now; a listed collision
@@ -1452,7 +1497,7 @@ function copySharedSimulation(){
 document.querySelector('#logo').onclick=()=>panel.hidden?showTools():closePanel();document.querySelector('#reset').onclick=restart;
 document.querySelector('#share-simulation').onclick=copySharedSimulation;
 eventTimelineButton.onclick=showEventTimeline;cinematicButton.onclick=showCinematicControls;
-window.addEventListener('keydown',e=>{if(e.target.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='Space'&&e.target.tagName==='BUTTON')return;if(e.code==='Space'){e.preventDefault();setPaused(!paused);if(!panel.hidden)showTools()}if(e.key==='Escape'){navigation.reset();if(blackHoleFall)stopBlackHoleFall();if(lightFlight)stopLightFlight();closePanel()};if(e.key.toLowerCase()==='r')restart();if(e.key.toLowerCase()==='n'){spawnAt.set(2,0,0);showSpawner()}if(e.key.toLowerCase()==='t')showTools()});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);sky.setViewport(innerWidth,innerHeight);layoutRail();layoutSurfaceHud();layoutEducationHud()});
+window.addEventListener('keydown',e=>{if(e.target.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='Space'&&e.target.tagName==='BUTTON')return;if(e.code==='Space'){e.preventDefault();setPaused(!paused);if(!panel.hidden)showTools()}if(e.key==='Escape'){navigation.reset();surfaceNavigation.reset();if(blackHoleFall)stopBlackHoleFall();if(lightFlight)stopLightFlight();closePanel()};if(e.key.toLowerCase()==='r')restart();if(e.key.toLowerCase()==='n'){spawnAt.set(2,0,0);showSpawner()}if(e.key.toLowerCase()==='t')showTools()});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);sky.setViewport(innerWidth,innerHeight);layoutRail();layoutSurfaceHud();layoutEducationHud()});
 
 document.addEventListener("visibilitychange",()=>{last=performance.now()});
 function setPaused(value){const now=performance.now();if(lightFlight){if(value)lightFlight.pause(now);else lightFlight.resume(now)}if(blackHoleFall){if(value)blackHoleFall.pause(now);else blackHoleFall.resume(now)}paused=value;last=now;}
@@ -1611,7 +1656,7 @@ function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed
  if(Math.abs(nextSolarInfall-solarInfall)>.002){solarInfall=nextSolarInfall;applySolarBrightness()}
  const sun=bs.find(b=>b.key==='sun');sunlight.visible=!!sun;solarBloom.enabled=!!sun;blackHoleLensing.enabled=blackHoles.length>0&&!blackHoleFall;blackHoleFallPass.enabled=!!blackHoleFall;if(sun)sunlight.position.copy(displayed(sun));if(follow){const b=bs.find(x=>x.id===follow);if(b){const p=displayed(b),offset=camera.position.clone().sub(controls.target);controls.target.copy(p);camera.position.copy(p).add(offset)}}
  selection.visible=!!selected;const chosen=bs.find(x=>x.id===selected);if(chosen){selection.position.copy(displayed(chosen));selection.scale.setScalar(radius(chosen));selection.quaternion.copy(camera.quaternion)}
- asteroidBelt.mesh.visible=!systemMode&&!blackHoleFall;if(frame%3===0&&!systemMode)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight||blackHoleFall?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden&&(frame&1)===0){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}if((frame&1)===0)updateEducationLayer();syncTimeDock();if(solarDeath)updateSolarDeath(now);if(blackHoleFall)updateBlackHoleFall(now);else if(surfaceView)updateSurfaceView(frame);else if(lightFlight)updateLightFlight(now);else if(cinematic)updateCinematic(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}freeFlightHelp.hidden=!!(lightFlight||surfaceView||solarDeath||blackHoleFall||!navigation.active());camera.updateMatrixWorld();if((frame&1)===0)updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}if(blackHoleLensing.enabled)updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);if(blackHoleFall){const hole=bs.find(b=>b.id===blackHoleFall.holeId),projected=hole?displayed(hole).project(camera):new THREE.Vector3();updateBlackHoleFallPass(blackHoleFallPass,blackHoleFallState(blackHoleFall.seconds(now),hole?.mass),new THREE.Vector2(projected.x*.5+.5,projected.y*.5+.5))}else updateBlackHoleFallPass(blackHoleFallPass,null,new THREE.Vector2(.5,.5));for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera,delta);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect);deepSkyLabels.replaceChildren()}else{composer.render();
+ asteroidBelt.mesh.visible=!systemMode&&!blackHoleFall;if(frame%3===0&&!systemMode)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight||blackHoleFall?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden&&(frame&1)===0){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}if((frame&1)===0)updateEducationLayer();syncTimeDock();if(solarDeath)updateSolarDeath(now);if(blackHoleFall)updateBlackHoleFall(now);else if(surfaceView){surfaceNavigation.update(delta);updateSurfaceView(frame)}else if(lightFlight)updateLightFlight(now);else if(cinematic)updateCinematic(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}freeFlightHelp.hidden=!!(lightFlight||surfaceView||solarDeath||blackHoleFall||!navigation.active());camera.updateMatrixWorld();if((frame&1)===0)updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}if(blackHoleLensing.enabled)updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);if(blackHoleFall){const hole=bs.find(b=>b.id===blackHoleFall.holeId),projected=hole?displayed(hole).project(camera):new THREE.Vector3();updateBlackHoleFallPass(blackHoleFallPass,blackHoleFallState(blackHoleFall.seconds(now),hole?.mass),new THREE.Vector2(projected.x*.5+.5,projected.y*.5+.5))}else updateBlackHoleFallPass(blackHoleFallPass,null,new THREE.Vector2(.5,.5));for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera,delta);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect);deepSkyLabels.replaceChildren()}else{composer.render();
   // Deep-sky labels are a DOM overlay, not part of the WebGL scene, so unlike
   // that scene (redrawn every frame regardless) they are only worth the cost
   // of repainting every 6th frame while the camera holds still. But that
