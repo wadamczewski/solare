@@ -61,6 +61,7 @@ import {DEFAULT_IMPACT_SPEED_KMS,buildCustomScenario,clampImpactSpeed,collisionS
 import {SATURN_RING_INNER,SATURN_RING_BANDS,URANUS_RING_INNER,URANUS_RING_BANDS,ringBandAt} from './planet-rings.js';
 import {SOLAR_ECLIPSES,SOLAR_LEAD_MINUTES,formatEclipseDuration} from './solar-eclipses.js';
 import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
+import {createShareState,shareTokenFromLocation,shareUrl} from './share-state.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: lot i sterowanie myszą. Q/E: dół/góra. Shift: szybciej. Escape: zwolnij mysz i zamknij panel. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza.');
 // Rates the clock can run at, in days per second of wall time. The slowest is
@@ -122,7 +123,7 @@ const deathHud=document.createElement('div');deathHud.id='solar-death';deathHud.
 const blackHoleFallHud=document.createElement('aside');blackHoleFallHud.id='black-hole-fall';blackHoleFallHud.hidden=true;document.body.append(blackHoleFallHud);
 const flightRail=document.createElement('nav');flightRail.id='flight-rail';flightRail.hidden=true;flightRail.setAttribute('aria-label','Postęp lotu przez planety');document.body.append(flightRail);
 const timeDock=document.createElement('nav');timeDock.id='time-dock';timeDock.setAttribute('aria-label','Sterowanie czasem i lotem');
-timeDock.innerHTML=`<button id="dock-pause" aria-label="Wstrzymaj symulację"><span id="dock-pause-icon">Ⅱ</span><span id="dock-pause-label">Pauza</span></button><div class="dock-divider"></div><label for="dock-speed">Tempo</label><select id="dock-speed" aria-label="Tempo symulacji"><option value="realtime" hidden>1 : 1</option>${rateOptions(2)}</select><label class="dock-scale" id="dock-scale-label"><input id="dock-scale" type="checkbox"> Rzeczywista skala</label><div class="dock-divider"></div><button id="dock-flight"><span class="dock-c">c</span><span id="dock-flight-label">Lot światła</span></button><button id="dock-death"><span class="dock-c">☉</span><span id="dock-death-label">Śmierć Słońca</span></button><button id="dock-black-hole" aria-label="Uruchom symulację wpadania do czarnej dziury"><span class="dock-c dock-hole">◉</span><span id="dock-black-hole-label">Wpadanie</span></button>`;
+timeDock.innerHTML=`<button id="dock-pause" aria-label="Wstrzymaj symulację"><span id="dock-pause-icon">Ⅱ</span><span id="dock-pause-label">Pauza</span></button><div class="dock-divider"></div><label for="dock-speed">Tempo</label><select id="dock-speed" aria-label="Tempo symulacji"><option value="realtime" hidden>1 : 1</option>${rateOptions(2)}</select><label class="dock-scale" id="dock-scale-label"><input id="dock-scale" type="checkbox"> Rzeczywista skala</label><div class="dock-divider"></div><button id="dock-flight"><span class="dock-c">c</span><span id="dock-flight-label">Lot światła</span></button><button id="dock-death"><span class="dock-c">☉</span><span id="dock-death-label">Śmierć Słońca</span></button><button id="dock-black-hole" aria-label="Uruchom symulację wpadania do czarnej dziury"><span class="dock-c dock-hole">◉</span><span id="dock-black-hole-label">Wpadanie</span></button><button id="share-simulation" aria-label="Kopiuj link do bieżącej symulacji">Udostępnij</button>`;
 document.body.append(timeDock);
 const collisionCourseButton=document.createElement('button');collisionCourseButton.id='collision-course';collisionCourseButton.textContent='Kurs kolizyjny';collisionCourseButton.setAttribute('aria-label','Ustaw scenariusz zderzenia');timeDock.append(collisionCourseButton);
 const eclipseButton=document.createElement('button');eclipseButton.id='eclipse-scenarios';eclipseButton.textContent='Zaćmienia';eclipseButton.setAttribute('aria-label','Pokaż scenariusze zaćmień Słońca i Księżyca');timeDock.append(eclipseButton);
@@ -1332,7 +1333,35 @@ function clearTrails(){for(const v of views.values()){v.history=[];v.trail.geome
 // scenario uses the date it is staged from, so the encounter is repeatable.
 function resetSystem(at){stopSolarDeath();stopBlackHoleFall();stopSurfaceView();systemMode=null;document.body.classList.remove('in-star-system');ambient.intensity=AMBIENT_BASE;solarBloom.strength=SOLAR_BLOOM_STRENGTH;controls.maxDistance=maxViewDistance(true);lightFlight=null;flightPrevious=null;flightStops=[];flightTextureKeys.clear();flightTrueScale=false;document.body.classList.remove('in-light-flight');flightRail.hidden=true;flightLabels.replaceChildren();flightHud.hidden=true;controls.enabled=true;lag=0;last=performance.now();spawnAt.set(0,0,0);selected=null;follow=null;down=null;clearTimeout(lastTouchTimer);tip.hidden=true;selection.visible=false;preview.clear();impactEffects.clear();tidalStreams.clear();[...views.keys()].forEach(disposeView);epoch=at;bs=initialSystem(epoch);bs.forEach(addView);centralStarInput.value='sun';solarBrightness=100;solarInfall=0;applySolarBrightness();cometTails.clear();elapsed=0;paused=false;speed=2;compressed=true;updateOrbits();}
 function restart(){resetSystem(new Date());resetView()}
+function applySharedState(state){
+ if(!state)return false;
+ const date=new Date(state.e);if(Number.isNaN(date.valueOf()))return false;
+ resetSystem(date);
+ const current=new Map(bs.map(item=>[`${item.key}:${item.name}`,item]));
+ const imported=new Map(state.x.map(item=>[`${item.key}:${item.name}`,item]));
+ for(const [signature,target] of current){
+  const saved=imported.get(signature);if(!saved)continue;
+  Object.assign(target,saved,{p:[...saved.p],v:[...saved.v]});
+ }
+ for(const saved of state.x)if(!current.has(`${saved.key}:${saved.name}`)){
+  const extra=body({...saved,p:[...saved.p],v:[...saved.v]});
+  delete extra.parentName;bs.push(extra);addView(extra);current.set(`${extra.key}:${extra.name}`,extra);
+ }
+ for(const saved of state.x){
+  const target=current.get(`${saved.key}:${saved.name}`);if(target)target.parent=saved.parentName?bs.find(item=>item.name===saved.parentName)?.id:undefined;
+ }
+ epoch=date;elapsed=Math.max(0,state.t);speed=Math.max(REAL_TIME,state.s);compressed=!!state.c;solarBrightness=Math.max(5,Math.min(100,state.b));centralStarInput.value=state.z||'sun';showOrbits=!!state.o;document.querySelector('#orbits').checked=showOrbits;setOrbitsVisible(showOrbits);applySolarBrightness();clearTrails();updateOrbits();resetView();
+ return true;
+}
+function copySharedSimulation(){
+ const state=createShareState({bodies:bs,epoch,elapsed,speed,compressed,brightness:solarBrightness,centralStar:centralStarInput.value,showOrbits});
+ const url=shareUrl(location,state),button=document.querySelector('#share-simulation');
+ const copied=navigator.clipboard?.writeText?.(url);
+ if(copied)copied.then(()=>{button.textContent='Skopiowano';setTimeout(()=>button.textContent='Udostępnij',1600)}).catch(()=>prompt('Skopiuj link do symulacji',url));
+ else prompt('Skopiuj link do symulacji',url);
+}
 document.querySelector('#logo').onclick=()=>panel.hidden?showTools():closePanel();document.querySelector('#reset').onclick=restart;
+document.querySelector('#share-simulation').onclick=copySharedSimulation;
 window.addEventListener('keydown',e=>{if(e.target.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='Space'&&e.target.tagName==='BUTTON')return;if(e.code==='Space'){e.preventDefault();setPaused(!paused);if(!panel.hidden)showTools()}if(e.key==='Escape'){navigation.reset();if(blackHoleFall)stopBlackHoleFall();if(lightFlight)stopLightFlight();closePanel()};if(e.key.toLowerCase()==='r')restart();if(e.key.toLowerCase()==='n'){spawnAt.set(2,0,0);showSpawner()}if(e.key.toLowerCase()==='t')showTools()});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);sky.setViewport(innerWidth,innerHeight);layoutRail();layoutSurfaceHud()});
 
 document.addEventListener("visibilitychange",()=>{last=performance.now()});
@@ -1478,6 +1507,8 @@ function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed
  }frame++}
 installLanguageUI();
 document.addEventListener('languagechange',()=>{refreshClockFormats();clockShown='';updateClock();layoutRail();if(surfaceView)buildSurfaceHud();if(!panel.hidden&&selected)showBody()});
+const sharedState=shareTokenFromLocation(location);
+if(sharedState)applySharedState(sharedState);
 requestAnimationFrame(animate);
 // Exposed only as an explicit automation surface; no network or persistence.
 window.solare={
