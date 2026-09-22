@@ -63,6 +63,7 @@ import {SOLAR_ECLIPSES,SOLAR_LEAD_MINUTES,formatEclipseDuration} from './solar-e
 import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
 import {createShareState,shareTokenFromLocation,shareUrl} from './share-state.js';
 import {timelineEvents} from './event-timeline.js';
+import {surfaceAtmosphere,surfaceLightLabel} from './surface-atmosphere.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: lot i sterowanie myszą. Q/E: dół/góra. Shift: szybciej. Escape: zwolnij mysz i zamknij panel. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza.');
 // Rates the clock can run at, in days per second of wall time. The slowest is
@@ -860,7 +861,7 @@ function stopSurfaceView(){
  leaveSurfaceDetail(views.get(surfaceView.bodyId));
  clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
- document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceRadar.hidden=true;skyLabels.hidden=true;skyLabels.replaceChildren();releaseSurfaceOrientation();
+ document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceRadar.hidden=true;surfaceAtmosphereLayer.hidden=true;skyLabels.hidden=true;skyLabels.replaceChildren();releaseSurfaceOrientation();
  controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
  if(previous){compressed=previous.compressed;follow=previous.follow;speed=previous.speed??2;lag=0;last=performance.now();
   controls.maxDistance=maxViewDistance(compressed);controls.enableDamping=false;
@@ -917,6 +918,15 @@ function surfaceLook(frame){
   frame.north[axis]*horizontalPart*Math.cos(azimuth)+frame.east[axis]*horizontalPart*Math.sin(azimuth)
   +frame.zenith[axis]*Math.sin(altitude)));
 }
+function updateSurfaceAtmosphere(body,frame){
+ const sun=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).find(item=>item.key==='sun');
+ const key=body.key==='moon'?body.name.toLowerCase():body.key;
+ const state=surfaceAtmosphere(key,sun?.altitude??-90);
+ surfaceView.light={...state,sunAltitude:sun?.altitude??-90};
+ surfaceAtmosphereLayer.hidden=state.opacity<=0;
+ surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-color',state.color);
+ surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-opacity',state.opacity.toFixed(3));
+}
 function updateSurfaceView(tick=0){
  const body=surfaceBody();if(!body){stopSurfaceView();return}
  // An eclipse scenario starts aimed at the Sun, but standing still means the
@@ -955,7 +965,7 @@ function updateSurfaceView(tick=0){
  // interval shortens as the simulation speeds up, the same way the orbit
  // lines below refresh every frame once the tempo is fast enough.
  const surfaceRefreshStep=speed>=100?1:speed>=2?3:6;
- if(tick%surfaceRefreshStep===0){paintSurfaceHud(body,horizon);paintSurfaceRadar(body,horizon);paintSkyLabels(body,horizon)}
+ if(tick%surfaceRefreshStep===0){updateSurfaceAtmosphere(body,horizon);paintSurfaceHud(body,horizon);paintSurfaceRadar(body,horizon);paintSkyLabels(body,horizon)}
 }
 // What is worth listing, and where it really is.
 //
@@ -1020,6 +1030,7 @@ function surfaceLookHandlers(element){
 }
 surfaceLookHandlers(renderer.domElement);
 const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';surfaceHud.hidden=true;document.body.append(surfaceHud);
+const surfaceAtmosphereLayer=document.createElement('div');surfaceAtmosphereLayer.id='surface-atmosphere';surfaceAtmosphereLayer.hidden=true;surfaceAtmosphereLayer.setAttribute('aria-hidden','true');document.body.append(surfaceAtmosphereLayer);
 // A small rendered sky sphere standing in for the observer's surroundings -
 // see surface-radar.js - rather than a flat compass ring, so a tracked
 // body's full 3D direction (bearing *and* how far up or down to look) is
@@ -1049,7 +1060,7 @@ function buildSurfaceHud(){
  // panel - that panel is about a body's physics, reachable for any body
  // whether or not it is the one under the observer's feet.
  const places=body?knownPlacesFor(body):[];
- surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
+ surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Przeciągnij, aby się rozejrzeć. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
   clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.trackBrightest=false;
@@ -1155,6 +1166,7 @@ function paintSurfaceHud(body,frame){
  document.querySelector('#surface-latitude-value').textContent=`${formatNumber(surfaceView.latitude,0)}°`;
  document.querySelector('#surface-longitude-value').textContent=`${formatNumber(surfaceView.longitude,0)}°`;
  paintEarthLocation();
+ const light=document.querySelector('#surface-light');if(light&&surfaceView.light)light.textContent=`${surfaceLightLabel(surfaceView.light.phase)} · Słońce ${formatNumber(surfaceView.light.sunAltitude,1)}°`;
  const above=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).filter(item=>item.altitude>-1);
  const host=bs.find(b=>b.id===body.parent);
  const rows=above.slice(0,7).map(item=>{
