@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {KNOWN_PLACES, knownPlacesFor} from '../src/surface-places.js';
+import {KNOWN_PLACES, knownPlacesFor,wikipediaSubjectForPlace} from '../src/surface-places.js';
+import {wikipediaTitle} from '../src/wikipedia-reference.js';
 import {moons, planets} from '../src/physics.js';
 import {rotatingBodies} from '../src/surface-frame.js';
 
@@ -35,6 +36,19 @@ test('knownPlacesFor looks planets up by key', () => {
 test('knownPlacesFor tolerates a missing body', () => {
  assert.deepEqual(knownPlacesFor(null), []);
  assert.deepEqual(knownPlacesFor(undefined), []);
+});
+
+test('every landmark keeps its Wikipedia subject tied to its host body in every UI language',()=>{
+ for(const [key,places] of Object.entries(KNOWN_PLACES)){
+  const body={key:key in KNOWN_PLACES&&['mercury','venus','earth','mars','jupiter','saturn','uranus','neptune'].includes(key)?key:'moon',name:key};
+  for(const place of places){
+   const subject=wikipediaSubjectForPlace(body,place);
+   for(const language of ['pl','en','de','es'])assert.ok(wikipediaTitle(subject,language),`${key}: ${place.name} (${language})`);
+  }
+ }
+ const uranus=KNOWN_PLACES.uranus[0],subject=wikipediaSubjectForPlace({key:'uranus',name:'Uran'},uranus);
+ assert.deepEqual(['pl','en','de','es'].map(language=>wikipediaTitle(subject,language)),['Uran','Uranus','Uranus','Urano']);
+ assert.notEqual(wikipediaTitle(subject,'en'),'North_Pole');
 });
 
 test('every coordinate is a valid planetocentric latitude/longitude', () => {

@@ -75,3 +75,68 @@ test('Wikipedia gallery rejects Wikimedia interface artwork without reducing the
  assert.deepEqual(reference.images,['moon-thumb.jpg']);
  assert.deepEqual(reference.imageDetails.map(image=>image.originalUrl),['moon-full.jpg']);
 });
+
+test('a strict feature subject falls back to its host instead of searching an ambiguous terrestrial name',async()=>{
+ const seen=[];
+ const feature={titles:{en:'North_Pole'},strict:true,fallback:{titles:{en:'Uranus'},strict:true}};
+ const fetcher=async url=>{
+  seen.push(url);
+  if(url.includes('North_Pole'))return {ok:false,status:404,json:async()=>({})};
+  if(url.includes('Uranus'))return {ok:true,json:async()=>({title:'Uranus',titles:{canonical:'Uranus'},extract:'The seventh planet.',content_urls:{desktop:{page:'https://en.wikipedia.org/wiki/Uranus'}}})};
+  return {ok:true,json:async()=>({query:{pages:{}}})};
+ };
+ const reference=await wikipediaReference(feature,'en',fetcher);
+ assert.equal(reference.title,'Uranus');
+ assert.ok(!seen.some(url=>url.includes('list=search')),'strict references must never guess through search');
+});
+
+test('every constellation and deep-sky entry uses an explicit astronomical Wikipedia identity',async()=>{
+ const {constellationFigures}=await import('../src/sky.js');
+ const {readFile}=await import('node:fs/promises');
+ const deepSky=JSON.parse(await readFile(new URL('../public/sky/deepsky.json',import.meta.url),'utf8'));
+ const {wikipediaSubjectForConstellation,wikipediaSubjectForDeepSky}=await import('../src/wikipedia-reference.js');
+ for(const [,name] of constellationFigures){
+  const subject=wikipediaSubjectForConstellation({name});
+  assert.equal(subject.strict,true,`constellation ${name}`);
+  assert.match(subject.titles.en,/Serpens|_\(constellation\)$/,`constellation ${name}`);
+ }
+ assert.equal(deepSky.length,60,'the audited deep-sky catalogue changed; add an explicit article identity before release');
+ for(const object of deepSky){
+  const subject=wikipediaSubjectForDeepSky(object);
+  assert.equal(subject.strict,true,`deep-sky ${object.id}`);
+  assert.ok(subject.titles?.en,`deep-sky ${object.id}`);
+ }
+});
+
+test('an English canonical subject follows Wikipedia’s authoritative language link',async()=>{
+ const calls=[];
+ const fetcher=async url=>{
+  calls.push(url);
+  if(url.includes('page/summary/Earth'))return {ok:true,json:async()=>({title:'Earth',titles:{canonical:'Earth'},extract:'English.',content_urls:{desktop:{page:'https://en.wikipedia.org/wiki/Earth'}}})};
+  if(url.includes('prop=langlinks'))return {ok:true,json:async()=>({query:{pages:{one:{langlinks:[{'*':'Ziemia'}]}}}})};
+  if(url.includes('page/summary/Ziemia'))return {ok:true,json:async()=>({title:'Ziemia',titles:{canonical:'Ziemia'},extract:'Polski.',content_urls:{desktop:{page:'https://pl.wikipedia.org/wiki/Ziemia'}}})};
+  return {ok:true,json:async()=>({query:{pages:{}}})};
+ };
+ const reference=await wikipediaReference({titles:{en:'Earth'},strict:true},'pl',fetcher);
+ assert.equal(reference.title,'Ziemia');
+ assert.equal(reference.language,'pl');
+ assert.match(reference.url,/pl\.wikipedia\.org\/wiki\/Ziemia/);
+ assert.ok(calls.some(url=>url.includes('prop=langlinks')));
+});
+
+test('all predefined bodies use explicit celestial articles, never an ambiguous bare name',async()=>{
+ const [{catalog},{planets,moons},{centralStars},{wikipediaSubjectForBody}]=await Promise.all([
+  import('../src/catalog.js'),import('../src/physics.js'),import('../src/central-stars.js'),import('../src/wikipedia-reference.js')
+ ]);
+ const bodies=[
+  ...catalog,
+  ...planets.map(([name,key])=>({name,key})),
+  ...moons.map(([name])=>({name,key:'moon'})),
+  ...centralStars.map(star=>({name:star.name,key:'sun',starPresetId:star.id}))
+ ];
+ for(const body of bodies){
+  const subject=wikipediaSubjectForBody(body);
+  assert.equal(subject.strict,true,`${body.name} needs an explicit article`);
+  assert.ok(subject.titles?.en,`${body.name} needs an English canonical article`);
+ }
+});

@@ -18,13 +18,13 @@ import {captureCollisionView,collisionFocusTransfer,framingDistance,viewContact}
 import {catalog,createCatalogBody,horizonRadius,validDimensions} from './catalog.js';
 import {bodyKind} from './body-search.js';
 import {constellationLabel,createSky,deepSkyKind,equatorialFromDirection,RADIUS as SKY_RADIUS} from './sky.js';
-import {knownPlacesFor} from './surface-places.js';
+import {knownPlacesFor,wikipediaSubjectForPlace} from './surface-places.js';
 import {deepSkyRingPixelRadius,projectedPoint,quaternionChanged,ringPixelRadius} from './sky-labels.js';
 import {findOccluder} from './marker-occlusion.js';
 import {nearestMarkerId} from './marker-hit.js';
 import {constellationNote,deepSkyNote} from './sky-descriptions.js';
 import {formatAngularSize,formatDeclination,formatRightAscension} from './sky-detail.js';
-import {wikipediaReference,wikipediaSearchUrl,wikipediaTitle} from './wikipedia-reference.js';
+import {wikipediaReference,wikipediaSearchUrl,wikipediaTitle,wikipediaSubjectForBody,wikipediaSubjectForConstellation,wikipediaSubjectForDeepSky} from './wikipedia-reference.js';
 import {applyCometAppearance,cometNucleusGeometry,createCometTails} from './comet.js';
 import {fastStepSize,splitStep} from './fast-step.js';
 import {STAR_SYSTEMS,orbitSpanAU,systemBodies,systemNote} from './star-systems.js';
@@ -603,7 +603,7 @@ function showBody(){if(blackHoleFall)stopBlackHoleFall();if(lightFlight){const i
  const landmarksInput=document.querySelector('#landmarks-toggle');if(landmarksInput)landmarksInput.onchange=e=>setLandmarksVisible(e.target.checked);
  if(star){const note=document.createElement('p');note.className='muted appearance-note';note.textContent=star.note||'';if(star.source){const link=document.createElement('a');link.href=star.source;link.target='_blank';link.rel='noopener noreferrer';link.textContent=' · Źródło ↗';note.append(link)}panel.querySelector('.panel-head').after(note)}
  panelHead.after(primaryActions);
- const preset=catalog.find(item=>item.id===b.presetId||item.id===b.key);mountWikipediaReference({name:b.name,id:b.presetId||b.key},{description:translate(star?'':b.note||preset?.note||''),images:bodyReferenceImages(b),hasDescriptionElsewhere:!!star});
+ const preset=catalog.find(item=>item.id===b.presetId||item.id===b.key);mountWikipediaReference(wikipediaSubjectForBody(b),{description:translate(star?'':b.note||preset?.note||''),images:bodyReferenceImages(b),hasDescriptionElsewhere:!!star});
  document.querySelector('#apply').onclick=()=>{const m=+document.querySelector('#mass').value,r=+document.querySelector('#radius').value,s=+document.querySelector('#spin').value,t=+document.querySelector('#tilt').value,p=getVec('p'),v=getVec('v');if(![m,r,s,t,...p,...v].every(Number.isFinite)||!validDimensions(m,r)||s===0||p.some(x=>Math.abs(x)>1e5)||v.some(x=>Math.abs(x)>299792)){document.querySelector('#validation').textContent='Sprawdź wartości: masa i promień muszą być dodatnie, obrót różny od zera.';return}b.mass=m/SOLAR_MASS;b.radius=b.key==='blackhole'?horizonRadius(m):r;b.spin=s;b.tilt=t;b.p=p;b.v=v.map(x=>x*86400/AU);if(b.key==='sun')applySolarBrightness();clearTrails();updateOrbits();document.querySelector('#validation').textContent='Zapisano parametry.'};document.querySelector('#focus').onclick=()=>focusBody(b.id,{keepPanel:true});const surfaceOpen=document.querySelector('#surface-open');if(surfaceOpen)surfaceOpen.onclick=()=>startSurfaceView(b.id);document.querySelector('#tools').onclick=showTools;document.querySelector('#remove').onclick=()=>{bs=bs.filter(x=>x.id!==b.id);disposeView(b.id);closePanel();updateOrbits()};document.querySelector('#swap').onchange=e=>{const other=bs.find(x=>x.id===+e.target.value);if(!other)return;const oldP=[...b.p],oldV=[...b.v],otherP=[...other.p],otherV=[...other.v];for(const moon of bs.filter(x=>x.parent===b.id)){moon.p=moon.p.map((x,k)=>x+otherP[k]-oldP[k]);moon.v=moon.v.map((x,k)=>x+otherV[k]-oldV[k])}for(const moon of bs.filter(x=>x.parent===other.id)){moon.p=moon.p.map((x,k)=>x+oldP[k]-otherP[k]);moon.v=moon.v.map((x,k)=>x+oldV[k]-otherV[k])}b.p=otherP;b.v=otherV;other.p=oldP;other.v=oldV;clearTrails();updateOrbits();showBody()}}
 function showSpawner(presetId='comet'){
  if(lightFlight)stopLightFlight();selected=null;
@@ -1415,7 +1415,7 @@ function showConstellation(entry){
   skyRow('Najjaśniejsza gwiazda figury',brightest),
   skyRow('Rektascensja',formatRightAscension(ra)),
   skyRow('Deklinacja',formatDeclination(dec))
- ],constellationNote(entry.name,getLanguage()),'Figura gwiazdozbioru wg d3-celestial · gwiazda z katalogu sceny',{name:entry.name,id:entry.id});
+ ],constellationNote(entry.name,getLanguage()),'Figura gwiazdozbioru wg d3-celestial · gwiazda z katalogu sceny',wikipediaSubjectForConstellation(entry));
  document.querySelector('#sky-center').onclick=()=>focusSkyTarget(entry.target);
 }
 function showDeepSky(object){
@@ -1427,7 +1427,7 @@ function showDeepSky(object){
   skyRow('Rozmiar kątowy',formatAngularSize(object.arcmin)),
   skyRow('Rektascensja',formatRightAscension(object.ra)),
   skyRow('Deklinacja',formatDeclination(object.dec))
- ],deepSkyNote(object.id,getLanguage()),'Współrzędne i jasności z katalogu obiektów sceny',{name:object.label,id:object.id});
+ ],deepSkyNote(object.id,getLanguage()),'Współrzędne i jasności z katalogu obiektów sceny',wikipediaSubjectForDeepSky(object));
  document.querySelector('#sky-center').onclick=()=>focusSkyTarget(object.target);
 }
 // A known place (surface-places.js) has no hand-written note the way a
@@ -1441,7 +1441,7 @@ function showKnownPlace(bodyId,place){
   skyRow('Ciało',body?translate(body.name):'—'),
   skyRow('Szerokość',`${formatNumber(place.latitude,0)}°`),
   skyRow('Długość',`${formatNumber(place.longitude,0)}°`)
- ],null,'Nazwa wg oficjalnego nazewnictwa IAU · planetarynames.wr.usgs.gov',{name:place.name,id:place.name});
+ ],null,'Nazwa wg oficjalnego nazewnictwa IAU · planetarynames.wr.usgs.gov',wikipediaSubjectForPlace(body,place));
  document.querySelector('#sky-center').onclick=()=>goToKnownPlace(bodyId,place);
 }
 function setupBodySearch(){

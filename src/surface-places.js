@@ -86,3 +86,55 @@ export const KNOWN_PLACES = {
 export function knownPlacesFor(body) {
  return KNOWN_PLACES[body?.key === 'moon' ? body.name : body?.key] || [];
 }
+
+// A place name by itself is not an encyclopedia identity: “North Pole” has a
+// famous terrestrial article, although the point in this list can be on
+// Uranus.  Each marker therefore carries its host as an explicit, strict
+// fallback. Named features below use a specific article where it is stable;
+// all remaining features deliberately show the host article rather than let
+// a search engine guess a same-named object on Earth.
+const PLACE_ARTICLES={
+ 'earth:Everest':{en:'Mount_Everest',es:'Monte_Everest'},
+ 'earth:Grand Canyon':{en:'Grand_Canyon',es:'Gran_Cañón'},
+ 'earth:Struktura Richat (Oko Sahary)':{en:'Richat_Structure',es:'Estructura_de_Richat'},
+ 'mars:Olympus Mons':{en:'Olympus_Mons'},
+ 'mars:Valles Marineris':{en:'Valles_Marineris'},
+ 'jupiter:Wielka Czerwona Plama':{en:'Great_Red_Spot',de:'Großer_Roter_Fleck',es:'Gran_Mancha_Roja'},
+ 'saturn:Heksagon bieguna północnego':{en:"Saturn's_hexagon"},
+ 'neptune:Wielka Ciemna Plama':{en:'Great_Dark_Spot',es:'Great_Dark_Spot'},
+ 'Księżyc:Tycho':{en:'Tycho_(lunar_crater)'},
+ 'Księżyc:Copernicus':{en:'Copernicus_(lunar_crater)'},
+ 'Fobos:Stickney':{en:'Stickney_(crater)'},
+ 'Io:Loki Patera':{en:'Loki_Patera'},
+ 'Io:Pele':{en:'Pele_(volcano)'},
+ 'Europa:Pwyll':{en:'Pwyll_(crater)'},
+ 'Ganimedes:Galileo Regio':{en:'Galileo_Regio'},
+ 'Kallisto:Valhalla':{en:'Valhalla_(crater)'},
+ 'Mimas:Herschel':{en:'Herschel_(crater)'},
+ 'Enceladus:Damascus Sulcus':{en:'Damascus_Sulcus'},
+ 'Tytan:Kraken Mare':{en:'Kraken_Mare'},
+ 'Tytan:Xanadu':{en:'Xanadu_(Titan)'},
+ 'Japet:Cassini Regio':{en:'Cassini_Regio'},
+ 'Miranda:Verona Rupes':{en:'Verona_Rupes'}
+};
+
+// English is the complete, stable fallback set: every article below exists
+// there even when a smaller Wikipedia edition has no article for the moon.
+// This is deliberately a list of celestial bodies, never generic words such
+// as “pole”, “crater” or “point”, so a failed local lookup cannot cross over
+// to an Earth feature with the same everyday name.
+const HOST_ARTICLES={
+ mercury:'Mercury_(planet)',venus:'Venus',earth:'Earth',mars:'Mars',jupiter:'Jupiter',saturn:'Saturn',uranus:'Uranus',neptune:'Neptune',
+ 'Księżyc':'Moon',Fobos:'Phobos_(moon)',Deimos:'Deimos_(moon)',Io:'Io_(moon)',Europa:'Europa_(moon)',Ganimedes:'Ganymede_(moon)',Kallisto:'Callisto_(moon)',
+ Mimas:'Mimas_(moon)',Enceladus:'Enceladus_(moon)',Tetyda:'Tethys_(moon)',Dione:'Dione_(moon)',Rea:'Rhea_(moon)',Tytan:'Titan_(moon)',Japet:'Iapetus_(moon)',
+ Miranda:'Miranda_(moon)',Ariel:'Ariel_(moon)',Umbriel:'Umbriel_(moon)',Tytania:'Titania_(moon)',Oberon:'Oberon_(moon)',Tryton:'Triton_(moon)',Proteusz:'Proteus_(moon)',Nereida:'Nereid_(moon)'
+};
+
+const placeBodyKey=body=>body?.key==='moon'?body.name:body?.key;
+
+export function wikipediaSubjectForPlace(body,place){
+ const key=placeBodyKey(body),host={name:body?.name||key,id:key,strict:true};
+ host.titles={en:HOST_ARTICLES[key]||HOST_ARTICLES[body?.name]||'Astronomical_object'};
+ const titles=PLACE_ARTICLES[`${key}:${place?.name}`];
+ return titles?{titles,strict:true,fallback:host}:host;
+}
