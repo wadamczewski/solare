@@ -45,7 +45,7 @@ import {changeSimulationRate} from './simulation-rate.js';
 import {buildLandmarkMarkers,createBodyPreview} from './preview.js';
 import {createImpactEffects} from './impact-effects.js';
 import {isShapeGeometry,keepsAuthoredGeometry,shapeGeometry,updateShapeLod} from './scene-lod.js';
-import {enterSurfaceDetail,leaveSurfaceDetail,surfaceReliefClearance} from './surface-detail.js';
+import {enterSurfaceDetail,leaveSurfaceDetail,surfaceReliefClearance,updateSurfaceDetailTiles} from './surface-detail.js';
 import {createOrbitRibbon,updateOrbitRibbon} from './orbit-ribbon.js';
 import {auRadius,maxViewDistance,scaleRatio,sceneRadius} from './scene-scale.js';
 import {configureSolarShadow,participatesInSolarShadow} from './solar-shadows.js';
@@ -936,6 +936,7 @@ function updateSurfaceView(tick=0){
  // worst of them, standing 277 near-planes too low.
  camera.near=Math.max(1e-12,height/20);
  orientSurfaceBody(body,horizon);
+ updateSurfaceDetailTiles(views.get(body.id),surfaceView.latitude,surfaceView.longitude);
  camera.fov=surfaceView.fov;camera.updateProjectionMatrix();
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));

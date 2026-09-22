@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {shapeGeometry} from './scene-lod.js';
 import {heightFieldToNormals, equirectangularTexelSpan, seamlessHeightField} from './surface-normal-detail.js';
+import {createSurfaceTileStream} from './surface-tiles.js';
 
 // A surface view has a single close body.  Its map can therefore use a dense
 // mesh and a local relief texture without asking the system map to keep every
@@ -181,6 +182,8 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
   baseMap: material.map, dedicatedColor: !!mission?.color,
   onBeforeCompile: material.onBeforeCompile, customProgramCacheKey: material.customProgramCacheKey
  }};
+ view.surfaceDetail.tiles = createSurfaceTileStream(body, maxAnisotropy);
+ if (view.surfaceDetail.tiles) view.mesh.add(view.surfaceDetail.tiles.group);
  view.mesh.geometry = body.irregular ? detailedIrregularGeometry(profile.seed) : shapeGeometry('surface');
  view.surfaceDetail.ownedGeometry = !!body.irregular;
  if (!body.irregular) {
@@ -211,10 +214,19 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  material.needsUpdate = true;
 }
 
+// The stream is intentionally updated from the observer's geographic point,
+// not from camera position.  The latter moves a little with eye height and
+// would make the visible tile window flicker at a boundary.
+export function updateSurfaceDetailTiles(view, latitude, longitude) {
+ view?.surfaceDetail?.tiles?.update(latitude, longitude);
+}
+
 export function leaveSurfaceDetail(view) {
  const state = view?.surfaceDetail;
  if (!state) return;
  const material = view.mesh.material;
+ state.tiles?.group.parent?.remove(state.tiles.group);
+ state.tiles?.dispose();
  if (state.ownedGeometry) view.mesh.geometry.dispose();
  view.mesh.geometry = state.geometry;
  material.displacementMap = state.material.displacementMap; material.displacementScale = state.material.displacementScale;
