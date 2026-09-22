@@ -59,6 +59,7 @@ import {createTidalStreams} from './tidal-stream.js';
 import {createAsteroidBelt} from './asteroid-belt.js';
 import {DEFAULT_IMPACT_SPEED_KMS,buildCustomScenario,clampImpactSpeed,collisionScenarios,collisionLaunchState,findScenarioTarget,scenarioCollisionReady,scenarioContactNormal,scenarioContactSpeed,scenarioVisualSeparation} from './collision-scenarios.js';
 import {SATURN_RING_INNER,SATURN_RING_BANDS,URANUS_RING_INNER,URANUS_RING_BANDS,ringBandAt} from './planet-rings.js';
+import {applyRingPlanetShadow} from './ring-planet-shadow.js';
 import {SOLAR_ECLIPSES,SOLAR_LEAD_MINUTES,formatEclipseDuration} from './solar-eclipses.js';
 import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
 import {createShareState,shareTokenFromLocation,shareUrl} from './share-state.js';
@@ -363,7 +364,7 @@ function radius(b){
 const sphere=shapeGeometry('high');
 function addView(b){const group=new THREE.Group();scene.add(group);const authoredGeometry=keepsAuthoredGeometry(b);let geo=shapeGeometry('medium');if(b.key==='comet'||b.key==='fragment'&&b.irregular)geo=cometNucleusGeometry(b.id,12,b.cometProfile);else if(b.irregular){geo=new THREE.IcosahedronGeometry(1,3);const a=geo.attributes.position;for(let i=0;i<a.count;i++){const x=a.getX(i),y=a.getY(i),z=a.getZ(i),f=1+.12*Math.sin(x*18+y*13+z*8)+.05*Math.sin(x*37+y*29+z*23);a.setXYZ(i,x*f*1.3,y*f*.78,z*f)}geo.computeVertexNormals()}
  const textureKey=b.textureKey||b.key;const surfaceMap=textures[textureKey]||null;const mat=b.key==='sun'?new THREE.MeshBasicMaterial({color:new THREE.Color('#ffffff').multiplyScalar(24),toneMapped:true}):new THREE.MeshStandardMaterial({map:b.key==='moon'?null:surfaceMap,color:surfaceMap?'#ffffff':b.key==='moon'?b.color:b.key==='blackhole'?'#000000':b.key==='neutron-star'?'#d6efff':b.color||'#ffffff',roughness:b.key==='neutron-star'?.34:1,metalness:0,emissive:b.key==='neutron-star'?'#2570a8':'#000000',emissiveIntensity:b.key==='neutron-star'?.75:0});if(b.key==='blackhole')mat.map=null;if(b.key==='comet'){mat.map=null;applyCometAppearance(mat,b.cometProfile)}if(b.textureKey&&!surfaceMap){mat.map=null;mat.color.set(b.gas?'#b0aaa0':'#77736c')}naturalColorMaterial(mat,b.key);applyMoonAppearance(mat,b,moonMaps);makeOpaqueSurface(mat);
- const axis=new THREE.Group();axis.rotation.z=THREE.MathUtils.degToRad(b.tilt);group.add(axis);const mesh=new THREE.Mesh(geo,mat);const eclipseShadow=participatesInSolarShadow(b)?applyExtendedSolarShadow(mat):null;mesh.castShadow=participatesInSolarShadow(b);mesh.receiveShadow=!eclipseShadow;if(b.key==='comet'){mesh.renderOrder=1;mesh.frustumCulled=false}axis.add(mesh);mesh.userData.id=b.id;const spots=b.key==='sun'&&b.starPresetId==='sun'?createSolarSpots():null;if(spots)mesh.add(spots);
+ const axis=new THREE.Group();axis.rotation.z=THREE.MathUtils.degToRad(b.tilt);group.add(axis);const mesh=new THREE.Mesh(geo,mat);const eclipseShadow=participatesInSolarShadow(b)?applyExtendedSolarShadow(mat):null;const ringPlanetShadow=['saturn','uranus'].includes(b.key)?applyRingPlanetShadow(mat,{inner:b.key==='saturn'?SATURN_RING_INNER:URANUS_RING_INNER,bands:b.key==='saturn'?SATURN_RING_BANDS:URANUS_RING_BANDS}):null;mesh.castShadow=participatesInSolarShadow(b);mesh.receiveShadow=!eclipseShadow;if(b.key==='comet'){mesh.renderOrder=1;mesh.frustumCulled=false}axis.add(mesh);mesh.userData.id=b.id;const spots=b.key==='sun'&&b.starPresetId==='sun'?createSolarSpots():null;if(spots)mesh.add(spots);
  let halo=null; // Solar glare is generated from visible HDR pixels, not an unoccluded billboard.
  if(b.key==='earth'){const atmo=new THREE.Mesh(sphere,new THREE.ShaderMaterial({vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',fragmentShader:'varying vec3 n;varying vec3 v;void main(){float a=pow(1.-max(dot(n,v),0.),4.);gl_FragColor=vec4(.18,.46,.9,a*.38);}',transparent:true,depthWrite:false}));atmo.scale.setScalar(1.035);mesh.add(atmo)}
  // Real ring geometry (see planet-rings.js): named rings and gaps sit at
@@ -375,7 +376,7 @@ function addView(b){const group=new THREE.Group();scene.add(group);const authore
  // 3) is what makes that per-band transparency possible on one mesh.
  let ringEclipseShadow=null;if(['saturn','uranus'].includes(b.key)){const saturn=b.key==='saturn',inner=saturn?SATURN_RING_INNER:URANUS_RING_INNER,bands=saturn?SATURN_RING_BANDS:URANUS_RING_BANDS,outer=bands[bands.length-1].to,ringGeo=new THREE.RingGeometry(inner,outer,224,saturn?160:220),arr=ringGeo.attributes.position,rgba=[];for(let i=0;i<arr.count;i++){const r=Math.hypot(arr.getX(i),arr.getY(i)),band=ringBandAt(bands,r),texture=saturn?.89+.07*Math.sin(r*178)+.04*Math.sin(r*619):.92+.06*Math.sin(r*420)+.03*Math.sin(r*990),c=new THREE.Color(band.tone).multiplyScalar(texture);rgba.push(c.r,c.g,c.b,band.alpha)}ringGeo.setAttribute('color',new THREE.Float32BufferAttribute(rgba,4));const ringMaterial=new THREE.MeshStandardMaterial({vertexColors:true,side:THREE.DoubleSide,transparent:true,depthWrite:false,roughness:.82});ringEclipseShadow=applyExtendedSolarShadow(ringMaterial);const ring=new THREE.Mesh(ringGeo,ringMaterial);ring.castShadow=true;ring.receiveShadow=false;ring.rotation.x=Math.PI/2;mesh.add(ring)}const blackHoleVisual=b.key==='blackhole'?createBlackHoleVisual():null;if(blackHoleVisual)mesh.add(blackHoleVisual.group);const neutronStarVisual=b.key==='neutron-star'?createNeutronStarVisual(b):null;if(neutronStarVisual)mesh.add(neutronStarVisual.group);
  const orbit=createOrbitRibbon({color:b.color,opacity:b.parent?.13:.3});scene.add(orbit);
- const trailGeo=new THREE.BufferGeometry();trailGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(512*3),3).setUsage(THREE.DynamicDrawUsage));trailGeo.setDrawRange(0,0);const trail=new THREE.Line(trailGeo,new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:.3}));trail.frustumCulled=false;scene.add(trail);views.set(b.id,{group,axis,mesh,halo,spots,blackHoleVisual,neutronStarVisual,eclipseShadow,ringEclipseShadow,orbit,trail,orbitPath:Array.from({length:257},()=>new THREE.Vector3()),history:[],lodLevel:authoredGeometry?null:'medium',irregular:authoredGeometry});}
+ const trailGeo=new THREE.BufferGeometry();trailGeo.setAttribute('position',new THREE.BufferAttribute(new Float32Array(512*3),3).setUsage(THREE.DynamicDrawUsage));trailGeo.setDrawRange(0,0);const trail=new THREE.Line(trailGeo,new THREE.LineBasicMaterial({color:b.color,transparent:true,opacity:.3}));trail.frustumCulled=false;scene.add(trail);views.set(b.id,{group,axis,mesh,halo,spots,blackHoleVisual,neutronStarVisual,eclipseShadow,ringEclipseShadow,ringPlanetShadow,orbit,trail,orbitPath:Array.from({length:257},()=>new THREE.Vector3()),history:[],lodLevel:authoredGeometry?null:'medium',irregular:authoredGeometry});}
 function disposeView(id){const v=views.get(id);if(!v)return;scene.remove(v.group,v.orbit,v.trail);v.undamagedGeometry?.dispose();v.group.traverse(o=>{if(o.isMesh){if(!isShapeGeometry(o.geometry))o.geometry.dispose();o.material.dispose()}});v.orbit.geometry.dispose();v.orbit.material.dispose();v.trail.geometry.dispose();v.trail.material.dispose();views.delete(id);if(selected===id){selected=null;panel.hidden=true}if(follow===id)follow=null;if(bodyLandmarks?.bodyId===id)bodyLandmarks=null}
 bs.forEach(addView);applySolarBrightness();
 // Every solid is evaluated as an occulting disc in the current scene scale.
@@ -390,7 +391,7 @@ function updateExtendedSolarShadows(){
   const view=views.get(body.id);return view&&{id:body.id,position:view.group.position,radius:view.mesh.scale.x||radius(body)};
  }).filter(Boolean);
  for(const body of bs){
-  const view=views.get(body.id);if(!view?.eclipseShadow&&!view?.ringEclipseShadow)continue;
+  const view=views.get(body.id);if(!view?.eclipseShadow&&!view?.ringEclipseShadow&&!view?.ringPlanetShadow)continue;
   if(view.eclipseShadow){
    // A body cannot shadow itself, so its own id is excluded from its own
    // candidate list here.
@@ -407,6 +408,10 @@ function updateExtendedSolarShadows(){
    // strips the planet back out of its own ring's candidate list.
    const candidates=solarOccludersForReceiver(view.group.position,sourcePosition,sourceRadius,occluders,-1);
    view.ringEclipseShadow.update({sourcePosition,sourceRadius,occluders:candidates,viewMatrix:camera.matrixWorldInverse});
+  }
+  if(view.ringPlanetShadow){
+   const normal=new THREE.Vector3(0,-1,0).applyQuaternion(view.axis.getWorldQuaternion(new THREE.Quaternion())).normalize();
+   view.ringPlanetShadow.update({sourcePosition,centre:view.group.position,normal,radius:view.mesh.scale.x||radius(body),viewMatrix:camera.matrixWorldInverse});
   }
  }
 }
