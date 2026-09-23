@@ -3,6 +3,7 @@ import {shapeGeometry} from './scene-lod.js';
 import {hasMeasuredIrregularShape,measuredIrregularGeometry} from './body-shapes.js';
 import {heightFieldToNormals, equirectangularTexelSpan, seamlessHeightField} from './surface-normal-detail.js';
 import {createSurfaceTileStream,surfaceAssetKey} from './surface-tiles.js';
+import {createSurfaceTopography} from './surface-topography.js';
 
 // A surface view has a single close body.  Its map can therefore use a dense
 // mesh and a local relief texture without asking the system map to keep every
@@ -194,8 +195,6 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
   baseMap: material.map, dedicatedColor: !!mission?.color,
   onBeforeCompile: material.onBeforeCompile, customProgramCacheKey: material.customProgramCacheKey
  }};
- view.surfaceDetail.tiles = createSurfaceTileStream(body, maxAnisotropy);
- if (view.surfaceDetail.tiles) view.mesh.add(view.surfaceDetail.tiles.group);
  view.mesh.geometry = hasMeasuredIrregularShape(body) ? measuredIrregularGeometry(body,6) : body.irregular ? detailedIrregularGeometry(profile.seed) : shapeGeometry('surface');
  view.surfaceDetail.ownedGeometry = !!body.irregular;
  if (!body.irregular) {
@@ -206,7 +205,7 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
   // less than a screen pixel - the case for the whole time anyone is
   // standing on the ground looking at anything nearby.
   material.normalMap = mission?.normal ? missionTexture(mission.normal, false) : proceduralNormalMap(profile);
-  material.normalScale.set(profile.bump, profile.bump);
+ material.normalScale.set(profile.bump, profile.bump);
  }
  if (mission?.color) material.map = missionTexture(mission.color, true);
  // Moon's ordinary map deliberately reduces mission mosaics to a restrained
@@ -222,6 +221,14 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
   material.customProgramCacheKey = () => `${previousKey?.() || ''}|surface-lroc-colour-v1`;
  }
  applyMicroDetail(material);
+ // The broad texture tiles retain their low request count.  Surveyed terrain
+ // is a distinct, short-range layer and receives the fully configured base
+ // material, so its imagery, eclipse lighting and colour calibration match
+ // the underlying body exactly.
+ view.surfaceDetail.tiles = createSurfaceTileStream(body, maxAnisotropy);
+ if (view.surfaceDetail.tiles) view.mesh.add(view.surfaceDetail.tiles.group);
+ view.surfaceDetail.topography = createSurfaceTopography(body, material);
+ if (view.surfaceDetail.topography) view.mesh.add(view.surfaceDetail.topography.group);
  if (material.map) material.map.anisotropy = Math.max(material.map.anisotropy || 1, Math.min(16, maxAnisotropy));
  material.needsUpdate = true;
 }
@@ -231,6 +238,7 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
 // would make the visible tile window flicker at a boundary.
 export function updateSurfaceDetailTiles(view, latitude, longitude) {
  view?.surfaceDetail?.tiles?.update(latitude, longitude);
+ view?.surfaceDetail?.topography?.update(latitude, longitude);
 }
 
 export function leaveSurfaceDetail(view) {
@@ -239,6 +247,8 @@ export function leaveSurfaceDetail(view) {
  const material = view.mesh.material;
  state.tiles?.group.parent?.remove(state.tiles.group);
  state.tiles?.dispose();
+ state.topography?.group.parent?.remove(state.topography.group);
+ state.topography?.dispose();
  if (state.ownedGeometry) view.mesh.geometry.dispose();
  view.mesh.geometry = state.geometry;
  material.displacementMap = state.material.displacementMap; material.displacementScale = state.material.displacementScale;
