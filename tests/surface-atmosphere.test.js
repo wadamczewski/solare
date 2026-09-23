@@ -18,3 +18,10 @@ test('twilight is limited to the civil-to-nautical transition', () => {
  assert.equal(surfaceAtmosphere('mars',-6).phase,'twilight');
  assert.equal(surfaceAtmosphere('mars',-16).phase,'night');
 });
+
+
+test('the Earth atmosphere can be disabled without changing the daylight state', () => {
+ const state=surfaceAtmosphere('earth',45,false);
+ assert.equal(state.phase,'day');
+ assert.equal(state.opacity,0);
+});

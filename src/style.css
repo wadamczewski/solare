@@ -185,7 +185,7 @@ body.on-a-surface #solar-brightness { display: none; }
 
 /* A restrained view through an atmosphere: the scene itself remains WebGL,
    while this transparent veil conveys daylight without hiding the sky map. */
-#surface-atmosphere{position:fixed;z-index:1;inset:0;pointer-events:none;opacity:var(--surface-atmosphere-opacity,0);background:radial-gradient(ellipse 125% 80% at 50% 110%,color-mix(in srgb,var(--surface-atmosphere-color) 82%,transparent),transparent 72%),linear-gradient(to bottom,color-mix(in srgb,var(--surface-atmosphere-color) 54%,transparent),transparent 62%);mix-blend-mode:screen;transition:opacity .45s ease,background .45s ease}#surface-atmosphere[hidden]{display:none}.surface-light{margin:10px 0 0;padding:8px 9px;border:1px solid #ffffff14;border-radius:6px;background:#ffffff05;color:#cfe1f2;font-size:10px;font-variant-numeric:tabular-nums}
+#surface-atmosphere{position:fixed;z-index:1;inset:0;pointer-events:none;opacity:var(--surface-atmosphere-opacity,0);background:radial-gradient(ellipse 125% 80% at 50% 110%,color-mix(in srgb,var(--surface-atmosphere-color) 38%,transparent),transparent 72%),linear-gradient(to bottom,color-mix(in srgb,var(--surface-atmosphere-color) 23%,transparent),transparent 62%);mix-blend-mode:screen;transition:opacity .45s ease,background .45s ease}#surface-atmosphere[hidden]{display:none}.surface-light{margin:10px 0 0;padding:8px 9px;border:1px solid #ffffff14;border-radius:6px;background:#ffffff05;color:#cfe1f2;font-size:10px;font-variant-numeric:tabular-nums}
 
 /* Opt-in annotations for the selected body's current dynamics. */
 #education-hud{position:fixed;z-index:5;right:28px;bottom:102px;display:grid;gap:6px;min-width:202px;padding:12px 13px;border:1px solid #d9e9f228;border-radius:9px;background:rgba(7,12,25,.48);backdrop-filter:blur(16px) saturate(125%);-webkit-backdrop-filter:blur(16px) saturate(125%);box-shadow:0 13px 38px #0005;color:#cad8e8;font-size:10px;pointer-events:none}.education-hud[hidden],#education-hud[hidden]{display:none}#education-hud strong{color:#f1f7ff;font-size:11px;font-weight:600}#education-hud span{display:block;font-variant-numeric:tabular-nums}#education-hud i{display:inline-block;width:8px;height:2px;margin-right:5px;vertical-align:middle;background:#78c7ff}#education-hud i.education-gravity{background:#ffd38c}#education-hud small{margin-top:2px;color:#879ab2;font-size:9px}@media(max-width:600px){#education-hud{right:12px;bottom:88px;min-width:172px;padding:10px;font-size:9px}}
@@ -205,3 +205,13 @@ body.on-a-surface #solar-brightness { display: none; }
 #body-results,#tooltip{background:var(--control-surface);backdrop-filter:var(--control-filter);-webkit-backdrop-filter:var(--control-filter);border-color:var(--control-border)}
 #surface-radar{opacity:1}
 #surface-radar .surface-radar-view{background:var(--control-surface);backdrop-filter:var(--control-filter);-webkit-backdrop-filter:var(--control-filter)}
+/* Earth is the only surface view with a live cloud system. Keep the switch
+   identical to the sky controls, but compact enough to sit beside the other
+   observer settings. */
+#surface-view .surface-toggle{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;padding:8px 9px;border:1px solid #ffffff14;border-radius:6px;background:#ffffff05;color:#d6e5f3;cursor:pointer;font-size:10px}
+#surface-view .surface-toggle input{position:absolute;opacity:0;pointer-events:none}
+#surface-view .surface-toggle i{position:relative;width:31px;height:17px;flex:0 0 31px;border-radius:999px;background:#384357;border:1px solid #ffffff1f;transition:background .18s,border-color .18s}
+#surface-view .surface-toggle i:after{content:"";position:absolute;top:2px;left:2px;width:11px;height:11px;border-radius:50%;background:#b5c0d1;box-shadow:0 1px 3px #0008;transition:transform .18s,background .18s}
+#surface-view .surface-toggle input:checked+i{background:#7ba6cd;border-color:#cce6ff55}
+#surface-view .surface-toggle input:checked+i:after{transform:translateX(14px);background:#f4f9ff}
+#surface-view .surface-toggle input:focus-visible+i{outline:2px solid #b4d9ef;outline-offset:3px}

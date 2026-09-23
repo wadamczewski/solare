@@ -241,5 +241,6 @@ rows.push(
  ['Faza częściowa','Partial phase','Partielle Phase','Fase parcial'],
  ['Faza półcieniowa','Penumbral phase','Halbschattenphase','Fase penumbral'],
  ['Orbity','Orbits','Umlaufbahnen','Órbitas'],
- ['Pokaż orbity wszystkich ciał niebieskich','Show the orbits of every body','Umlaufbahnen aller Himmelskörper anzeigen','Mostrar las órbitas de todos los cuerpos celestes']
+ ['Pokaż orbity wszystkich ciał niebieskich','Show the orbits of every body','Umlaufbahnen aller Himmelskörper anzeigen','Mostrar las órbitas de todos los cuerpos celestes'],
+ ['Atmosfera i chmury','Atmosphere and clouds','Atmosphäre und Wolken','Atmósfera y nubes']
 );
