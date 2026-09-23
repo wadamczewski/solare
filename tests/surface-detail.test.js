@@ -12,7 +12,9 @@ test('rocky surface profiles retain stronger relief than cloud tops', () => {
  const earth = surfaceDetailProfile({key: 'earth', name: 'Earth'});
  const jupiter = surfaceDetailProfile({key: 'jupiter', name: 'Jupiter', gas: true});
  assert.ok(earth.relief > jupiter.relief * 10);
- assert.ok(surfaceReliefClearance({key: 'mars', name: 'Mars'}) > .005);
+ // Keep enough separation to avoid clipping, while allowing mountains and
+ // crater rims to remain legible from a surface-level camera.
+ assert.ok(surfaceReliefClearance({key: 'mars', name: 'Mars'}) > .001);
 });
 
 test('mapped worlds expose a nonzero physical relief profile', () => {

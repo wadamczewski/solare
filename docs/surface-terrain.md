@@ -16,12 +16,15 @@ zatem osobną, lokalną siatkę tylko przy obserwatorze.
 Dołączone są trzy rzeczywiste kafle wysokości: Everest (Copernicus GLO-30,
 27,5–28,0° N i 86,6–87,0° E), Olympus Mons (MOLA MEGDR 128 px/°, 12–26° N
 i 218–234° E) oraz Tycho (LOLA, 16 px/°, 54–33° S i 337,5–360° E). Każdy
-jest przeskalowany do 512×512 próbek `Float32` i ładuje się dopiero po
-podejściu do danego obszaru. Są to wysokości, nie grafiki cieniowania, więc
-normalne lokalnej siatki wynikają z faktycznej rzeźby terenu. Copernicus
-zachowuje 30‑metrowe źródło w rejonie Everestu; MOLA i LOLA zachowują
-odpowiednio rozdzielczość źródłową około 463 m i 7 km w dołączonych
-wycinkach.
+ładuje się dopiero po podejściu do danego obszaru. Everest zachowuje
+oryginalne 1 440 × 1 800 próbek Copernicus GLO-30 dla wycinka 0,4° × 0,5°:
+około 30 m w danych źródłowych. MOLA i LOLA są przechowywane jako kompaktowe
+rastry `Float32`; lokalna siatka kontekstu ma 96 segmentów na fragment, a
+osobna siatka ogniskowa ma 352–384 segmenty. Daje to około 40 m w pobliżu
+Everestu, około 140 m w kalderze Olympus Mons i około 45 m dla centralnej
+części Tycho, bez zagęszczania całej planety. Są to wysokości, nie grafiki
+cieniowania, więc normalne lokalnej siatki wynikają z faktycznej rzeźby
+terenu.
 
 Profil dla Copernicusa pozostaje bezpiecznym przejściem do czasu dołączenia
 jego osobnego kafla LOLA/SLDEM. Format i mechanizm ładowania są już takie

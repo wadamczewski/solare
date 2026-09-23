@@ -47,6 +47,7 @@ import {createImpactEffects} from './impact-effects.js';
 import {isShapeGeometry,keepsAuthoredGeometry,shapeGeometry,updateShapeLod} from './scene-lod.js';
 import {bodyAxes,largestAxis,measuredIrregularGeometry,hasMeasuredIrregularShape,surfaceRadialScale} from './body-shapes.js';
 import {enterSurfaceDetail,leaveSurfaceDetail,surfaceReliefClearance,updateSurfaceDetailTiles} from './surface-detail.js';
+import {nearestSurfaceFeature,topographyHeightKm} from './surface-topography.js';
 import {createOrbitRibbon,updateOrbitRibbon} from './orbit-ribbon.js';
 import {auRadius,maxViewDistance,scaleRatio,sceneRadius} from './scene-scale.js';
 import {configureSolarShadow,participatesInSolarShadow} from './solar-shadows.js';
@@ -802,7 +803,13 @@ const surfaceEyeFactor=(body,latitude=surfaceView?.latitude??0,longitude=surface
  // eye must clear the surface at the current latitude, particularly on
  // Saturn and Uranus where a mean-radius eye falls inside the polar mesh.
  const standingRadius=body.irregular?(hasMeasuredIrregularShape(body)?Math.max(1.02,largestAxis(body)*1.08):SURFACE_EYE_IRREGULAR):base*SURFACE_EYE;
- return standingRadius+surfaceReliefClearance(body);
+ // The high-resolution landmark mesh is an additional physical shell. Lift
+ // the eye by its surveyed elevation at the observer's own coordinate, then
+ // retain only a small clearance; otherwise Everest and crater rims end up
+ // below a camera parked unrealistically far above the surface.
+ const key=body.key==='moon'&&['Księżyc','Moon'].includes(body.name)?'moon':body.key;
+ const terrain=Math.max(0,topographyHeightKm(key,body.radius,latitude,longitude)/body.radius);
+ return standingRadius+terrain+surfaceReliefClearance(body);
 };
 const SURFACE_FOV = {min: 14, max: 100, start: 70};
 
@@ -854,6 +861,24 @@ const KNOWN_PLACE_ALTITUDE=-18;
 function aimAtLocalGround(){
  surfaceView.azimuth=0;surfaceView.altitude=KNOWN_PLACE_ALTITUDE;
 }
+function aimAtTerrainFeature(body){
+ const feature=nearestSurfaceFeature(body,surfaceView.latitude,surfaceView.longitude);
+ if(!feature)return false;
+ const fromLatitude=surfaceView.latitude*Math.PI/180,toLatitude=feature.latitude*Math.PI/180;
+ const longitudeDelta=(feature.longitude-surfaceView.longitude)*Math.PI/180;
+ const east=Math.sin(longitudeDelta)*Math.cos(toLatitude);
+ const north=Math.cos(fromLatitude)*Math.sin(toLatitude)-Math.sin(fromLatitude)*Math.cos(toLatitude)*Math.cos(longitudeDelta);
+ // azimuth 0 is north and positive angles rotate eastward, the same local
+ // convention surfaceLook() and the compass use.
+ surfaceView.azimuth=(Math.atan2(east,north)*180/Math.PI+360)%360;
+ const observerHeight=Math.max(0,topographyHeightKm(body.key==='moon'?'moon':body.key,body.radius,surfaceView.latitude,surfaceView.longitude));
+ const targetHeight=feature.kind==='peak'?feature.heightKm:feature.kind==='shield'?feature.heightKm-feature.calderaDepthKm:-feature.depthKm;
+ const elevation=Math.atan2(targetHeight-observerHeight-1.5,Math.max(1,feature.distanceKm))*180/Math.PI;
+ // Put the landform in the first frame even when the point's published
+ // coordinate was rounded to whole degrees.
+ surfaceView.altitude=Math.max(-16,Math.min(38,elevation));
+ return true;
+}
 function startSurfaceView(bodyId){
  if(cinematic)stopCinematic();
  const body=bs.find(b=>b.id===bodyId);if(!body)return;
@@ -883,7 +908,7 @@ function goToKnownPlace(bodyId,place){
  startSurfaceView(bodyId);
  if(!surfaceView)return;
  surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;surfaceView.locationOverride=true;
- aimAtLocalGround();
+ if(!aimAtTerrainFeature(body))aimAtLocalGround();
  buildSurfaceHud();updateSurfaceView();paintEarthLocation();
  // A known place deserves the same treatment as a body, constellation, or
  // deep-sky object: a panel with what it is and, when Wikipedia has an

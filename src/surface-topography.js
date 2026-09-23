@@ -33,7 +33,7 @@ export const SURFACE_FEATURES = Object.freeze({
 // Terrain-RGB PNG is retained for diagnostics and future GPU displacement.
 const LOCAL_DEMS=Object.freeze({
  earth:Object.freeze({
-  path:'/textures/terrain/earth/everest-cop30-height.f32',width:512,height:512,
+  path:'/textures/terrain/earth/everest-cop30-height.f32',width:1440,height:1800,
   south:27.5,north:28,west:86.6,east:87
  }),
  mars:Object.freeze({
@@ -86,6 +86,21 @@ export function topographyHeightKm(assetKey, radiusKm, latitude, longitude) {
  return height;
 }
 
+// Used by the surface camera when a named place is selected: a point rounded
+// to whole degrees can still sit several kilometres from a narrow summit or
+// crater rim, so look toward the surveyed centre rather than leaving the
+// landmark outside the initial frame.
+export function nearestSurfaceFeature(body, latitude, longitude) {
+ const key=surfaceAssetKey(body),radiusKm=Number(body?.radius);
+ if(!key||!Number.isFinite(radiusKm))return null;
+ let result=null;
+ for(const feature of SURFACE_FEATURES[key]||[]) {
+  const distanceKm=greatCircleDistanceKm(radiusKm,latitude,longitude,feature.latitude,feature.longitude);
+  if(!result||distanceKm<result.distanceKm)result={...feature,distanceKm};
+ }
+ return result;
+}
+
 function sampledDemHeightKm(dem,latitude,longitude){
  const sampleLongitude=dem?.positiveEast360&&longitude<0?longitude+360:longitude;
  if(!dem||latitude<dem.south||latitude>dem.north||sampleLongitude<dem.west||sampleLongitude>dem.east)return null;
@@ -95,11 +110,15 @@ function sampledDemHeightKm(dem,latitude,longitude){
  return (a+(b-a)*fx+(c+(d-c)*fx-a-(b-a)*fx)*fy)/1000;
 }
 
-function localPoint(latitude,longitude,radial=1) {
+export function localTerrainPoint(latitude,longitude,radial=1) {
  const lat=radians(latitude),lon=radians(longitude),cosLat=Math.cos(lat);
- return [-Math.cos(lon)*cosLat*radial,Math.sin(lat)*radial,Math.sin(lon)*cosLat*radial];
+ // Match the equirectangular body frame used by the surface camera and maps:
+ // +X is the prime meridian, +Y north, and east points along -Z.  Reversing
+ // X/Z placed the detailed terrain on the antipode, leaving the named point
+ // visually flat even though the correct DEM had already been loaded.
+ return [Math.cos(lon)*cosLat*radial,Math.sin(lat)*radial,-Math.sin(lon)*cosLat*radial];
 }
-function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segments=72) {
+function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segments=96) {
  const vertices=[],uvs=[],indices=[];
  const latSpan=spanDegrees,lonSpan=spanDegrees/Math.max(.13,Math.cos(radians(latitude)));
  for(let y=0;y<=segments;y++)for(let x=0;x<=segments;x++){
@@ -111,7 +130,7 @@ function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segm
   const sampled=sampledDemHeightKm(dem,lat,lon);
   const height=sampled??topographyHeightKm(assetKey,radiusKm,lat,lon);
   const radial=1+height/radiusKm;
-  vertices.push(...localPoint(lat,lon,radial));
+  vertices.push(...localTerrainPoint(lat,lon,radial));
   uvs.push((lon+180)/360,(90-lat)/180);
  }
  const stride=segments+1;
@@ -126,12 +145,30 @@ function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segm
 
 function detailSpan(key){return key==='earth'?.55:key==='mars'?1.4:.34}
 function activityRadius(key){return key==='earth'?75:key==='mars'?520:115}
+// The context mesh makes the feature part of the surrounding landscape. A
+// second, much denser focal mesh sits directly on the named landform. This
+// turns a few hundred metres of ordinary grid spacing into tens of metres at
+// Everest and Tycho without forcing the GPU to tessellate an entire planet.
+const FOCAL_MESH=Object.freeze({
+ earth:Object.freeze({span:.16,segments:384}),
+ mars:Object.freeze({span:.82,segments:352}),
+ moon:Object.freeze({span:1.8,segments:384})
+});
+export function focalTerrainProfile(key){return FOCAL_MESH[key]||null}
 function nearbyFeature(key,radiusKm,latitude,longitude){
  return (SURFACE_FEATURES[key]||[]).some(feature=>greatCircleDistanceKm(radiusKm,latitude,longitude,feature.latitude,feature.longitude)<activityRadius(key));
+}
+function activeFeatures(key,radiusKm,latitude,longitude){
+ return (SURFACE_FEATURES[key]||[]).filter(feature=>greatCircleDistanceKm(radiusKm,latitude,longitude,feature.latitude,feature.longitude)<activityRadius(key));
 }
 function patchMaterial(baseMaterial) {
  const material=baseMaterial.clone();
  material.displacementMap=null;material.displacementScale=0;
+ // Terrain patches follow a local east/north grid that crosses the texture
+ // seam and the lunar poles.  Render both faces so a platform-specific
+ // winding choice cannot make a surveyed slope disappear or turn black when
+ // the observer walks across that seam.
+ material.side=THREE.DoubleSide;
  material.polygonOffset=true;material.polygonOffsetFactor=-2;material.polygonOffsetUnits=-2;
  return material;
 }
@@ -164,6 +201,14 @@ export function createSurfaceTopography(body,baseMaterial) {
     const patchLongitude=wrapLongitude((Math.round(longitude/span)+column)*span);
     const mesh=new THREE.Mesh(patchGeometry(key,radiusKm,patchLatitude,patchLongitude,span,dem),patchMaterial(baseMaterial));
     mesh.name=`surface-topography:${key}:${row}:${column}`;mesh.frustumCulled=true;meshes.push(mesh);group.add(mesh);
+   }
+   // Keep the focal mesh at the surveyed coordinate, rather than snapping it
+   // to the observer's coarse patch grid. The summit, caldera and crater rim
+   // then remain in the same geographic place as the user walks around them.
+   const focal=FOCAL_MESH[key];
+   for(const feature of activeFeatures(key,radiusKm,latitude,longitude)){
+    const mesh=new THREE.Mesh(patchGeometry(key,radiusKm,feature.latitude,feature.longitude,focal.span,dem,focal.segments),patchMaterial(baseMaterial));
+    mesh.name=`surface-topography:${key}:focal:${feature.id}`;mesh.frustumCulled=true;meshes.push(mesh);group.add(mesh);
    }
   },
   get loaded(){return meshes.length},

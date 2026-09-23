@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {SURFACE_FEATURES,greatCircleDistanceKm,topographyHeightKm} from '../src/surface-topography.js';
+import {SURFACE_FEATURES,focalTerrainProfile,greatCircleDistanceKm,localTerrainPoint,nearestSurfaceFeature,topographyHeightKm} from '../src/surface-topography.js';
 
 test('surveyed landmark terrain is available only for Earth, Mars, and the Moon',()=>{
  assert.deepEqual(Object.keys(SURFACE_FEATURES).sort(),['earth','mars','moon']);
@@ -16,7 +16,7 @@ test('Everest retains its measured summit above the surrounding Earth terrain',(
 
 test('the Everest tile is a lossless numeric elevation raster, not a shaded image',()=>{
  const bytes=readFileSync(new URL('../public/textures/terrain/earth/everest-cop30-height.f32',import.meta.url));
- assert.equal(bytes.byteLength,512*512*4);
+ assert.equal(bytes.byteLength,1440*1800*4);
  const elevations=new Float32Array(bytes.buffer,bytes.byteOffset,bytes.byteLength/4);
  let highest=-Infinity;for(const elevation of elevations)highest=Math.max(highest,elevation);
  assert.ok(highest>8_700,'Copernicus crop must retain Everest-scale elevation');
@@ -48,4 +48,29 @@ test('Olympus Mons and Tycho have their characteristic relief signs',()=>{
 test('great-circle distance wraps across the longitude seam',()=>{
  const across=greatCircleDistanceKm(6371,0,179.9,0,-179.9);
  assert.ok(across>20&&across<25);
+});
+
+test('local terrain uses the same prime meridian and east direction as the surface frame',()=>{
+ const prime=localTerrainPoint(0,0),east=localTerrainPoint(0,90),north=localTerrainPoint(90,0);
+ assert.ok(prime[0]>.999&&Math.abs(prime[1])<1e-12&&Math.abs(prime[2])<1e-12);
+ assert.ok(east[2]<-.999);
+ assert.ok(north[1]>.999);
+});
+
+
+test('focal landmark meshes approach the native survey spacing without tessellating a whole globe',()=>{
+ const earth=focalTerrainProfile('earth'),mars=focalTerrainProfile('mars'),moon=focalTerrainProfile('moon');
+ assert.equal(earth.segments,384);
+ assert.equal(moon.segments,384);
+ assert.ok(earth.span/earth.segments*111_000<50,'Everest focal mesh should resolve roughly 40 m cells');
+ assert.ok(mars.span/mars.segments*59_000<150,'Olympus focal mesh should resolve sub-150 m cells');
+});
+
+
+test('a rounded known-place coordinate resolves to the nearby surveyed landmark',()=>{
+ const everest=nearestSurfaceFeature({key:'earth',radius:6371},28,87);
+ const tycho=nearestSurfaceFeature({key:'moon',name:'Księżyc',radius:1737.4},-43,-11);
+ assert.equal(everest?.id,'everest');
+ assert.equal(tycho?.id,'tycho');
+ assert.ok(everest.distanceKm<10);
 });

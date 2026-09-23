@@ -10,7 +10,7 @@ import {createSurfaceTopography} from './surface-topography.js';
 // planet at that cost.  Relief follows known ranges where they are important
 // to the silhouette; cloud worlds intentionally receive only a subtle layer.
 const ROCKY = Object.freeze({
- earth: [.0032, .19], moon: [.0072, .27], mars: [.0078, .25], mercury: [.0034, .2],
+ earth: [.0023, .19], moon: [.0072, .27], mars: [.0078, .25], mercury: [.0034, .2],
  venus: [.0011, .075], io: [.0038, .18], europa: [.0028, .12], ganymede: [.0042, .2],
  callisto: [.0047, .22], titan: [.0018, .1], enceladus: [.0044, .2], triton: [.004, .18],
  iapetus: [.006, .22], rhea: [.0046, .2], dione: [.0048, .21], tethys: [.0049, .21],
@@ -180,9 +180,12 @@ function detailedIrregularGeometry(seed) {
 }
 
 export function surfaceReliefClearance(body) {
- // A standing eye must clear the highest displaced vertex and retain a small
- // physical gap above the ground.  This also prevents culling through Phobos.
- return profileFor(body).relief * 1.18 + .0008;
+ // The old one-and-a-bit relief multiplier put an Earth observer tens of
+ // kilometres above the ground. That avoided clipping, but flattened the very
+ // mountains and craters surface view is meant to reveal. The local measured
+ // terrain layer now supplies its own exact elevation, so only a modest margin
+ // above the displaced global surface is needed here.
+ return profileFor(body).relief * .2 + .00018;
 }
 
 export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
