@@ -47,7 +47,7 @@ import {createImpactEffects} from './impact-effects.js';
 import {isShapeGeometry,keepsAuthoredGeometry,shapeGeometry,updateShapeLod} from './scene-lod.js';
 import {bodyAxes,largestAxis,measuredIrregularGeometry,hasMeasuredIrregularShape,surfaceRadialScale} from './body-shapes.js';
 import {enterSurfaceDetail,leaveSurfaceDetail,surfaceReliefClearance,updateSurfaceDetailTiles} from './surface-detail.js';
-import {nearestSurfaceFeature,topographyHeightKm} from './surface-topography.js';
+import {nearestSurfaceFeature,terrainActivationRadius,topographyHeightKm} from './surface-topography.js';
 import {createOrbitRibbon,updateOrbitRibbon} from './orbit-ribbon.js';
 import {auRadius,maxViewDistance,scaleRatio,sceneRadius} from './scene-scale.js';
 import {configureSolarShadow,participatesInSolarShadow} from './solar-shadows.js';
@@ -863,7 +863,7 @@ function aimAtLocalGround(){
 }
 function aimAtTerrainFeature(body){
  const feature=nearestSurfaceFeature(body,surfaceView.latitude,surfaceView.longitude);
- if(!feature)return false;
+ if(!feature||feature.distanceKm>terrainActivationRadius(body))return false;
  const fromLatitude=surfaceView.latitude*Math.PI/180,toLatitude=feature.latitude*Math.PI/180;
  const longitudeDelta=(feature.longitude-surfaceView.longitude)*Math.PI/180;
  const east=Math.sin(longitudeDelta)*Math.cos(toLatitude);

@@ -153,6 +153,7 @@ function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segm
 // terrain sheet itself. Otherwise a deliberately wider first frame could sit
 // just outside the stream radius and show only the fallback globe.
 function activityRadius(key){return key==='earth'?140:key==='mars'?1200:230}
+export function terrainActivationRadius(body){return activityRadius(surfaceAssetKey(body));}
 // A single measured sheet replaces the ordinary surface below it. The former
 // stack of context and focal sheets could z-fight with each other and with the
 // global displacement map. These extents include each full landmark plus a

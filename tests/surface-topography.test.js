@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {SURFACE_FEATURES,focalTerrainProfile,greatCircleDistanceKm,localTerrainPoint,nearestSurfaceFeature,topographyHeightKm} from '../src/surface-topography.js';
+import {SURFACE_FEATURES,focalTerrainProfile,greatCircleDistanceKm,localTerrainPoint,nearestSurfaceFeature,terrainActivationRadius,topographyHeightKm} from '../src/surface-topography.js';
 
 test('surveyed landmark terrain is available only for Earth, Mars, and the Moon',()=>{
  assert.deepEqual(Object.keys(SURFACE_FEATURES).sort(),['earth','mars','moon']);
@@ -74,4 +74,10 @@ test('a rounded known-place coordinate resolves to the nearby surveyed landmark'
  assert.equal(everest?.id,'everest');
  assert.equal(tycho?.id,'tycho');
  assert.ok(everest.distanceKm<10);
+});
+
+test('surveyed terrain only activates near its own landmark',()=>{
+ assert.equal(terrainActivationRadius({key:'earth'}),140);
+ const grandCanyon=nearestSurfaceFeature({key:'earth',radius:6371},36,-112);
+ assert.ok(grandCanyon.distanceKm>terrainActivationRadius({key:'earth'}));
 });
