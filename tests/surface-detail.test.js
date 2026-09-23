@@ -20,3 +20,10 @@ test('mapped worlds expose a nonzero physical relief profile', () => {
  assert.ok(mars.relief > 0);
  assert.ok(moon.relief > mars.relief * .8);
 });
+
+test('an unresolved moon never borrows the Moon’s height or tile profile',()=>{
+ const nereid=surfaceDetailProfile({key:'moon',name:'Nereida'}),moon=surfaceDetailProfile({key:'moon',name:'Księżyc'});
+ assert.equal(nereid.assetKey,null);
+ assert.equal(nereid.key,'moon:Nereida');
+ assert.equal(moon.assetKey,'moon');
+});

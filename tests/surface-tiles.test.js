@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {surfaceTileAddress,surfaceTileWindow,surfaceTileset} from '../src/surface-tiles.js';
+import {surfaceAssetKey,surfaceTileAddress,surfaceTileWindow,surfaceTileset} from '../src/surface-tiles.js';
 
 test('surface tile addresses wrap longitude and clamp latitude', () => {
  assert.deepEqual(surfaceTileAddress('earth', 0, -180), {key:'earth',column:0,row:2,id:'earth/0-2'});
@@ -24,3 +24,9 @@ test('only Earth, Moon and Mars have streamed surface tile sets', () => {
  assert.equal(surfaceTileset('jupiter'), null);
 });
 
+test('only Earth’s Moon inherits the moon tile source',()=>{
+ assert.equal(surfaceAssetKey({key:'moon',name:'Księżyc'}),'moon');
+ assert.equal(surfaceAssetKey({key:'moon',name:'Deimos'}),null);
+ assert.equal(surfaceAssetKey({key:'moon',name:'Nereida'}),null);
+ assert.equal(surfaceAssetKey({key:'moon',name:'Deimos',surface:'deimos-hires'}),'deimos-hires');
+});

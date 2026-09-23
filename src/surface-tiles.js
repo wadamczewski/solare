@@ -13,6 +13,15 @@ export const SURFACE_TILESETS = Object.freeze({
 const wrap = (value, length) => ((value % length) + length) % length;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
+// `key: moon` is a renderer category shared by every satellite.  It is not a
+// surface-data identity: only Earth's Moon has the local LROC/LOLA tile set.
+// A moon may opt into a future dedicated tile source with `surface`.
+export function surfaceAssetKey(body) {
+ if (body?.surface) return body.surface;
+ if (body?.key === 'moon') return ['Księżyc','Moon'].includes(body.name) ? 'moon' : null;
+ return body?.key || null;
+}
+
 export function surfaceTileset(key) {
  return SURFACE_TILESETS[key] || null;
 }
@@ -97,7 +106,7 @@ function materialFor(texture) {
 }
 
 export function createSurfaceTileStream(body, anisotropy = 1) {
- const tileset = surfaceTileset(body?.surface || body?.key);
+ const key=surfaceAssetKey(body),tileset = surfaceTileset(key);
  if (!tileset) return null;
  const group = new THREE.Group();
  group.name = 'surface-detail-tiles';
@@ -123,7 +132,7 @@ export function createSurfaceTileStream(body, anisotropy = 1) {
  return {
   group,
   update(latitude, longitude) {
-   const addresses = surfaceTileWindow(body.surface || body.key, latitude, longitude);
+   const addresses = surfaceTileWindow(key, latitude, longitude);
    wanted.clear(); addresses.forEach(address => wanted.add(address.id));
    for (const [id, mesh] of meshes) if (!wanted.has(id)) {
     group.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); meshes.delete(id);
@@ -139,4 +148,3 @@ export function createSurfaceTileStream(body, anisotropy = 1) {
   }
  };
 }
-

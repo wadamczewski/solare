@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {shapeGeometry} from './scene-lod.js';
 import {hasMeasuredIrregularShape,measuredIrregularGeometry} from './body-shapes.js';
 import {heightFieldToNormals, equirectangularTexelSpan, seamlessHeightField} from './surface-normal-detail.js';
-import {createSurfaceTileStream} from './surface-tiles.js';
+import {createSurfaceTileStream,surfaceAssetKey} from './surface-tiles.js';
 
 // A surface view has a single close body.  Its map can therefore use a dense
 // mesh and a local relief texture without asking the system map to keep every
@@ -55,10 +55,14 @@ function terrainHeight(u, v, seed, cloud) {
  const continents = valueNoise(u * (cloud ? 2 : 1.15), v * (cloud ? 2 : 1.15), seed + 101) - .5;
  return Math.max(0, Math.min(1, .5 + sum / weight * .58 + continents * .32 - latitude * (cloud ? .015 : .045)));
 }
+const MOON_PROFILE_KEYS=Object.freeze({
+ 'Księżyc':'moon',Moon:'moon',Fobos:'phobos',Deimos:'deimos',Io:'io',Europa:'europa',Ganimedes:'ganymede',Kallisto:'callisto',
+ Mimas:'mimas',Enceladus:'enceladus',Tetyda:'tethys',Dione:'dione',Rea:'rhea',Tytan:'titan',Japet:'iapetus',Hyperion:'hyperion',Tryton:'triton'
+});
 function profileFor(body) {
- const key = body.surface || body.key;
+ const assetKey=surfaceAssetKey(body),key=assetKey || MOON_PROFILE_KEYS[body?.name] || (body?.key==='moon'?`moon:${body.name}`:body?.key);
  const [relief, bump] = ROCKY[key] || (GAS.has(key) || body.gas ? [.00022, .065] : [.0032, .17]);
- return {key, relief, bump, cloud: GAS.has(key) || !!body.gas, seed: String(body.name || key).split('').reduce((n, char) => (n * 31 + char.charCodeAt(0)) >>> 0, 29)};
+ return {key,assetKey, relief, bump, cloud: GAS.has(key) || !!body.gas, seed: String(body.name || key).split('').reduce((n, char) => (n * 31 + char.charCodeAt(0)) >>> 0, 29)};
 }
 function heightMap(profile) {
  const cacheKey = `${profile.key}:${profile.seed}:${profile.cloud}`;
@@ -176,7 +180,7 @@ export function surfaceReliefClearance(body) {
 export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  if (!view || !body || view.surfaceDetail) return;
  const profile = profileFor(body), material = view.mesh.material;
- const mission = MISSION_ASSETS[profile.key];
+ const mission = MISSION_ASSETS[profile.assetKey];
  view.surfaceDetail = {geometry: view.mesh.geometry, material: {
  displacementMap: material.displacementMap, displacementScale: material.displacementScale,
   normalMap: material.normalMap, normalScale: material.normalScale?.clone(), anisotropy: material.map?.anisotropy,
@@ -202,7 +206,7 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  // broad albedo tint for the far-away system view.  At ground level retain
  // the full LROC colour signal, while keeping the previously installed
  // eclipse shader in the compilation chain.
- if (profile.key === 'moon' && mission?.color) {
+ if (profile.assetKey === 'moon' && mission?.color) {
   const previousCompile = material.onBeforeCompile, previousKey = material.customProgramCacheKey?.bind(material);
   material.onBeforeCompile = shader => {
    previousCompile?.(shader);
