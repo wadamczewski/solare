@@ -8,6 +8,20 @@ test('every included moon has its own documented appearance; maps are valid loca
  const moons=initialSystem().filter(b=>b.key==='moon');assert.equal(moons.length,23);
  for(const moon of moons){const profile=moonAppearance[moon.name];assert.ok(profile,moon.name);assert.ok(new Set(profile.sources).size>=2);for(const url of profile.sources)assert.equal(new URL(url).protocol,'https:');const path=moonMapPath(profile);if(path){const bytes=readFileSync(new URL('../public'+path,import.meta.url));assert.equal(bytes.readUInt16BE(0),0xffd8);assert.ok(bytes.length>10000);if(moon.name!=='Księżyc')assert.notEqual(path,'/textures/moon.jpg');}}
 });
+test('every downloaded moon mosaic has exactly the matching mission-source record',()=>{
+ const sourceRecords=JSON.parse(readFileSync(new URL('../public/textures/moons/sources.json',import.meta.url),'utf8'));
+ const sources=new Map(sourceRecords.map(record=>[record.body,record]));
+ const mapped=Object.values(moonAppearance).filter(profile=>profile.map&&!profile.map.startsWith('/'));
+ assert.equal(new Set(mapped.map(profile=>profile.id)).size,mapped.length,'mapped moon profile ids must be unique');
+ assert.deepEqual([...sources.keys()].sort(),mapped.map(profile=>profile.id).sort());
+ for(const profile of mapped){
+  const source=sources.get(profile.id);
+  assert.ok(source,profile.id);
+  assert.match(decodeURIComponent(source.url),new RegExp(`\\b${profile.id}(?:_|\\.)`,`i`),`${profile.id} source URL`);
+  assert.equal(profile.map,profile.id,`${profile.id} map filename must match its source identity`);
+  assert.equal(source.valid,true,profile.id);
+ }
+});
 test('Titan and poorly mapped moons never inherit lunar craters or metallic material',()=>{
  for(const name of ['Tytan','Miranda','Ariel','Umbriel','Tytania','Oberon','Proteusz','Nereida']){const mat=new MeshStandardMaterial({map:new Texture(),metalness:1});applyMoonAppearance(mat,{key:'moon',name},{});assert.equal(mat.map,null);assert.equal(mat.metalness,0);assert.equal(mat.roughness,1);}
 });

@@ -24,6 +24,13 @@ const MISSION_ASSETS = Object.freeze({
  mars: {height: '/textures/surface/mars-mola-height.jpg', normal: '/textures/surface/mars-mola-normal.jpg'}
 });
 
+// This is deliberately keyed through surfaceAssetKey(), never through the
+// renderer category.  In particular, every satellite has key: 'moon' while
+// only Earth's Moon owns the LROC/LOLA products.
+export function missionAssetsForBody(body) {
+ return MISSION_ASSETS[surfaceAssetKey(body)] || null;
+}
+
 function missionTexture(path, color) {
  if (detailTextures.has(path)) return detailTextures.get(path);
  const texture = detailLoader.load(path);
@@ -180,7 +187,7 @@ export function surfaceReliefClearance(body) {
 export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  if (!view || !body || view.surfaceDetail) return;
  const profile = profileFor(body), material = view.mesh.material;
- const mission = MISSION_ASSETS[profile.assetKey];
+ const mission = missionAssetsForBody(body);
  view.surfaceDetail = {geometry: view.mesh.geometry, material: {
  displacementMap: material.displacementMap, displacementScale: material.displacementScale,
   normalMap: material.normalMap, normalScale: material.normalScale?.clone(), anisotropy: material.map?.anisotropy,

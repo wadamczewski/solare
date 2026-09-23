@@ -17,7 +17,16 @@ const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 // surface-data identity: only Earth's Moon has the local LROC/LOLA tile set.
 // A moon may opt into a future dedicated tile source with `surface`.
 export function surfaceAssetKey(body) {
- if (body?.surface) return body.surface;
+ const requested = body?.surface;
+ // A persisted state may contain a `surface` override.  Do not let one of
+ // the three shared mission collections become an alias for a different
+ // world: a Moon tile set on Nereid is much worse than falling back to its
+ // own global/procedural appearance.  Unknown names remain valid future
+ // dedicated sources (for example `deimos-hires`).
+ if (requested === 'earth' && body?.key !== 'earth') return null;
+ if (requested === 'mars' && body?.key !== 'mars') return null;
+ if (requested === 'moon' && !['Księżyc','Moon'].includes(body?.name)) return null;
+ if (requested) return requested;
  if (body?.key === 'moon') return ['Księżyc','Moon'].includes(body.name) ? 'moon' : null;
  return body?.key || null;
 }

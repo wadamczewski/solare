@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {surfaceDetailProfile, surfaceReliefClearance} from '../src/surface-detail.js';
+import {missionAssetsForBody, surfaceDetailProfile, surfaceReliefClearance} from '../src/surface-detail.js';
 import {shapeGeometry} from '../src/scene-lod.js';
+import {initialSystem} from '../src/physics.js';
 
 test('surface detail retains a far denser mesh than the ordinary high LOD', () => {
  assert.ok(shapeGeometry('surface').attributes.position.count > shapeGeometry('high').attributes.position.count * 10);
@@ -26,4 +27,23 @@ test('an unresolved moon never borrows the Moon’s height or tile profile',()=>
  assert.equal(nereid.assetKey,null);
  assert.equal(nereid.key,'moon:Nereida');
  assert.equal(moon.assetKey,'moon');
+});
+
+test('mission surface products are assigned only to their measured worlds',()=>{
+ const expected=new Map([
+  ['Ziemia','/textures/surface/earth-blue-marble-4k.jpg'],
+  ['Księżyc','/textures/surface/moon-lroc-color.jpg'],
+  ['Mars','/textures/surface/mars-mola-height.jpg']
+ ]);
+ for(const body of initialSystem()){
+  const assets=missionAssetsForBody(body);
+  if(expected.has(body.name)) assert.equal(assets?.color||assets?.height,expected.get(body.name),body.name);
+  else assert.equal(assets,null,`${body.name} must not inherit a mission surface product`);
+ }
+});
+
+test('stale shared surface overrides fall back safely instead of leaking another world’s data',()=>{
+ assert.equal(missionAssetsForBody({key:'moon',name:'Nereida',surface:'moon'}),null);
+ assert.equal(missionAssetsForBody({key:'moon',name:'Deimos',surface:'mars'}),null);
+ assert.equal(missionAssetsForBody({key:'mars',name:'Mars',surface:'mars'})?.height,'/textures/surface/mars-mola-height.jpg');
 });
