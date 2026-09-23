@@ -179,6 +179,11 @@ rows.push(
  ['Mysz · rozglądanie','Mouse · look around','Maus · umsehen','Ratón · mirar alrededor'],
  ['Prawy przycisk lub WASD aktywuje mysz','Right mouse button or WASD activates mouse look','Rechte Maustaste oder WASD aktiviert die Maussteuerung','El botón derecho o WASD activa la vista con ratón'],
  ['Escape · zwolnij mysz','Escape · release mouse','Escape · Maus freigeben','Escape · liberar ratón']
+ ,['Sterowanie','Controls','Steuerung','Controles'],
+ ['Sterowanie widokiem z powierzchni','Surface-view controls','Steuerung der Oberflächenansicht','Controles de vista desde la superficie'],
+ ['Kliknij scenę · mysz: rozglądanie','Click the scene · mouse: look around','Szene anklicken · Maus: umsehen','Haz clic en la escena · ratón: mirar alrededor'],
+ ['Pinch / kółko · przybliżenie','Pinch / wheel · zoom','Pinch / Mausrad · Zoom','Pinza / rueda · zoom'],
+ ['Esc · zwolnij mysz','Esc · release mouse','Esc · Maus freigeben','Esc · liberar el ratón']
 );
 rows.push(
  ['Lokalizacja urządzenia','Device location','Gerätestandort','Ubicación del dispositivo'],
