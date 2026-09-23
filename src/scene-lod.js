@@ -33,8 +33,8 @@ export function shapeLodForDiameter(diameter) {
 
 export function updateShapeLod(view, camera, viewportHeight) {
  if (!view || view.hasDamageGeometry || view.irregular || view.surfaceDetail) return view?.lodLevel;
- const diameter = projectedDiameterPixels(
-  view.mesh.scale.x,
+  const diameter = projectedDiameterPixels(
+  Math.max(view.mesh.scale.x,view.mesh.scale.y,view.mesh.scale.z),
   camera.position.distanceTo(view.group.position),
   camera.fov,
   viewportHeight

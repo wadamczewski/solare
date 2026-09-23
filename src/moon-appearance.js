@@ -26,19 +26,19 @@ export const moonAppearance={
  'Tetyda':p('tethys','#cbd0cd','tethys',saturn),
  'Dione':p('dione','#b9ada4','dione',saturn),
  'Rea':p('rhea','#b8aea5','rhea',saturn),
- 'Tytan':p('titan','#bb8752',null,[nasa+'resource/highlighting-titans-hazes/',nasa+'saturn/moons/facts/'],{haze:true}),
+ 'Tytan':p('titan','#bb8752',null,[nasa+'resource/highlighting-titans-hazes/',nasa+'saturn/moons/facts/'],{haze:true,procedural:'haze'}),
  'Japet':p('iapetus','#c7c0a9','iapetus',[nasa+'resource/color-dichotomy-on-iapetus/',nasa+'photojournal/iapetus-bright-and-dark-terrains/'],{dark:'#33251e',dichotomy:true}),
  'Hyperion':p('hyperion','#826c57','hyperion',[nasa+'resource/saturns-battered-moon-hyperion/',nasa+'saturn/moons/hyperion/']),
  // Voyager finds only slight colour variations across Uranus's major moons;
  // retain their near-neutral tones rather than adding unsupported rust hues.
- 'Miranda':p('miranda','#96938c',null,uranus),
- 'Ariel':p('ariel','#a2a09a',null,uranus),
- 'Umbriel':p('umbriel','#686764',null,uranus),
- 'Tytania':p('titania','#84807a',null,uranus),
- 'Oberon':p('oberon','#77736d',null,uranus),
+ 'Miranda':p('miranda','#96938c',null,uranus,{procedural:'icy'}),
+ 'Ariel':p('ariel','#a2a09a',null,uranus,{procedural:'icy'}),
+ 'Umbriel':p('umbriel','#686764',null,uranus,{procedural:'dark-ice'}),
+ 'Tytania':p('titania','#84807a',null,uranus,{procedural:'icy'}),
+ 'Oberon':p('oberon','#77736d',null,uranus,{procedural:'dark-ice'}),
  'Tryton':p('triton','#c9b6ab','triton',[nasa+'resource/global-color-mosaic-of-triton/','https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m']),
- 'Proteusz':p('proteus','#4b4a47',null,[nasa+'neptune/moons/proteus/',nasa+'neptune/moons/facts/']),
- 'Nereida':p('nereid','#77736c',null,[nasa+'resource/nereid/',nasa+'neptune/moons/nereid/'],{unknown:true}),
+ 'Proteusz':p('proteus','#4b4a47',null,[nasa+'neptune/moons/proteus/',nasa+'neptune/moons/facts/'],{procedural:'dark-ice'}),
+ 'Nereida':p('nereid','#77736c',null,[nasa+'resource/nereid/',nasa+'neptune/moons/nereid/'],{unknown:true,procedural:'neutral'}),
 };
 export function moonMapPath(profile){return profile.map?.startsWith('/')?profile.map:profile.map?`/textures/moons/${profile.map}.jpg`:null;}
 export function loadMoonMaps(loader,anisotropy){
@@ -48,8 +48,46 @@ export function applyMoonAppearance(material,body,maps){
  const profile=body.key==='moon'?moonAppearance[body.name]:null;if(!profile)return;
  material.map=maps[profile.id]||null;material.color.set(profile.map?'#ffffff':profile.base);
  material.metalness=0;material.roughness=1;
- if(!profile.map)return;
+ const previousCompile=material.onBeforeCompile,previousKey=material.customProgramCacheKey?.bind(material);
+ if(!profile.map){
+  material.color.set('#ffffff');
+  material.onBeforeCompile=shader=>{
+   previousCompile?.(shader);
+   shader.uniforms.moonBase={value:new Color(profile.base)};
+   shader.uniforms.moonSurfaceKind={value:profile.procedural==='haze'?1:profile.procedural==='icy'?2:profile.procedural==='dark-ice'?3:0};
+   shader.vertexShader='varying vec3 vMoonSurface;\n'+shader.vertexShader;
+   shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvMoonSurface=normalize(position);');
+   shader.fragmentShader=`varying vec3 vMoonSurface;
+uniform vec3 moonBase;
+uniform float moonSurfaceKind;
+float moonSurfaceNoise(vec3 p){return fract(sin(dot(p,vec3(127.1,311.7,74.7)))*43758.5453123);}
+float moonSurfaceField(vec3 p){
+ vec3 cell=floor(p),fraction=fract(p),curve=fraction*fraction*(3.0-2.0*fraction);
+ float a=moonSurfaceNoise(cell),b=moonSurfaceNoise(cell+vec3(1.,0.,0.));
+ float c=moonSurfaceNoise(cell+vec3(0.,1.,0.)),d=moonSurfaceNoise(cell+vec3(1.,1.,0.));
+ return mix(mix(a,b,curve.x),mix(c,d,curve.x),curve.y);
+}
+`+shader.fragmentShader;
+   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#include <map_fragment>
+    vec3 p=normalize(vMoonSurface);
+    float broad=moonSurfaceField(p*3.7)+0.45*moonSurfaceField(p*10.1)-0.72;
+    float latitude=abs(p.y);
+    vec3 surface=moonBase*(1.0+broad*0.12);
+    if(moonSurfaceKind==1.0){
+     float haze=pow(1.0-latitude,1.8)*0.10+moonSurfaceField(p*2.1)*0.025;
+     surface=mix(surface,vec3(0.82,0.66,0.43),haze);
+    }else if(moonSurfaceKind==2.0){
+     surface*=1.0+broad*0.07;
+    }else if(moonSurfaceKind==3.0){
+     surface*=0.92+broad*0.10;
+    }
+    diffuseColor.rgb=surface;`);
+  };
+  material.customProgramCacheKey=()=>`${previousKey?.()||''}|moon-procedural-${profile.id}-2`;
+  return;
+ }
  material.onBeforeCompile=shader=>{
+  previousCompile?.(shader);
   shader.uniforms.moonBase={value:new Color(profile.base)};
   shader.uniforms.moonDark={value:new Color(profile.dark||profile.base).multiplyScalar(profile.dark?1:.25)};
   shader.fragmentShader='uniform vec3 moonBase;\nuniform vec3 moonDark;\n'+shader.fragmentShader;
@@ -59,5 +97,5 @@ export function applyMoonAppearance(material,body,maps){
   else correction=`${profile.missing?'if(detail<0.002)detail=0.22;':''}sampledDiffuseColor.rgb=mix(moonDark,moonBase,clamp(0.7+${(profile.contrast??1.3).toFixed(2)}*(detail-0.22),0.0,1.0));`;
   shader.fragmentShader=shader.fragmentShader.replace('#include <map_fragment>',`#ifdef USE_MAP\nvec4 sampledDiffuseColor=texture2D(map,vMapUv);\nfloat detail=dot(sampledDiffuseColor.rgb,vec3(0.2126,0.7152,0.0722));\n${correction}\ndiffuseColor*=sampledDiffuseColor;\n#endif`);
  };
- material.customProgramCacheKey=()=>`moon-appearance-${profile.id}-1`;
+ material.customProgramCacheKey=()=>`${previousKey?.()||''}|moon-appearance-${profile.id}-2`;
 }

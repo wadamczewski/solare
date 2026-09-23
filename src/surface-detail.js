@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {shapeGeometry} from './scene-lod.js';
+import {hasMeasuredIrregularShape,measuredIrregularGeometry} from './body-shapes.js';
 import {heightFieldToNormals, equirectangularTexelSpan, seamlessHeightField} from './surface-normal-detail.js';
 import {createSurfaceTileStream} from './surface-tiles.js';
 
@@ -184,7 +185,7 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  }};
  view.surfaceDetail.tiles = createSurfaceTileStream(body, maxAnisotropy);
  if (view.surfaceDetail.tiles) view.mesh.add(view.surfaceDetail.tiles.group);
- view.mesh.geometry = body.irregular ? detailedIrregularGeometry(profile.seed) : shapeGeometry('surface');
+ view.mesh.geometry = hasMeasuredIrregularShape(body) ? measuredIrregularGeometry(body,6) : body.irregular ? detailedIrregularGeometry(profile.seed) : shapeGeometry('surface');
  view.surfaceDetail.ownedGeometry = !!body.irregular;
  if (!body.irregular) {
   const map = mission?.height ? missionTexture(mission.height, false) : heightMap(profile);

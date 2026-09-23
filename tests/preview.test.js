@@ -13,6 +13,13 @@ test('body preview follows the source axis and current spin instead of its own a
  assert.equal(previewMesh.material,sourceMesh.material);
 });
 
+test('body preview preserves a triaxial silhouette while normalising its display size',()=>{
+ const sourceAxis=new THREE.Group(),sourceMesh=new THREE.Mesh(new THREE.SphereGeometry());sourceAxis.add(sourceMesh);
+ const previewAxis=sourceAxis.clone(true),previewMesh=previewAxis.children[0];sourceMesh.scale.set(4,3,2);
+ syncPreviewTransform(previewAxis,previewMesh,sourceAxis,sourceMesh);
+ assert.deepEqual(previewMesh.scale.toArray(),[1,.75,.5]);
+});
+
 test('body preview camera faces the illuminated hemisphere from the Sun direction',()=>{
  const sunDirection=new THREE.Vector3(-3,2,4),camera=previewCameraPosition(sunDirection,5);
  assert.ok(Math.abs(camera.length()-5)<1e-10);

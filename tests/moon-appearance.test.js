@@ -11,6 +11,14 @@ test('every included moon has its own documented appearance; maps are valid loca
 test('Titan and poorly mapped moons never inherit lunar craters or metallic material',()=>{
  for(const name of ['Tytan','Miranda','Ariel','Umbriel','Tytania','Oberon','Proteusz','Nereida']){const mat=new MeshStandardMaterial({map:new Texture(),metalness:1});applyMoonAppearance(mat,{key:'moon',name},{});assert.equal(mat.map,null);assert.equal(mat.metalness,0);assert.equal(mat.roughness,1);}
 });
+test('moons without a global mosaic still receive their own restrained procedural albedo layer',()=>{
+ for(const name of ['Tytan','Miranda','Ariel','Umbriel','Tytania','Oberon','Proteusz','Nereida']){
+  const mat=new MeshStandardMaterial();applyMoonAppearance(mat,{key:'moon',name},{});
+  const shader={uniforms:{},vertexShader:ShaderLib.standard.vertexShader,fragmentShader:ShaderLib.standard.fragmentShader};mat.onBeforeCompile(shader);
+  assert.match(shader.fragmentShader,/moonSurfaceField/,name);
+  assert.match(shader.vertexShader,/vMoonSurface/,name);
+ }
+});
 test('visible moon palettes preserve measured warm, icy and near-neutral families',()=>{
  assert.equal(moonAppearance['Księżyc'].base,'#756f65');
  assert.match(moonAppearance['Księżyc'].sources[0],/as08-analysis_photography_visual_obs/);
