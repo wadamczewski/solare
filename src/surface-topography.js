@@ -35,6 +35,14 @@ const LOCAL_DEMS=Object.freeze({
  earth:Object.freeze({
   path:'/textures/terrain/earth/everest-cop30-height.f32',width:512,height:512,
   south:27.5,north:28,west:86.6,east:87
+ }),
+ mars:Object.freeze({
+  path:'/textures/terrain/mars/olympus-mola-128ppd-height.f32',width:512,height:512,
+  south:12,north:26,west:218,east:234,positiveEast360:true
+ }),
+ moon:Object.freeze({
+  path:'/textures/terrain/moon/tycho-lola-height.f32',width:512,height:512,
+  south:-54,north:-33,west:-22.5,east:0
  })
 });
 
@@ -79,8 +87,9 @@ export function topographyHeightKm(assetKey, radiusKm, latitude, longitude) {
 }
 
 function sampledDemHeightKm(dem,latitude,longitude){
- if(!dem||latitude<dem.south||latitude>dem.north||longitude<dem.west||longitude>dem.east)return null;
- const x=(longitude-dem.west)/(dem.east-dem.west)*(dem.width-1),y=(dem.north-latitude)/(dem.north-dem.south)*(dem.height-1);
+ const sampleLongitude=dem?.positiveEast360&&longitude<0?longitude+360:longitude;
+ if(!dem||latitude<dem.south||latitude>dem.north||sampleLongitude<dem.west||sampleLongitude>dem.east)return null;
+ const x=(sampleLongitude-dem.west)/(dem.east-dem.west)*(dem.width-1),y=(dem.north-latitude)/(dem.north-dem.south)*(dem.height-1);
  const left=Math.max(0,Math.min(dem.width-2,Math.floor(x))),top=Math.max(0,Math.min(dem.height-2,Math.floor(y))),fx=x-left,fy=y-top;
  const a=dem.values[top*dem.width+left],b=dem.values[top*dem.width+left+1],c=dem.values[(top+1)*dem.width+left],d=dem.values[(top+1)*dem.width+left+1];
  return (a+(b-a)*fx+(c+(d-c)*fx-a-(b-a)*fx)*fy)/1000;

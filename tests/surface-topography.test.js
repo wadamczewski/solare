@@ -22,6 +22,20 @@ test('the Everest tile is a lossless numeric elevation raster, not a shaded imag
  assert.ok(highest>8_700,'Copernicus crop must retain Everest-scale elevation');
 });
 
+test('Mars and Moon terrain tiles retain the measured MOLA and LOLA relief ranges',()=>{
+ const readElevations=path=>{
+  const bytes=readFileSync(new URL(path,import.meta.url));assert.equal(bytes.byteLength,512*512*4);
+  return new Float32Array(bytes.buffer,bytes.byteOffset,bytes.byteLength/4);
+ };
+ const moon=readElevations('../public/textures/terrain/moon/tycho-lola-height.f32');
+ const mars=readElevations('../public/textures/terrain/mars/olympus-mola-128ppd-height.f32');
+ let moonLow=Infinity,marsHigh=-Infinity;
+ for(const elevation of moon)moonLow=Math.min(moonLow,elevation);
+ for(const elevation of mars)marsHigh=Math.max(marsHigh,elevation);
+ assert.ok(moonLow<-6,'LOLA tile must preserve Tycho-scale depth');
+ assert.ok(marsHigh>20,'MOLA tile must preserve Olympus Mons height');
+});
+
 test('Olympus Mons and Tycho have their characteristic relief signs',()=>{
  const olympus=topographyHeightKm('mars',3389.5,18.65,-133.8);
  const tychoFloor=topographyHeightKm('moon',1737.4,-43.31,-11.36);

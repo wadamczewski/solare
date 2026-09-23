@@ -13,17 +13,19 @@ zatem osobną, lokalną siatkę tylko przy obserwatorze.
 | Mars | MOLA + HRSC | Mars Trek: MOLA/HRSC i CTX/HiRISE w miejscach z pokryciem | globalnie 200 m, lokalnie z danych misji |
 | Księżyc | LOLA GDR / SLDEM | LROC WAC, lokalnie NAC | globalnie 118 m, gęściej w dostępnych obszarach |
 
-Pierwszy rzeczywisty kafel jest dołączony dla Everestu. To wycinek 27,5–28,0°
-N i 86,6–87,0° E, przeskalowany do 512×512 próbek z Copernicus GLO-30. Plik
-wysokości jest binarny (`Float32`) i ładuje się dopiero po podejściu do tego
-obszaru. Zawiera wysokości, a nie grafikę cieniowania, dzięki czemu normalne
-siatki są liczone z faktycznej rzeźby terenu.
+Dołączone są trzy rzeczywiste kafle wysokości: Everest (Copernicus GLO-30,
+27,5–28,0° N i 86,6–87,0° E), Olympus Mons (MOLA MEGDR 128 px/°, 12–26° N
+i 218–234° E) oraz Tycho (LOLA, 16 px/°, 54–33° S i 337,5–360° E). Każdy
+jest przeskalowany do 512×512 próbek `Float32` i ładuje się dopiero po
+podejściu do danego obszaru. Są to wysokości, nie grafiki cieniowania, więc
+normalne lokalnej siatki wynikają z faktycznej rzeźby terenu. Copernicus
+zachowuje 30‑metrowe źródło w rejonie Everestu; MOLA i LOLA zachowują
+odpowiednio rozdzielczość źródłową około 463 m i 7 km w dołączonych
+wycinkach.
 
-W pobliżu Olympus Mons oraz Tycho i Copernicusa działa również lokalna,
-gęsta siatka o profilach opartych o opublikowane wymiary tych form. Zostaje
-ona automatycznie zastąpiona surowym kaflem MOLA/HRSC albo LOLA/SLDEM, kiedy
-kafel zostanie dodany do katalogu danych. Dzięki temu przejście nie wymaga
-zmiany ani widoku, ani formatu kafli.
+Profil dla Copernicusa pozostaje bezpiecznym przejściem do czasu dołączenia
+jego osobnego kafla LOLA/SLDEM. Format i mechanizm ładowania są już takie
+same, więc nie wymaga to przebudowy widoku.
 
 ## Zasady dołączania następnych kafli
 
