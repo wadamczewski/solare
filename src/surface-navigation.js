@@ -1,7 +1,10 @@
 // Surface view is a map-scale first-person explorer. These rates make a held
 // key visibly change the terrain on worlds as large as Jupiter while keeping
 // the fast option explicit and testable.
-export const SURFACE_TRAVERSAL_SPEED_KM_S=Object.freeze({normal:10,sprint:60});
+// Default traversal matches the former Shift pace: surface coordinates should
+// change at a useful exploratory rate without requiring a modifier key.
+// Shift remains a deliberate fast-traverse mode for crossing a large world.
+export const SURFACE_TRAVERSAL_SPEED_KM_S=Object.freeze({normal:60,sprint:360});
 
 const toDegrees=radians=>radians*180/Math.PI;
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
