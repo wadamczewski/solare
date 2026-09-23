@@ -231,6 +231,11 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  view.surfaceDetail.tiles = createSurfaceTileStream(body, maxAnisotropy);
  if (view.surfaceDetail.tiles) view.mesh.add(view.surfaceDetail.tiles.group);
  view.surfaceDetail.topography = createSurfaceTopography(body, material);
+ // Everest, Olympus Mons, Tycho and Copernicus receive a measured mesh on
+ // top of the otherwise spherical map. Disable the approximate global vertex
+ // displacement for those worlds while standing on them: it was a second
+ // physical surface and could protrude through the surveyed one.
+ if (view.surfaceDetail.topography) material.displacementScale = 0;
  if (view.surfaceDetail.topography) view.mesh.add(view.surfaceDetail.topography.group);
  if (material.map) material.map.anisotropy = Math.max(material.map.anisotropy || 1, Math.min(16, maxAnisotropy));
  material.needsUpdate = true;

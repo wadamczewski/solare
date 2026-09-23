@@ -60,10 +60,11 @@ test('local terrain uses the same prime meridian and east direction as the surfa
 
 test('focal landmark meshes approach the native survey spacing without tessellating a whole globe',()=>{
  const earth=focalTerrainProfile('earth'),mars=focalTerrainProfile('mars'),moon=focalTerrainProfile('moon');
- assert.equal(earth.segments,384);
- assert.equal(moon.segments,384);
- assert.ok(earth.span/earth.segments*111_000<50,'Everest focal mesh should resolve roughly 40 m cells');
- assert.ok(mars.span/mars.segments*59_000<150,'Olympus focal mesh should resolve sub-150 m cells');
+ assert.equal(earth.segments,1024);
+ assert.equal(moon.segments,640);
+ assert.ok(earth.span/earth.segments*111_000<80,'Everest sheet should resolve sub-80 m cells across its full panorama');
+ assert.ok(mars.span/mars.segments*59_000<1_000,'Olympus sheet should resolve sub-kilometre cells across the full shield');
+ assert.ok(moon.span/moon.segments*30_000<300,'Tycho sheet should resolve a few hundred metres across the full crater');
 });
 
 

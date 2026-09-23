@@ -118,7 +118,8 @@ export function localTerrainPoint(latitude,longitude,radial=1) {
  // visually flat even though the correct DEM had already been loaded.
  return [Math.cos(lon)*cosLat*radial,Math.sin(lat)*radial,-Math.sin(lon)*cosLat*radial];
 }
-function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segments=96) {
+const smoothstep=value=>value<=0?0:value>=1?1:value*value*(3-2*value);
+function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segments=96,feather=.14) {
  const vertices=[],uvs=[],indices=[];
  const latSpan=spanDegrees,lonSpan=spanDegrees/Math.max(.13,Math.cos(radians(latitude)));
  for(let y=0;y<=segments;y++)for(let x=0;x<=segments;x++){
@@ -129,7 +130,12 @@ function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segm
   // small binary tile is still in flight or unavailable offline.
   const sampled=sampledDemHeightKm(dem,lat,lon);
   const height=sampled??topographyHeightKm(assetKey,radiusKm,lat,lon);
-  const radial=1+height/radiusKm;
+  // Fade measured terrain back into the undistorted globe before the outer
+  // edge. The local shell then has no visible lip, while the central survey
+  // keeps every measured ridge, valley and crater at full amplitude.
+  const edge=Math.min(x/segments,1-x/segments,y/segments,1-y/segments);
+  const blend=smoothstep(edge/feather);
+  const radial=1+height*blend/radiusKm+.00000005;
   vertices.push(...localTerrainPoint(lat,lon,radial));
   uvs.push((lon+180)/360,(90-lat)/180);
  }
@@ -143,23 +149,22 @@ function patchGeometry(assetKey,radiusKm,latitude,longitude,spanDegrees,dem,segm
  geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
 }
 
-function detailSpan(key){return key==='earth'?.55:key==='mars'?1.4:.34}
-function activityRadius(key){return key==='earth'?75:key==='mars'?520:115}
-// The context mesh makes the feature part of the surrounding landscape. A
-// second, much denser focal mesh sits directly on the named landform. This
-// turns a few hundred metres of ordinary grid spacing into tens of metres at
-// Everest and Tycho without forcing the GPU to tessellate an entire planet.
+// Includes the overview point selected for a named landmark as well as the
+// terrain sheet itself. Otherwise a deliberately wider first frame could sit
+// just outside the stream radius and show only the fallback globe.
+function activityRadius(key){return key==='earth'?140:key==='mars'?1200:230}
+// A single measured sheet replaces the ordinary surface below it. The former
+// stack of context and focal sheets could z-fight with each other and with the
+// global displacement map. These extents include each full landmark plus a
+// broad feathered border, while keeping the high vertex density local.
 const FOCAL_MESH=Object.freeze({
- earth:Object.freeze({span:.16,segments:384}),
- mars:Object.freeze({span:.82,segments:352}),
- moon:Object.freeze({span:1.8,segments:384})
+ earth:Object.freeze({span:.72,segments:1024,feather:.25}),
+ mars:Object.freeze({span:12,segments:768,feather:.16}),
+ moon:Object.freeze({span:5.6,segments:640,feather:.16})
 });
 export function focalTerrainProfile(key){return FOCAL_MESH[key]||null}
 function nearbyFeature(key,radiusKm,latitude,longitude){
  return (SURFACE_FEATURES[key]||[]).some(feature=>greatCircleDistanceKm(radiusKm,latitude,longitude,feature.latitude,feature.longitude)<activityRadius(key));
-}
-function activeFeatures(key,radiusKm,latitude,longitude){
- return (SURFACE_FEATURES[key]||[]).filter(feature=>greatCircleDistanceKm(radiusKm,latitude,longitude,feature.latitude,feature.longitude)<activityRadius(key));
 }
 function patchMaterial(baseMaterial) {
  const material=baseMaterial.clone();
@@ -169,14 +174,16 @@ function patchMaterial(baseMaterial) {
  // winding choice cannot make a surveyed slope disappear or turn black when
  // the observer walks across that seam.
  material.side=THREE.DoubleSide;
- material.polygonOffset=true;material.polygonOffsetFactor=-2;material.polygonOffsetUnits=-2;
+ // The regional sheet now sits just above an undisplaced sphere, so depth
+ // ordering is deterministic without polygon offset's driver-dependent
+ // cracks at glancing angles.
+ material.polygonOffset=false;
  return material;
 }
 
-// Builds a compact 3×3 local mesh only while the observer is close enough to
-// a DEM-backed landmark.  This avoids spending GPU time on terrain hidden on
-// the far side of a world, and also prevents an additional shell from hiding
-// the ordinary surface map elsewhere.
+// Builds one seamless local mesh only while the observer is close enough to a
+// DEM-backed landmark. This prevents the ordinary sphere from peeking through
+// one or more overlapping terrain sheets and keeps the high-detail cost local.
 export function createSurfaceTopography(body,baseMaterial) {
  const key=surfaceAssetKey(body),radiusKm=Number(body?.radius);
  if(!key||!Number.isFinite(radiusKm)||!SURFACE_FEATURES[key]?.length||!baseMaterial)return null;
@@ -194,22 +201,12 @@ export function createSurfaceTopography(body,baseMaterial) {
  return {group,
   update(latitude,longitude){
    if(!nearbyFeature(key,radiusKm,latitude,longitude)){if(meshes.length)clear();signature='';return}
-   const span=detailSpan(key),id=`${key}:${Math.round(latitude/span)}:${Math.round(longitude/span)}`;
+   const feature=nearestSurfaceFeature(body,latitude,longitude),focal=FOCAL_MESH[key];
+   if(!feature||feature.distanceKm>=activityRadius(key))return;
+   const id=`${key}:${feature.id}`;
    if(id===signature)return;signature=id;clear();
-   for(let row=-1;row<=1;row++)for(let column=-1;column<=1;column++){
-    const patchLatitude=Math.max(-89.7,Math.min(89.7,(Math.round(latitude/span)+row)*span));
-    const patchLongitude=wrapLongitude((Math.round(longitude/span)+column)*span);
-    const mesh=new THREE.Mesh(patchGeometry(key,radiusKm,patchLatitude,patchLongitude,span,dem),patchMaterial(baseMaterial));
-    mesh.name=`surface-topography:${key}:${row}:${column}`;mesh.frustumCulled=true;meshes.push(mesh);group.add(mesh);
-   }
-   // Keep the focal mesh at the surveyed coordinate, rather than snapping it
-   // to the observer's coarse patch grid. The summit, caldera and crater rim
-   // then remain in the same geographic place as the user walks around them.
-   const focal=FOCAL_MESH[key];
-   for(const feature of activeFeatures(key,radiusKm,latitude,longitude)){
-    const mesh=new THREE.Mesh(patchGeometry(key,radiusKm,feature.latitude,feature.longitude,focal.span,dem,focal.segments),patchMaterial(baseMaterial));
-    mesh.name=`surface-topography:${key}:focal:${feature.id}`;mesh.frustumCulled=true;meshes.push(mesh);group.add(mesh);
-   }
+   const mesh=new THREE.Mesh(patchGeometry(key,radiusKm,feature.latitude,feature.longitude,focal.span,dem,focal.segments,focal.feather),patchMaterial(baseMaterial));
+   mesh.name=`surface-topography:${key}:${feature.id}`;mesh.frustumCulled=true;meshes.push(mesh);group.add(mesh);
   },
   get loaded(){return meshes.length},
   dispose(){clear()}

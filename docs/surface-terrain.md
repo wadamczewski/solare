@@ -20,9 +20,11 @@ i 218–234° E) oraz Tycho (LOLA, 16 px/°, 54–33° S i 337,5–360° E). Ka�
 oryginalne 1 440 × 1 800 próbek Copernicus GLO-30 dla wycinka 0,4° × 0,5°:
 około 30 m w danych źródłowych. MOLA i LOLA są przechowywane jako kompaktowe
 rastry `Float32`; lokalna siatka kontekstu ma 96 segmentów na fragment, a
-osobna siatka ogniskowa ma 352–384 segmenty. Daje to około 40 m w pobliżu
-Everestu, około 140 m w kalderze Olympus Mons i około 45 m dla centralnej
-części Tycho, bez zagęszczania całej planety. Są to wysokości, nie grafiki
+osobna siatka ogniskowa ma 640–1 024 segmenty. Jedna lokalna siatka zastępuje
+pod sobą zwykłą, wypieraną powierzchnię i łagodnie wygasza wysokość przy
+krawędzi. Daje to poniżej 80 m dla całej panoramy Everestu, poniżej 1 km dla
+całego Olympus Mons i poniżej 300 m dla pełnego krateru Tycho, bez
+zagęszczania całej planety. Są to wysokości, nie grafiki
 cieniowania, więc normalne lokalnej siatki wynikają z faktycznej rzeźby
 terenu.
 
@@ -36,8 +38,8 @@ same, więc nie wymaga to przebudowy widoku.
    przeglądarka nie pobiera wielogigabajtowego rastra planetarnego.
 2. Kafel zapisujemy bezstratnie jako `Float32` lub Terrain-RGB; nie używamy
    JPEG do wysokości.
-3. W czasie działania utrzymujemy jedynie okno 3×3 lokalnych siatek obok
-   obserwatora. Po oddaleniu są zwalniane.
+3. W czasie działania utrzymujemy tylko jedną lokalną siatkę obejmującą
+   wybrany punkt orientacyjny. Po oddaleniu jest zwalniana.
 4. Kolor, wysokość i normalne muszą mieć ten sam układ planetograficzny oraz
    ten sam południk zerowy. To zapobiega przesunięciu rzeźby względem tekstury.
 

@@ -879,6 +879,20 @@ function aimAtTerrainFeature(body){
  surfaceView.altitude=Math.max(-16,Math.min(38,elevation));
  return true;
 }
+function terrainShowcasePosition(body,feature){
+ // A named landmark opens from far enough away to contain its whole profile,
+ // rather than placing the camera on its summit, caldera floor or crater rim.
+ // The viewer can then walk toward it with the normal surface controls.
+ const distanceKm=Math.max(
+  feature.radiusKm*4.2,
+  feature.kind==='shield'?930:feature.kind==='crater'?165:76
+ );
+ const angular=distanceKm/body.radius, bearing=225*Math.PI/180;
+ const latitude=feature.latitude*Math.PI/180,longitude=feature.longitude*Math.PI/180;
+ const targetLatitude=Math.asin(Math.sin(latitude)*Math.cos(angular)+Math.cos(latitude)*Math.sin(angular)*Math.cos(bearing));
+ const targetLongitude=longitude+Math.atan2(Math.sin(bearing)*Math.sin(angular)*Math.cos(latitude),Math.cos(angular)-Math.sin(latitude)*Math.sin(targetLatitude));
+ return {latitude:targetLatitude*180/Math.PI,longitude:((targetLongitude*180/Math.PI+540)%360)-180};
+}
 function startSurfaceView(bodyId){
  if(cinematic)stopCinematic();
  const body=bs.find(b=>b.id===bodyId);if(!body)return;
@@ -905,9 +919,18 @@ function startSurfaceView(bodyId){
 // flight (or still arrives later from the ongoing watch) must not silently
 // carry the view back to wherever the device actually is.
 function goToKnownPlace(bodyId,place){
+ const body=bs.find(candidate=>candidate.id===bodyId);if(!body)return;
  startSurfaceView(bodyId);
  if(!surfaceView)return;
  surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;surfaceView.locationOverride=true;
+ const landmark=nearestSurfaceFeature(body,surfaceView.latitude,surfaceView.longitude);
+ // Only the surveyed landmarks use the cinematic overview. Other named
+ // places remain exact point-of-interest destinations.
+ if(landmark&&landmark.distanceKm<=Math.max(40,landmark.radiusKm*1.5)){
+  const overview=terrainShowcasePosition(body,landmark);
+  surfaceView.latitude=overview.latitude;surfaceView.longitude=overview.longitude;
+  surfaceView.fov=80;
+ }
  if(!aimAtTerrainFeature(body))aimAtLocalGround();
  buildSurfaceHud();updateSurfaceView();paintEarthLocation();
  // A known place deserves the same treatment as a body, constellation, or
