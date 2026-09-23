@@ -1,3 +1,8 @@
+// Surface view is a map-scale first-person explorer. These rates make a held
+// key visibly change the terrain on worlds as large as Jupiter while keeping
+// the fast option explicit and testable.
+export const SURFACE_TRAVERSAL_SPEED_KM_S=Object.freeze({normal:10,sprint:60});
+
 const toDegrees=radians=>radians*180/Math.PI;
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));
 

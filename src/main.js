@@ -65,7 +65,7 @@ import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
 import {createShareState,shareTokenFromLocation,shareUrl} from './share-state.js';
 import {timelineEvents} from './event-timeline.js';
 import {surfaceAtmosphere,surfaceLightLabel} from './surface-atmosphere.js';
-import {moveSurfaceCoordinates} from './surface-navigation.js';
+import {moveSurfaceCoordinates,SURFACE_TRAVERSAL_SPEED_KM_S} from './surface-navigation.js';
 import {educationMetrics,vectorLength} from './education-metrics.js';
 import {CINEMATIC_DURATION_SECONDS,cinematicPose} from './cinematic-camera.js';
 import {createAdaptiveQuality} from './adaptive-quality.js';
@@ -470,7 +470,7 @@ renderer.domElement.addEventListener('pointermove',e=>{if(down&&Math.hypot(e.cli
 renderer.domElement.addEventListener('pointerleave',()=>{hoveredConstellation=null;hoveredDeepSky=null;sky.clearConstellationHighlight();sky.clearDeepSkyHighlight();tip.hidden=true});
 document.addEventListener('languagechange',()=>{if(hoveredConstellation&&!tip.hidden)tip.textContent=constellationLabel(hoveredConstellation,getLanguage())});
 document.addEventListener('languagechange',()=>{if(panel.hidden||!skySubject)return;const subject=skySubject;if(subject.kind==='constellation')showConstellation(subject.entry);else if(subject.kind==='place')showKnownPlace(subject.bodyId,subject.place);else showDeepSky(subject.entry)});
-renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const landmark=pickLandmark(e);const id=landmark?null:hit(e);
+renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer);if(surfaceView){down=null;return}if(lightFlight||e.button!==0||!down||Math.hypot(e.clientX-down.x,e.clientY-down.y)>5){down=null;return}down=null;const landmark=pickLandmark(e);const id=landmark?null:hit(e);
  // Picking again rather than trusting the hover state, which a touch pointer
  // never produces. A marker, a landmark pin, or a figure under the cursor
  // opens its own sheet; only genuinely empty sky falls through to the body
@@ -481,7 +481,7 @@ renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer
  const deepSky=id||landmark?null:showDeepSkyMarkers?sky.pickDeepSkyMarker(e,camera,renderer.domElement):null;
  const constellation=id||landmark||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;
  if(landmark)goToKnownPlace(bodyLandmarks.bodyId,landmark);else if(id){selected=id;showBody()}else if(deepSky)showDeepSky(deepSky);else if(constellation)showConstellation(constellation);else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
-renderer.domElement.addEventListener('dblclick',e=>{const id=hit(e);if(id)focusBody(id)});
+renderer.domElement.addEventListener('dblclick',e=>{if(surfaceView)return;const id=hit(e);if(id)focusBody(id)});
 function shell(title,content){preview.clear();delete panel.dataset.bodyId;restoreFocus=document.activeElement;panel.innerHTML=`<div class="panel-head"><h2>${title}</h2><button class="close" aria-label="Zamknij">×</button></div>${content}`;panel.hidden=false;panel.querySelector('.close').onclick=closePanel}
 function closePanel(){preview.clear();clearBodyLandmarks();panel.hidden=true;selected=null;skySubject=null;restoreFocus?.focus?.()}
 const row=(label,html)=>`<div class="row"><label>${label}</label>${html}</div>`;
@@ -1036,7 +1036,7 @@ function createSurfaceNavigation(element){
  let pointerLocked=false;
  const active=()=>!!surfaceView&&([...keys].some(key=>movement.has(key))||pointerLocked);
  function release(){keys.clear();if(document.pointerLockElement===element)document.exitPointerLock?.();pointerLocked=false;element.classList.remove('mouse-steering')}
- function requestLook(){if(!surfaceView||pointerLocked||!element.requestPointerLock)return;const lock=element.requestPointerLock();lock?.catch?.(()=>{})}
+ function requestLook(){if(!surfaceView||pointerLocked||!element.requestPointerLock)return;element.focus?.({preventScroll:true});const lock=element.requestPointerLock();lock?.catch?.(()=>{})}
  function turn(dx,dy){
   if(!surfaceView)return;
   const scale=surfaceView.fov/innerHeight;
@@ -1046,7 +1046,10 @@ function createSurfaceNavigation(element){
  }
  document.addEventListener('pointerlockchange',()=>{
   pointerLocked=document.pointerLockElement===element;
-  if(pointerLocked)element.classList.add('mouse-steering');else element.classList.remove('mouse-steering');
+  // A normal left-button drag is the fallback for browsers which deny pointer
+  // lock. Once lock succeeds, cancel that drag so one mouse movement cannot
+  // turn the view twice.
+  if(pointerLocked){surfaceDrag=null;element.classList.add('mouse-steering')}else element.classList.remove('mouse-steering');
  });
  window.addEventListener('keydown',event=>{
   if(!surfaceView||editable(event)||event.ctrlKey||event.metaKey||event.altKey||!surfaceKeys.has(event.code))return;
@@ -1054,31 +1057,38 @@ function createSurfaceNavigation(element){
  },true);
  window.addEventListener('keyup',event=>{if(surfaceKeys.has(event.code))keys.delete(event.code)},true);
  window.addEventListener('blur',release);
+ // Standard first-person behaviour: a normal click on the world starts mouse
+ // steering. Right click still works for people accustomed to the old camera.
  element.addEventListener('pointerdown',event=>{
-  if(!surfaceView||event.button!==2)return;
-  event.preventDefault();event.stopImmediatePropagation();element.focus();requestLook();
+  if(!surfaceView||![0,2].includes(event.button))return;
+  if(event.button===2)event.preventDefault();
+  requestLook();
  },true);
  document.addEventListener('mousemove',event=>{if(pointerLocked&&surfaceView){event.preventDefault();event.stopImmediatePropagation();turn(event.movementX,event.movementY)}},true);
- return {reset:release,active,update(delta){
+ return {reset:release,active,locked:()=>pointerLocked,update(delta){
   if(!surfaceView||![...keys].some(key=>movement.has(key)))return;
   const body=surfaceBody();if(!body)return;
   const forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
   const right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
   if(!forward&&!right)return;
   const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  const speedKmS=sprint ? .12 : .02;
+  // Surface navigation is a map-scale traversal, not a literal walking
+  // simulator: the old 0.02 km/s changed an Earth coordinate by only a few
+  // metres per frame and appeared broken. These values keep a key hold
+  // visibly responsive even on giant planets; Shift is the fast traverse.
+  const speedKmS=sprint ? SURFACE_TRAVERSAL_SPEED_KM_S.sprint : SURFACE_TRAVERSAL_SPEED_KM_S.normal;
   const next=moveSurfaceCoordinates({latitude:surfaceView.latitude,longitude:surfaceView.longitude,azimuth:surfaceView.azimuth,radiusKm:body.radius,distanceKm:speedKmS*Math.min(delta,.05),forward,right});
   surfaceView.latitude=next.latitude;surfaceView.longitude=next.longitude;surfaceView.locationOverride=true;
-  paintEarthLocation();
+  paintEarthLocation();updateSurfaceView();
  }};
 }
 function surfaceLookHandlers(element){
  element.addEventListener('pointerdown',event=>{
-  if(!surfaceView||event.button!==0)return;
+  if(!surfaceView||event.button!==0||surfaceNavigation?.locked())return;
   surfaceDrag={x:event.clientX,y:event.clientY};element.setPointerCapture(event.pointerId);
  });
  element.addEventListener('pointermove',event=>{
-  if(!surfaceView||!surfaceDrag)return;
+  if(!surfaceView||!surfaceDrag||surfaceNavigation?.locked())return;
   const scale=surfaceView.fov/innerHeight;
   surfaceView.azimuth=((surfaceView.azimuth-(event.clientX-surfaceDrag.x)*scale)%360+360)%360;
   surfaceView.altitude=Math.max(-89,Math.min(89,surfaceView.altitude+(event.clientY-surfaceDrag.y)*scale));
@@ -1126,7 +1136,7 @@ function buildSurfaceHud(){
  // panel - that panel is about a body's physics, reachable for any body
  // whether or not it is the one under the observer's feet.
  const places=body?knownPlacesFor(body):[];
- surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">WSAD · ruch po powierzchni. Mysz lub przeciąganie · rozglądanie. Kółko zmienia pole widzenia.</p>`;
+ surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div><p class="muted surface-hint">Kliknij widok, aby przejąć mysz. WSAD · ruch po powierzchni. Shift · szybciej. Przeciąganie działa również bez przejęcia myszy. Kółko zmienia pole widzenia.</p>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
   clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.trackBrightest=false;
