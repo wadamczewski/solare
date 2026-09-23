@@ -66,7 +66,7 @@ import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
 import {createShareState,shareTokenFromLocation,shareUrl} from './share-state.js';
 import {timelineEvents} from './event-timeline.js';
 import {surfaceAtmosphere,surfaceLightLabel} from './surface-atmosphere.js';
-import {moveSurfaceCoordinates,SURFACE_TRAVERSAL_SPEED_KM_S} from './surface-navigation.js';
+import {moveSurfaceCoordinates,surfaceTraversalSpeed} from './surface-navigation.js';
 import {educationMetrics,vectorLength} from './education-metrics.js';
 import {CINEMATIC_DURATION_SECONDS,cinematicPose} from './cinematic-camera.js';
 import {createAdaptiveQuality} from './adaptive-quality.js';
@@ -1066,7 +1066,7 @@ function createSurfaceNavigation(element){
   const right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
   if(!forward&&!right)return;
   const sprint=keys.has('ShiftLeft')||keys.has('ShiftRight');
-  const speedKmS=sprint ? SURFACE_TRAVERSAL_SPEED_KM_S.sprint : SURFACE_TRAVERSAL_SPEED_KM_S.normal;
+  const speedKmS=surfaceTraversalSpeed(body.radius,sprint);
   const next=moveSurfaceCoordinates({latitude:surfaceView.latitude,longitude:surfaceView.longitude,azimuth:surfaceView.azimuth,radiusKm:body.radius,distanceKm:speedKmS*Math.min(delta,.05),forward,right});
   surfaceView.latitude=next.latitude;surfaceView.longitude=next.longitude;surfaceView.locationOverride=true;
   paintEarthLocation();updateSurfaceView();

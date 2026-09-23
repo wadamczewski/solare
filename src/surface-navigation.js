@@ -5,6 +5,17 @@
 // change at a useful exploratory rate without requiring a modifier key.
 // Shift remains a deliberate fast-traverse mode for crossing a large world.
 export const SURFACE_TRAVERSAL_SPEED_KM_S=Object.freeze({normal:60,sprint:360});
+export const SURFACE_REFERENCE_RADIUS_KM=6371;
+
+// A surface explorer should cross the same *angular* distance in the same
+// time on every body.  Keeping a fixed km/s rate made a key press leap across
+// Deimos while barely changing the horizon on Saturn.  Earth remains the
+// reference experience: 60 km/s normal, 360 km/s while holding Shift.
+export function surfaceTraversalSpeed(radiusKm,sprint=false){
+ if(!Number.isFinite(radiusKm)||radiusKm<=0)return 0;
+ const base=sprint?SURFACE_TRAVERSAL_SPEED_KM_S.sprint:SURFACE_TRAVERSAL_SPEED_KM_S.normal;
+ return base*radiusKm/SURFACE_REFERENCE_RADIUS_KM;
+}
 
 const toDegrees=radians=>radians*180/Math.PI;
 const clamp=(value,min,max)=>Math.max(min,Math.min(max,value));

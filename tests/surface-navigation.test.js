@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {moveSurfaceCoordinates,SURFACE_TRAVERSAL_SPEED_KM_S} from '../src/surface-navigation.js';
+import {moveSurfaceCoordinates,SURFACE_TRAVERSAL_SPEED_KM_S,surfaceTraversalSpeed} from '../src/surface-navigation.js';
 
 const earth={latitude:0,longitude:0,radiusKm:6371,distanceKm:10};
 
@@ -38,4 +38,17 @@ test('surface exploration rates move a visible map-scale distance and sprint rem
  const sprint=moveSurfaceCoordinates({latitude:0,longitude:0,azimuth:0,radiusKm:6371,distanceKm:SURFACE_TRAVERSAL_SPEED_KM_S.sprint*.05,forward:1});
  assert.ok(normal.latitude>.004,'a single frame must change an Earth coordinate visibly');
  assert.ok(sprint.latitude>normal.latitude*5,'Shift must retain a meaningful fast traversal');
+});
+
+test('surface speed scales with radius so equal key holds cover equal angular distance',()=>{
+ const deimos=6.2,saturn=58232,earth=6371;
+ assert.ok(surfaceTraversalSpeed(deimos)<1);
+ assert.ok(surfaceTraversalSpeed(saturn)>500);
+ assert.equal(surfaceTraversalSpeed(earth),SURFACE_TRAVERSAL_SPEED_KM_S.normal);
+ const duration=.05;
+ for(const radiusKm of [deimos,earth,saturn]){
+  const result=moveSurfaceCoordinates({latitude:0,longitude:0,azimuth:0,radiusKm,distanceKm:surfaceTraversalSpeed(radiusKm)*duration,forward:1});
+  assert.ok(Math.abs(result.latitude-0.026978)<1e-5,`${radiusKm} km should cover the Earth-reference angular step`);
+ }
+ assert.equal(surfaceTraversalSpeed(earth,true),SURFACE_TRAVERSAL_SPEED_KM_S.sprint);
 });
