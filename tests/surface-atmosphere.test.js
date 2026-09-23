@@ -24,4 +24,18 @@ test('the Earth atmosphere can be disabled without changing the daylight state',
  const state=surfaceAtmosphere('earth',45,false);
  assert.equal(state.phase,'day');
  assert.equal(state.opacity,0);
+ assert.equal(state.stars,1);
+ assert.equal(state.clouds,0);
+});
+
+
+test('Earth clouds and stars cross-fade through twilight', () => {
+ const dusk=surfaceAtmosphere('earth',-6);
+ const noon=surfaceAtmosphere('earth',45);
+ const night=surfaceAtmosphere('earth',-18);
+ assert.ok(dusk.clouds>0&&dusk.clouds<1);
+ assert.ok(dusk.stars>0&&dusk.stars<1);
+ assert.equal(noon.clouds,1);
+ assert.equal(night.clouds,0);
+ assert.equal(night.stars,1);
 });

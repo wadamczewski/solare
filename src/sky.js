@@ -140,7 +140,7 @@ varying vec3 dir;
 void main(){ dir = position; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.); }`;
 
 const BAND_FRAGMENT = `
-uniform sampler2D map; uniform float strength; uniform vec3 tint;
+uniform sampler2D map; uniform float strength; uniform float visibility; uniform vec3 tint;
 varying vec3 dir;
 const float PI = 3.141592653589793;
 const float COS_E = ${COS_E.toFixed(12)};
@@ -153,7 +153,7 @@ void main(){
  float ra = atan(ye, xe);
  float dec = asin(clamp(ze, -1., 1.));
  vec2 uv = vec2((ra + PI) / (2. * PI), (PI * .5 - dec) / PI);
- gl_FragColor = vec4(tint * texture2D(map, uv).r * strength, 1.);
+ gl_FragColor = vec4(tint * texture2D(map, uv).r * strength * visibility, visibility);
 }`;
 
 
@@ -171,25 +171,26 @@ void main(){
 // A soft core with a wide faint skirt reads as a point source once the bloom
 // pass spreads the brightest ones.
 const STAR_FRAGMENT = `
-varying vec3 c; varying float i;
+varying vec3 c; varying float i; uniform float visibility;
 void main(){
  float r = length(gl_PointCoord - .5) * 2.;
  if (r > 1.) discard;
  float core = pow(1. - r, 2.4);
- gl_FragColor = vec4(c * i * core, 1.);
+ gl_FragColor = vec4(c * i * core * visibility, visibility);
 }`;
 
 const GLOW_FRAGMENT = `
-varying vec3 c; varying float i;
+varying vec3 c; varying float i; uniform float visibility;
 void main(){
  float r = length(gl_PointCoord - .5) * 2.;
  if (r > 1.) discard;
- gl_FragColor = vec4(c * i * (1. - smoothstep(0., 1., r)), 1.);
+ float glow=visibility*(1. - smoothstep(0., 1., r));
+ gl_FragColor = vec4(c * i * glow, glow);
 }`;
 
 function pointsMaterial(fragment, dpr) {
  return new THREE.ShaderMaterial({
-  uniforms: {dpr: {value: dpr}, scale: {value: 1}},
+  uniforms: {dpr: {value: dpr}, scale: {value: 1}, visibility: {value: 1}},
   vertexShader: STAR_VERTEX, fragmentShader: fragment,
   transparent: true, ...skyLayerDepthState,
   blending: THREE.AdditiveBlending
@@ -262,7 +263,7 @@ export function createSky(dpr) {
  let loaded = false;
  let constellationVisible = false;
  let deepSkyMarkersVisible = false;
- let skyScale = 1;
+ let skyScale = 1, atmosphereVisibility = 1;
  let activeConstellation = null;
  let activeDeepSky = null;
  let constellationEntries = [], deepSkyEntries = [];
@@ -285,6 +286,13 @@ export function createSky(dpr) {
  const constellationFades = new Map();
  const CONSTELLATION_DIM_COLOR = new THREE.Color('#5f7fa8'), CONSTELLATION_LIT_COLOR = new THREE.Color('#d8edff');
  const CONSTELLATION_DIM_OPACITY = .34, CONSTELLATION_LIT_OPACITY = .96, CONSTELLATION_FADE_RATE = 12;
+ const applyAtmosphereVisibility=()=>{
+  for(const layer of [layers.stars,layers.milkyway,layers.deepSky,layers.deepSkyMarkers,layers.deepSkyHighlight]){
+   const uniform=layer?.material?.uniforms?.visibility;
+   if(uniform)uniform.value=atmosphereVisibility;
+  }
+  if(layers.band?.material?.uniforms?.visibility)layers.band.material.uniforms.visibility.value=atmosphereVisibility;
+ };
 
  const place = (ra, dec, target, index) => {
   const [x, y, z] = skyDirection(ra, dec);
@@ -352,6 +360,7 @@ export function createSky(dpr) {
 
   for (const layer of Object.values(layers)) { layer.renderOrder = -1; group.add(layer); }
   loaded = true;
+  applyAtmosphereVisibility();
   if(constellationVisible) ensureConstellationLayer();
   void refineSky(stars,grab).catch(error=>console.warn('Nie udało się uzupełnić mapy nieba:',error.message));
   return {stars: stars.count, glow: 0, deepSky: objects.length, names};
@@ -433,11 +442,11 @@ export function createSky(dpr) {
    new Promise((resolve,reject)=>new THREE.TextureLoader().load('/sky/milkyway.webp',resolve,undefined,()=>reject(new Error('milkyway.webp'))))
   ]);
   bandTexture.flipY=false;bandTexture.wrapS=THREE.RepeatWrapping;bandTexture.minFilter=THREE.LinearFilter;bandTexture.magFilter=THREE.LinearFilter;bandTexture.generateMipmaps=false;bandTexture.colorSpace=THREE.NoColorSpace;
-  layers.band=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,64,32),new THREE.ShaderMaterial({uniforms:{map:{value:bandTexture},strength:{value:.34},tint:{value:new THREE.Color(1,.965,.92)}},vertexShader:BAND_VERTEX,fragmentShader:BAND_FRAGMENT,side:THREE.BackSide,transparent:true,...skyLayerDepthState,blending:THREE.AdditiveBlending}));layers.band.frustumCulled=false;layers.band.renderOrder=-2;group.add(layers.band);
+  layers.band=new THREE.Mesh(new THREE.SphereGeometry(RADIUS,64,32),new THREE.ShaderMaterial({uniforms:{map:{value:bandTexture},strength:{value:.34},visibility:{value:1},tint:{value:new THREE.Color(1,.965,.92)}},vertexShader:BAND_VERTEX,fragmentShader:BAND_FRAGMENT,side:THREE.BackSide,transparent:true,...skyLayerDepthState,blending:THREE.AdditiveBlending}));layers.band.frustumCulled=false;layers.band.renderOrder=-2;group.add(layers.band);
   const glow=decodeGlow(glowBuffer);
   layers.milkyway=buildPoints(glow.count,({position,size,intensity,tint})=>{for(let i=0;i<glow.count;i++){place(unpackRA(glow.ra[i]),unpackDec(glow.dec[i]),position,i);const value=glow.brightness[i]/255;size[i]=1+value*.9;intensity[i]=.02+value*.075;tint[i*3]=1;tint[i*3+1]=.96;tint[i*3+2]=.9;}},GLOW_FRAGMENT,dpr);layers.milkyway.material.uniforms.scale.value=skyScale;layers.milkyway.renderOrder=-1;group.add(layers.milkyway);
   await waitForIdle();
-  const detailed=buildStarLayer(stars,dpr);detailed.material.uniforms.scale.value=skyScale;detailed.renderOrder=-1;group.remove(layers.stars);releaseLayer(layers.stars);layers.stars=detailed;group.add(detailed);
+  const detailed=buildStarLayer(stars,dpr);detailed.material.uniforms.scale.value=skyScale;detailed.renderOrder=-1;group.remove(layers.stars);releaseLayer(layers.stars);layers.stars=detailed;group.add(detailed);applyAtmosphereVisibility();
  }
 
  return {
@@ -510,6 +519,13 @@ export function createSky(dpr) {
    skyScale=value;
    for (const layer of [layers.stars, layers.milkyway, layers.deepSky, layers.deepSkyMarkers, layers.deepSkyHighlight])
     if (layer) layer.material.uniforms.scale.value = value;
+  },
+  // Ground observers look through an atmosphere. Fade the catalogue itself,
+  // rather than merely painting a translucent DOM veil above it, so stars and
+  // the Milky Way cannot bleed through a blue daytime sky.
+  setAtmosphereVisibility(value) {
+   atmosphereVisibility=Math.max(0,Math.min(1,Number(value)||0));
+   applyAtmosphereVisibility();
   },
   setViewport(width,height) {
    lineResolution.set(Math.max(1,width),Math.max(1,height));

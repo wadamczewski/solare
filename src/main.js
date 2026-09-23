@@ -1021,6 +1021,11 @@ function updateSurfaceAtmosphere(body,frame){
  const key=body.key==='moon'?body.name.toLowerCase():body.key;
  const state=surfaceAtmosphere(key,sun?.altitude??-90,body.key!=='earth'||surfaceView?.earthAtmosphereEnabled!==false);
  surfaceView.light={...state,sunAltitude:sun?.altitude??-90};
+ sky.setAtmosphereVisibility(state.stars);
+ const cloudOpacity=body.key==='earth'?(state.clouds||0):0;
+ earthCloudCover?.setDaylight(cloudOpacity);
+ surfaceCloudLayer.hidden=cloudOpacity<=.002;
+ surfaceCloudLayer.style.setProperty('--surface-cloud-opacity',(cloudOpacity*.84).toFixed(3));
  surfaceAtmosphereLayer.hidden=state.opacity<=0;
  surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-color',state.color);
  surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-opacity',state.opacity.toFixed(3));
@@ -1226,6 +1231,11 @@ const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';su
 // input legend remains in sight while an observer changes body or location.
 const surfaceControlsHelp=document.createElement('aside');surfaceControlsHelp.id='surface-controls-help';surfaceControlsHelp.hidden=true;surfaceControlsHelp.setAttribute('aria-label','Sterowanie widokiem z powierzchni');surfaceControlsHelp.innerHTML='<div class="surface-controls-keys" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div><strong>Sterowanie</strong><span>Kliknij scenę · mysz: rozglądanie</span><span>WSAD · ruch &nbsp; Shift · szybciej</span><span>Pinch / kółko · przybliżenie &nbsp; Esc · zwolnij mysz</span></div>';document.body.append(surfaceControlsHelp);
 const surfaceAtmosphereLayer=document.createElement('div');surfaceAtmosphereLayer.id='surface-atmosphere';surfaceAtmosphereLayer.hidden=true;surfaceAtmosphereLayer.setAttribute('aria-hidden','true');document.body.append(surfaceAtmosphereLayer);
+// A near observer sees the cloud volume in perspective as well as its moving
+// shadows on the ground. This soft screen-space face of the same procedural
+// weather field supplies the broad, high-altitude decks that cannot be read
+// reliably through a dense daylight-scattering veil.
+const surfaceCloudLayer=document.createElement('div');surfaceCloudLayer.id='surface-clouds';surfaceCloudLayer.hidden=true;surfaceCloudLayer.setAttribute('aria-hidden','true');document.body.append(surfaceCloudLayer);
 // A small rendered sky sphere standing in for the observer's surroundings -
 // see surface-radar.js - rather than a flat compass ring, so a tracked
 // body's full 3D direction (bearing *and* how far up or down to look) is

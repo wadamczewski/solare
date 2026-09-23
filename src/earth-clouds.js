@@ -7,9 +7,12 @@ import * as THREE from 'three';
 // dependency.
 const CLOUD_SIZE = Object.freeze({width: 256, height: 128});
 const CLOUD_LAYERS = Object.freeze([
- {radius: 1.007, opacity: .14, seed: 41, drift: 1},
- {radius: 1.011, opacity: .08, seed: 97, drift: .67},
- {radius: 1.016, opacity: .045, seed: 181, drift: .42}
+ // Cloud opacity is deliberately substantial at ground level: their gaps
+ // expose blue sky, while the decks themselves remain readable through the
+ // atmospheric scattering layer instead of becoming a featureless veil.
+ {radius: 1.007, opacity: .46, seed: 41, drift: 1},
+ {radius: 1.011, opacity: .28, seed: 97, drift: .67},
+ {radius: 1.016, opacity: .15, seed: 181, drift: .42}
 ]);
 const SHADOW_RADIUS = 1.0012;
 const wrap = value => value - Math.floor(value);
@@ -104,13 +107,22 @@ export function createEarthCloudCover() {
  const shadow = new THREE.Mesh(geometry, shadowMaterial(shadowMap));
  shadow.name = 'Earth cloud shadows'; shadow.scale.setScalar(SHADOW_RADIUS);
  shadow.renderOrder = 2; shadow.frustumCulled = false; group.add(shadow);
- let enabled = true;
+ let enabled = true, daylight = 1;
+ const applyVisibility=()=>{
+  group.visible=enabled&&daylight>.002;
+  for(const layer of layers)layer.mesh.material.opacity=layer.profile.opacity*daylight;
+  shadow.material.opacity=.22*daylight;
+ };
 
  return {
   group,
-  setEnabled(next) { enabled = !!next; group.visible = enabled; },
+  setEnabled(next) { enabled = !!next; applyVisibility(); },
+  // The physical cloud shells disappear below astronomical twilight. This
+  // retains their motion and ground shadows in daytime without leaving white
+  // patches visible against a truly dark night sky.
+  setDaylight(next) { daylight=Math.max(0,Math.min(1,Number(next)||0)); applyVisibility(); },
   update(time) {
-   if (!enabled) return;
+   if (!enabled || daylight<=.002) return;
    for (const layer of layers) {
     const offset = cloudDrift({...time, drift: layer.profile.drift});
     layer.map.offset.set(offset.x, offset.y);
