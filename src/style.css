@@ -195,3 +195,13 @@ body.on-a-surface #solar-brightness { display: none; }
 
 /* Object actions belong with the object identity, before editable numbers. */
 .panel-head+.primary-actions{margin:0 0 14px}.panel-head+.primary-actions .action{min-width:0}.primary-actions{flex-wrap:wrap}.primary-actions .action{flex:1 1 78px}
+
+/* Every persistent control uses the same frosted material as the surface
+   movement legend. Views may rearrange controls, but never change their
+   opacity: the map must stay visible behind each of them. */
+:root{--control-surface:rgba(7,11,22,.58);--control-filter:blur(16px) saturate(125%);--control-border:rgba(199,229,255,.15);--control-shadow:0 10px 30px rgba(0,0,0,.38)}
+#panel,#solar-control,#surface-view,#time-dock,#light-flight,#solar-death,#black-hole-fall,#free-flight-help,#education-hud,#performance-hud,#surface-controls-help,#language{background:var(--control-surface);backdrop-filter:var(--control-filter);-webkit-backdrop-filter:var(--control-filter);border-color:var(--control-border);box-shadow:var(--control-shadow)}
+#time-dock.in-flight,#light-flight:not([hidden]){background:var(--control-surface);backdrop-filter:var(--control-filter);-webkit-backdrop-filter:var(--control-filter);border-color:var(--control-border);box-shadow:var(--control-shadow)}
+#body-results,#tooltip{background:var(--control-surface);backdrop-filter:var(--control-filter);-webkit-backdrop-filter:var(--control-filter);border-color:var(--control-border)}
+#surface-radar{opacity:1}
+#surface-radar .surface-radar-view{background:var(--control-surface);backdrop-filter:var(--control-filter);-webkit-backdrop-filter:var(--control-filter)}
