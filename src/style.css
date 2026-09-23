@@ -90,16 +90,17 @@ body.in-star-system #solar-control > label[for='central-star'] { display: none; 
 #surface-view #surface-leave { background: none; border: 0; color: #93a3ba; font-size: 17px;
  line-height: 1; padding: 0 2px; cursor: pointer; }
 #surface-view #surface-leave:hover { color: #fff; }
-#surface-view .surface-controls-help{display:flex;align-items:center;gap:10px;margin:11px 0 12px;padding:9px 10px;background:linear-gradient(135deg,#b6dfff14,#ffffff06);border:1px solid #c7e5ff25;border-radius:7px;color:#aebfd3;font-size:9px;line-height:1.42}
-#surface-view .surface-controls-help>div:last-child{display:grid;gap:1px;min-width:0}
-#surface-view .surface-controls-help strong{color:#edf7ff;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
-#surface-view .surface-controls-help span{display:block;white-space:nowrap}
-#surface-view .surface-controls-keys{display:grid;grid-template-columns:repeat(3,17px);grid-template-rows:16px 16px;gap:2px;flex:0 0 auto}
-#surface-view .surface-controls-keys kbd{display:flex;align-items:center;justify-content:center;border:1px solid #d5eaff42;border-bottom-color:#d5eaff65;border-radius:3px;background:#ffffff0d;color:#f0f8ff;font:600 8px/1 Arial,sans-serif}
-#surface-view .surface-controls-keys kbd:nth-child(1){grid-column:2;grid-row:1}
-#surface-view .surface-controls-keys kbd:nth-child(2){grid-column:1;grid-row:2}
-#surface-view .surface-controls-keys kbd:nth-child(3){grid-column:2;grid-row:2}
-#surface-view .surface-controls-keys kbd:nth-child(4){grid-column:3;grid-row:2}
+#surface-controls-help{position:fixed;z-index:6;left:50%;bottom:calc(max(24px,env(safe-area-inset-bottom)) + 104px);transform:translateX(-50%);display:flex;align-items:center;gap:10px;padding:9px 12px;background:rgba(7,11,22,.58);border:1px solid #c7e5ff25;border-radius:9px;backdrop-filter:blur(16px) saturate(125%);-webkit-backdrop-filter:blur(16px) saturate(125%);box-shadow:0 10px 30px #0006;color:#aebfd3;font-size:9px;line-height:1.42;pointer-events:none}
+#surface-controls-help[hidden]{display:none}
+#surface-controls-help>div:last-child{display:grid;gap:1px;min-width:0}
+#surface-controls-help strong{color:#edf7ff;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+#surface-controls-help span{display:block;white-space:nowrap}
+#surface-controls-help .surface-controls-keys{display:grid;grid-template-columns:repeat(3,17px);grid-template-rows:16px 16px;gap:2px;flex:0 0 auto}
+#surface-controls-help .surface-controls-keys kbd{display:flex;align-items:center;justify-content:center;border:1px solid #d5eaff42;border-bottom-color:#d5eaff65;border-radius:3px;background:#ffffff0d;color:#f0f8ff;font:600 8px/1 Arial,sans-serif}
+#surface-controls-help .surface-controls-keys kbd:nth-child(1){grid-column:2;grid-row:1}
+#surface-controls-help .surface-controls-keys kbd:nth-child(2){grid-column:1;grid-row:2}
+#surface-controls-help .surface-controls-keys kbd:nth-child(3){grid-column:2;grid-row:2}
+#surface-controls-help .surface-controls-keys kbd:nth-child(4){grid-column:3;grid-row:2}
 #surface-view .surface-row { display: grid; grid-template-columns: 62px 1fr 42px; align-items: center;
  gap: 8px; margin-top: 9px; }
 #surface-view .surface-row select { width: 100%; grid-column: 2 / -1; background: #ffffff08;
@@ -116,7 +117,7 @@ body.in-star-system #solar-control > label[for='central-star'] { display: none; 
 body.on-a-surface #dock-scale-label,
 body.on-a-surface #solar-control > label[for='solar-brightness'],
 body.on-a-surface #solar-brightness { display: none; }
-@media(max-width:600px){ #surface-view { right: 12px; left: 12px; width: auto; top: auto; bottom: 96px; max-height: 42dvh; overflow-y: auto; } }
+@media(max-width:600px){ #surface-view { right: 12px; left: 12px; width: auto; top: auto; bottom: 96px; max-height: 42dvh; overflow-y: auto; } #surface-controls-help{bottom:calc(max(14px,env(safe-area-inset-bottom)) + 96px);max-width:calc(100vw - 24px);padding:8px 10px;font-size:8px}#surface-controls-help span{white-space:normal} }
 
 /* A first-person compass sits in the lower centre of the surface view.  The
    ring is visual-only: dragging anywhere on the sky keeps looking around. */

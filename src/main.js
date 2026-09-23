@@ -858,7 +858,7 @@ function startSurfaceView(bodyId){
  requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());
  speed=REAL_TIME;lag=0;last=performance.now();
  document.body.classList.add('on-a-surface');
- clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceRadar.hidden=false;skyLabels.hidden=false;buildSurfaceHud();updateSurfaceView();
+ clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceControlsHelp.hidden=false;surfaceRadar.hidden=false;skyLabels.hidden=false;buildSurfaceHud();updateSurfaceView();
  if(isEarthSurface(body))requestEarthObserverLocation();
 }
 // Jumps straight into surface view already standing at a named "known place"
@@ -889,7 +889,7 @@ function stopSurfaceView(){
  leaveSurfaceDetail(views.get(surfaceView.bodyId));
  clearEarthObserverLocation();
  const previous=surfaceReturn;surfaceView=null;surfaceReturn=null;clockShown='';
- document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceRadar.hidden=true;surfaceAtmosphereLayer.hidden=true;skyLabels.hidden=true;skyLabels.replaceChildren();releaseSurfaceOrientation();
+ document.body.classList.remove('on-a-surface');surfaceHud.hidden=true;surfaceControlsHelp.hidden=true;surfaceRadar.hidden=true;surfaceAtmosphereLayer.hidden=true;skyLabels.hidden=true;skyLabels.replaceChildren();releaseSurfaceOrientation();
  controls.enabled=true;camera.fov=previous?.fov??43;camera.near=CAMERA_NEAR;camera.up.set(0,1,0);camera.updateProjectionMatrix();
  if(previous){compressed=previous.compressed;follow=previous.follow;speed=previous.speed??2;lag=0;last=performance.now();
   controls.maxDistance=maxViewDistance(compressed);controls.enableDamping=false;
@@ -1150,6 +1150,9 @@ function surfaceLookHandlers(element){
 const surfaceNavigation=createSurfaceNavigation(renderer.domElement);
 surfaceLookHandlers(renderer.domElement);
 const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';surfaceHud.hidden=true;document.body.append(surfaceHud);
+// Kept next to the clock rather than inside the scrollable inspector, so the
+// input legend remains in sight while an observer changes body or location.
+const surfaceControlsHelp=document.createElement('aside');surfaceControlsHelp.id='surface-controls-help';surfaceControlsHelp.hidden=true;surfaceControlsHelp.setAttribute('aria-label','Sterowanie widokiem z powierzchni');surfaceControlsHelp.innerHTML='<div class="surface-controls-keys" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div><strong>Sterowanie</strong><span>Kliknij scenę · mysz: rozglądanie</span><span>WSAD · ruch &nbsp; Shift · szybciej</span><span>Pinch / kółko · przybliżenie &nbsp; Esc · zwolnij mysz</span></div>';document.body.append(surfaceControlsHelp);
 const surfaceAtmosphereLayer=document.createElement('div');surfaceAtmosphereLayer.id='surface-atmosphere';surfaceAtmosphereLayer.hidden=true;surfaceAtmosphereLayer.setAttribute('aria-hidden','true');document.body.append(surfaceAtmosphereLayer);
 // A small rendered sky sphere standing in for the observer's surroundings -
 // see surface-radar.js - rather than a flat compass ring, so a tracked
@@ -1180,7 +1183,7 @@ function buildSurfaceHud(){
  // panel - that panel is about a body's physics, reachable for any body
  // whether or not it is the one under the observer's feet.
  const places=body?knownPlacesFor(body):[];
- surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><section class="surface-controls-help" aria-label="Sterowanie widokiem z powierzchni"><div class="surface-controls-keys" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div><strong>Sterowanie</strong><span>Kliknij scenę · mysz: rozglądanie</span><span>WSAD · ruch &nbsp; Shift · szybciej</span><span>Pinch / kółko · przybliżenie &nbsp; Esc · zwolnij mysz</span></div></section><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div>`;
+ surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
   clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.trackBrightest=false;
