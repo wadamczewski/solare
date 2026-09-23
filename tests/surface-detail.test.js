@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {missionAssetsForBody, surfaceDetailProfile, surfaceReliefClearance} from '../src/surface-detail.js';
+import {missionAssetsForBody, surfaceDetailProfile, surfaceReliefClearance, updateSurfaceDetailTiles} from '../src/surface-detail.js';
 import {shapeGeometry} from '../src/scene-lod.js';
 import {initialSystem} from '../src/physics.js';
 
@@ -48,4 +48,23 @@ test('stale shared surface overrides fall back safely instead of leaking another
  assert.equal(missionAssetsForBody({key:'moon',name:'Nereida',surface:'moon'}),null);
  assert.equal(missionAssetsForBody({key:'moon',name:'Deimos',surface:'mars'}),null);
  assert.equal(missionAssetsForBody({key:'mars',name:'Mars',surface:'mars'})?.height,'/textures/surface/mars-mola-height.jpg');
+});
+
+
+test('measured terrain replaces raised texture tiles while the observer is inside its survey', () => {
+ const calls=[];
+ const view={mesh:{material:{displacementScale:.23}},surfaceDetail:{
+  surveyedDisplacementScale:.23,
+  tiles:{group:{visible:true},update:(latitude,longitude)=>calls.push([latitude,longitude])},
+  topography:{update:()=>true}
+ }};
+ updateSurfaceDetailTiles(view,27.99,86.93);
+ assert.equal(view.surfaceDetail.tiles.group.visible,false);
+ assert.equal(view.mesh.material.displacementScale,0);
+ assert.deepEqual(calls,[]);
+ view.surfaceDetail.topography.update=()=>false;
+ updateSurfaceDetailTiles(view,26,86);
+ assert.equal(view.surfaceDetail.tiles.group.visible,true);
+ assert.equal(view.mesh.material.displacementScale,.23);
+ assert.deepEqual(calls,[[26,86]]);
 });

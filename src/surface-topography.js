@@ -201,13 +201,23 @@ export function createSurfaceTopography(body,baseMaterial) {
  function clear(){for(const mesh of meshes){group.remove(mesh);mesh.geometry.dispose();mesh.material.dispose()}meshes=[]}
  return {group,
   update(latitude,longitude){
-   if(!nearbyFeature(key,radiusKm,latitude,longitude)){if(meshes.length)clear();signature='';return}
+   // The caller uses this boolean to select exactly one terrain layer.  The
+   // tile shell is deliberately disabled while the measured patch is active:
+   // it is offset above the globe for normal viewing and would otherwise cut
+   // through this physically scaled DEM as the observer moves.
+   if(!nearbyFeature(key,radiusKm,latitude,longitude)){
+    if(meshes.length)clear();signature='';return false;
+   }
    const feature=nearestSurfaceFeature(body,latitude,longitude),focal=FOCAL_MESH[key];
-   if(!feature||feature.distanceKm>=activityRadius(key))return;
+   if(!feature||feature.distanceKm>=activityRadius(key)){
+    if(meshes.length)clear();signature='';return false;
+   }
    const id=`${key}:${feature.id}`;
-   if(id===signature)return;signature=id;clear();
+   if(id===signature)return true;
+   signature=id;clear();
    const mesh=new THREE.Mesh(patchGeometry(key,radiusKm,feature.latitude,feature.longitude,focal.span,dem,focal.segments,focal.feather),patchMaterial(baseMaterial));
    mesh.name=`surface-topography:${key}:${feature.id}`;mesh.frustumCulled=true;meshes.push(mesh);group.add(mesh);
+   return true;
   },
   get loaded(){return meshes.length},
   dispose(){clear()}

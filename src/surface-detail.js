@@ -231,11 +231,10 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  view.surfaceDetail.tiles = createSurfaceTileStream(body, maxAnisotropy);
  if (view.surfaceDetail.tiles) view.mesh.add(view.surfaceDetail.tiles.group);
  view.surfaceDetail.topography = createSurfaceTopography(body, material);
- // Everest, Olympus Mons, Tycho and Copernicus receive a measured mesh on
- // top of the otherwise spherical map. Disable the approximate global vertex
- // displacement for those worlds while standing on them: it was a second
- // physical surface and could protrude through the surveyed one.
- if (view.surfaceDetail.topography) material.displacementScale = 0;
+ // The survey is selected per observer position. Keep the normal global
+ // relief until updateSurfaceDetailTiles() enters a measured region; then it
+ // becomes the sole foreground terrain layer together with its own DEM mesh.
+ view.surfaceDetail.surveyedDisplacementScale = profile.relief;
  if (view.surfaceDetail.topography) view.mesh.add(view.surfaceDetail.topography.group);
  if (material.map) material.map.anisotropy = Math.max(material.map.anisotropy || 1, Math.min(16, maxAnisotropy));
  material.needsUpdate = true;
@@ -245,8 +244,22 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
 // not from camera position.  The latter moves a little with eye height and
 // would make the visible tile window flicker at a boundary.
 export function updateSurfaceDetailTiles(view, latitude, longitude) {
- view?.surfaceDetail?.tiles?.update(latitude, longitude);
- view?.surfaceDetail?.topography?.update(latitude, longitude);
+ const detail=view?.surfaceDetail;
+ if(!detail)return;
+ const surveyed=detail.topography?.update(latitude, longitude) === true;
+ // The streamed colour tiles live on a deliberately raised shell so they do
+ // not z-fight the ordinary globe. A surveyed patch follows true elevation,
+ // therefore the raised shell must never coexist with it.
+ if(detail.tiles){
+  detail.tiles.group.visible=!surveyed;
+  if(!surveyed)detail.tiles.update(latitude, longitude);
+ }
+ // Likewise the approximate whole-body displacement is only meaningful away
+ // from a DEM patch. Toggling it atomically with the tile shell keeps every
+ // edge aligned while walking across the activation boundary.
+ if(Number.isFinite(detail.surveyedDisplacementScale)){
+  view.mesh.material.displacementScale=surveyed?0:detail.surveyedDisplacementScale;
+ }
 }
 
 export function leaveSurfaceDetail(view) {
