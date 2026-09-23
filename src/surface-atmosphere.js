@@ -19,13 +19,13 @@ export function surfaceAtmosphere(key, sunAltitude, enabled = true) {
  if(!enabled)return {phase:altitude>=6?'day':altitude>=-12?'twilight':'night',opacity:0,color:atmosphere.day,stars:1,clouds:0};
  if (altitude >= 6) {
   const brightness=Math.min(1,(altitude-6)/60);
-  return {phase:'day',opacity:.82+.08*brightness,color:atmosphere.day,stars:0,clouds:1};
+  return {phase:'day',opacity:.20+.06*brightness,color:atmosphere.day,stars:0,clouds:1};
  }
  if (altitude >= -12) {
   const progress=(altitude+12)/18;
   // Astronomical twilight starts below -12°. The non-linear star fade keeps
   // the sky blue through civil twilight, then returns the real sky smoothly.
-  return {phase:'twilight',opacity:.82*progress,color:atmosphere.twilight,stars:(1-progress)**2.4,clouds:progress**1.35};
+  return {phase:'twilight',opacity:.32*progress,color:atmosphere.twilight,stars:(1-progress)**2.4,clouds:progress**1.35};
  }
  return {phase:'night',opacity:0,color:atmosphere.day,stars:1,clouds:0};
 }

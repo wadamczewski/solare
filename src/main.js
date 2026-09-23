@@ -372,7 +372,7 @@ function addView(b){const group=new THREE.Group();scene.add(group);const authore
  const textureKey=b.textureKey||b.key;const surfaceMap=textures[textureKey]||null;const mat=b.key==='sun'?new THREE.MeshBasicMaterial({color:new THREE.Color('#ffffff').multiplyScalar(24),toneMapped:true}):new THREE.MeshStandardMaterial({map:b.key==='moon'?null:surfaceMap,color:surfaceMap?'#ffffff':b.key==='moon'?b.color:b.key==='blackhole'?'#000000':b.key==='neutron-star'?'#d6efff':b.color||'#ffffff',roughness:b.key==='neutron-star'?.34:1,metalness:0,emissive:b.key==='neutron-star'?'#2570a8':'#000000',emissiveIntensity:b.key==='neutron-star'?.75:0});if(b.key==='blackhole')mat.map=null;if(b.key==='comet'){mat.map=null;applyCometAppearance(mat,b.cometProfile)}if(b.textureKey&&!surfaceMap){mat.map=null;mat.color.set(b.gas?'#b0aaa0':'#77736c')}naturalColorMaterial(mat,b.key);applyMoonAppearance(mat,b,moonMaps);makeOpaqueSurface(mat);
  const axis=new THREE.Group();axis.rotation.z=THREE.MathUtils.degToRad(b.tilt);group.add(axis);const mesh=new THREE.Mesh(geo,mat);const eclipseShadow=participatesInSolarShadow(b)?applyExtendedSolarShadow(mat):null;const ringPlanetShadow=['saturn','uranus'].includes(b.key)?applyRingPlanetShadow(mat,{inner:b.key==='saturn'?SATURN_RING_INNER:URANUS_RING_INNER,bands:b.key==='saturn'?SATURN_RING_BANDS:URANUS_RING_BANDS}):null;mesh.castShadow=participatesInSolarShadow(b);mesh.receiveShadow=!eclipseShadow;if(b.key==='comet'){mesh.renderOrder=1;mesh.frustumCulled=false}axis.add(mesh);mesh.userData.id=b.id;const spots=b.key==='sun'&&b.starPresetId==='sun'?createSolarSpots():null;if(spots)mesh.add(spots);
  let halo=null; // Solar glare is generated from visible HDR pixels, not an unoccluded billboard.
- if(b.key==='earth'){const atmo=new THREE.Mesh(sphere,new THREE.ShaderMaterial({vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',fragmentShader:'varying vec3 n;varying vec3 v;void main(){float a=pow(1.-max(dot(n,v),0.),4.);gl_FragColor=vec4(.18,.46,.9,a*.38);}',transparent:true,depthWrite:false}));atmo.scale.setScalar(1.035);mesh.add(atmo)}
+ if(b.key==='earth'){const atmo=new THREE.Mesh(sphere,new THREE.ShaderMaterial({vertexShader:'varying vec3 n;varying vec3 v;void main(){vec4 p=modelViewMatrix*vec4(position,1.);n=normalize(normalMatrix*normal);v=normalize(-p.xyz);gl_Position=projectionMatrix*p;}',fragmentShader:'varying vec3 n;varying vec3 v;void main(){float a=pow(1.-max(dot(n,v),0.),4.);gl_FragColor=vec4(.18,.46,.9,a*.38);}',transparent:true,depthWrite:false}));atmo.name='Earth orbital atmosphere';atmo.scale.setScalar(1.035);mesh.add(atmo)}
  // Real ring geometry (see planet-rings.js): named rings and gaps sit at
  // their referenced positions, and each band's alpha stands in for its
  // measured optical depth, so a gap - the Cassini Division, the Encke and
@@ -1007,13 +1007,19 @@ function surfaceLook(frame){
   +frame.zenith[axis]*Math.sin(altitude)));
 }
 function detachEarthCloudCover(){
+ const parent=earthCloudCover?.group.parent;
+ const orbitalAtmosphere=parent?.getObjectByName('Earth orbital atmosphere');
+ if(orbitalAtmosphere)orbitalAtmosphere.visible=true;
  if(!earthCloudCover)return;
- earthCloudCover.group.parent?.remove(earthCloudCover.group);earthCloudCover.dispose();earthCloudCover=null;
+ parent?.remove(earthCloudCover.group);earthCloudCover.dispose();earthCloudCover=null;
 }
 function attachEarthCloudCover(body){
  detachEarthCloudCover();
  if(body?.key!=='earth')return;
  const view=views.get(body.id);if(!view)return;
+ // The orbital halo is a cheap outside-view effect. From within it, it is a
+ // full-screen translucent shell and obscures both terrain and cloud volume.
+ view.mesh.getObjectByName('Earth orbital atmosphere').visible=false;
  earthCloudCover=createEarthCloudCover();view.mesh.add(earthCloudCover.group);earthCloudCover.setEnabled(surfaceView?.earthAtmosphereEnabled!==false);
 }
 function updateSurfaceAtmosphere(body,frame){
@@ -1023,9 +1029,15 @@ function updateSurfaceAtmosphere(body,frame){
  surfaceView.light={...state,sunAltitude:sun?.altitude??-90};
  sky.setAtmosphereVisibility(state.stars);
  const cloudOpacity=body.key==='earth'?(state.clouds||0):0;
- earthCloudCover?.setDaylight(cloudOpacity);
- surfaceCloudLayer.hidden=cloudOpacity<=.002;
- surfaceCloudLayer.style.setProperty('--surface-cloud-opacity',(cloudOpacity*.84).toFixed(3));
+ if(earthCloudCover){
+  const altitude=(sun?.altitude??-90)*Math.PI/180,azimuth=(sun?.azimuth??0)*Math.PI/180;
+  const horizontalPart=Math.cos(altitude);
+  const worldSun=new THREE.Vector3(...[0,1,2].map(axis=>frame.north[axis]*horizontalPart*Math.cos(azimuth)+frame.east[axis]*horizontalPart*Math.sin(azimuth)+frame.zenith[axis]*Math.sin(altitude)));
+  const cloudView=views.get(body.id),localSun=worldSun,localObserver=new THREE.Vector3(...frame.zenith);
+  if(cloudView?.mesh){const rotation=cloudView.mesh.getWorldQuaternion(new THREE.Quaternion()).invert();localSun.applyQuaternion(rotation);localObserver.applyQuaternion(rotation);}
+  earthCloudCover.setObserver(localObserver);
+  earthCloudCover.setLighting({daylight:cloudOpacity,sunDirection:localSun,quality:adaptiveDetail});
+ }
  surfaceAtmosphereLayer.hidden=state.opacity<=0;
  surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-color',state.color);
  surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-opacity',state.opacity.toFixed(3));
@@ -1231,11 +1243,6 @@ const surfaceHud=document.createElement('aside');surfaceHud.id='surface-view';su
 // input legend remains in sight while an observer changes body or location.
 const surfaceControlsHelp=document.createElement('aside');surfaceControlsHelp.id='surface-controls-help';surfaceControlsHelp.hidden=true;surfaceControlsHelp.setAttribute('aria-label','Sterowanie widokiem z powierzchni');surfaceControlsHelp.innerHTML='<div class="surface-controls-keys" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div><strong>Sterowanie</strong><span>Kliknij scenę · mysz: rozglądanie</span><span>WSAD · ruch &nbsp; Shift · szybciej</span><span>Pinch / kółko · przybliżenie &nbsp; Esc · zwolnij mysz</span></div>';document.body.append(surfaceControlsHelp);
 const surfaceAtmosphereLayer=document.createElement('div');surfaceAtmosphereLayer.id='surface-atmosphere';surfaceAtmosphereLayer.hidden=true;surfaceAtmosphereLayer.setAttribute('aria-hidden','true');document.body.append(surfaceAtmosphereLayer);
-// A near observer sees the cloud volume in perspective as well as its moving
-// shadows on the ground. This soft screen-space face of the same procedural
-// weather field supplies the broad, high-altitude decks that cannot be read
-// reliably through a dense daylight-scattering veil.
-const surfaceCloudLayer=document.createElement('div');surfaceCloudLayer.id='surface-clouds';surfaceCloudLayer.hidden=true;surfaceCloudLayer.setAttribute('aria-hidden','true');document.body.append(surfaceCloudLayer);
 // A small rendered sky sphere standing in for the observer's surroundings -
 // see surface-radar.js - rather than a flat compass ring, so a tracked
 // body's full 3D direction (bearing *and* how far up or down to look) is
