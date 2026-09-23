@@ -45,7 +45,7 @@ import {changeSimulationRate} from './simulation-rate.js';
 import {buildLandmarkMarkers,createBodyPreview} from './preview.js';
 import {createImpactEffects} from './impact-effects.js';
 import {isShapeGeometry,keepsAuthoredGeometry,shapeGeometry,updateShapeLod} from './scene-lod.js';
-import {bodyAxes,largestAxis,measuredIrregularGeometry,hasMeasuredIrregularShape} from './body-shapes.js';
+import {bodyAxes,largestAxis,measuredIrregularGeometry,hasMeasuredIrregularShape,surfaceRadialScale} from './body-shapes.js';
 import {enterSurfaceDetail,leaveSurfaceDetail,surfaceReliefClearance,updateSurfaceDetailTiles} from './surface-detail.js';
 import {createOrbitRibbon,updateOrbitRibbon} from './orbit-ribbon.js';
 import {auRadius,maxViewDistance,scaleRatio,sceneRadius} from './scene-scale.js';
@@ -793,7 +793,15 @@ const SURFACE_EXCLUDED = new Set(['Hyperion']);
 // their own longest semiaxis; generic spawned rocks retain the deliberately
 // larger clearance needed for their procedural envelope.
 const SURFACE_EYE = 1.0008, SURFACE_EYE_IRREGULAR = 1.6;
-const surfaceEyeFactor = body => (body.irregular ? (hasMeasuredIrregularShape(body)?Math.max(1.02,largestAxis(body)*1.08):SURFACE_EYE_IRREGULAR) : SURFACE_EYE) + surfaceReliefClearance(body);
+const surfaceBaseRadiusFactor=(body,latitude=surfaceView?.latitude??0,longitude=surfaceView?.longitude??0)=>body.irregular?1:surfaceRadialScale(body,latitude,longitude);
+const surfaceEyeFactor=(body,latitude=surfaceView?.latitude??0,longitude=surfaceView?.longitude??0)=>{
+ const base=surfaceBaseRadiusFactor(body,latitude,longitude);
+ // An ellipsoid's polar and equatorial radii are not interchangeable.  The
+ // eye must clear the surface at the current latitude, particularly on
+ // Saturn and Uranus where a mean-radius eye falls inside the polar mesh.
+ const standingRadius=body.irregular?(hasMeasuredIrregularShape(body)?Math.max(1.02,largestAxis(body)*1.08):SURFACE_EYE_IRREGULAR):base*SURFACE_EYE;
+ return standingRadius+surfaceReliefClearance(body);
+};
 const SURFACE_FOV = {min: 14, max: 100, start: 70};
 
 function surfaceCandidates(){
@@ -966,8 +974,9 @@ function updateSurfaceView(tick=0){
  const horizon=surfaceFrameNow(body);if(!horizon){stopSurfaceView();return}
  surfaceView.horizon=horizon;
  const centre=displayed(body),up=new THREE.Vector3(...horizon.zenith);
- const height=radius(body)*(surfaceEyeFactor(body)-1);
- const eye=centre.clone().addScaledVector(up,radius(body)*surfaceEyeFactor(body));
+ const surfaceRadius=surfaceBaseRadiusFactor(body),eyeRadius=surfaceEyeFactor(body);
+ const height=radius(body)*Math.max(1e-12,eyeRadius-surfaceRadius);
+ const eye=centre.clone().addScaledVector(up,radius(body)*eyeRadius);
  camera.position.copy(eye);camera.up.copy(up);
  // The near plane has to come down with the eye. It is a fixed distance for
  // the rest of the application, and an observer on the ground stands a

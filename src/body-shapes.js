@@ -51,12 +51,27 @@ const irregularProfiles=Object.freeze({
 
 function normalisedAxes(axes){
  const mean=Math.cbrt(axes[0]*axes[1]*axes[2]);
- return axes.map(value=>value/mean);
+ // SphereGeometry's local Y axis is the rotation pole.  Published radii are
+ // conventionally [equatorial-a, equatorial-b, polar-c], so preserve the two
+ // equatorial axes in local X/Z and put c on Y.  Leaving c on Z made an
+ // oblate planet's polar surface physically sit *inside* the camera used by
+ // surface view; Saturn was the most visible failure of that mismatch.
+ return [axes[0]/mean,axes[2]/mean,axes[1]/mean];
 }
 
 export function bodyAxes(body){
  const axes=rawAxes[body?.name]||rawAxes[body?.key];
  return axes?normalisedAxes(axes):[1,1,1];
+}
+
+// Distance from the centre to an ellipsoid in the direction of a geographic
+// latitude/longitude.  The local coordinates deliberately match the sphere
+// mesh: +Y is north and -Z is east, as used by surface-texture-frame.js.
+export function surfaceRadialScale(body,latitudeDeg=0,longitudeDeg=0){
+ const [xAxis,yAxis,zAxis]=bodyAxes(body);
+ const latitude=Number(latitudeDeg)*Math.PI/180,longitude=Number(longitudeDeg)*Math.PI/180;
+ const cosLatitude=Math.cos(latitude),x=cosLatitude*Math.cos(longitude),y=Math.sin(latitude),z=-cosLatitude*Math.sin(longitude);
+ return Math.hypot(x*xAxis,y*yAxis,z*zAxis);
 }
 
 export function largestAxis(body){return Math.max(...bodyAxes(body));}
