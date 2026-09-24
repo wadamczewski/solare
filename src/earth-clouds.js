@@ -201,12 +201,22 @@ function createCloudField() {
  const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
  const identity = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), matrix = new THREE.Matrix4();
  let radiusKm = 6371, surfaceHeightKm = 0, anchored = false;
- const setObserver = (direction, {radiusKm: nextRadiusKm = radiusKm, surfaceHeightKm: nextSurfaceHeightKm = surfaceHeightKm, surfaceRadius = 1, recenter = false} = {}) => {
+ const setObserver = (direction, {radiusKm: nextRadiusKm = radiusKm, surfaceHeightKm: nextSurfaceHeightKm = surfaceHeightKm, surfaceRadius = 1, recenter = false, follow = false} = {}) => {
   if (!direction) return;
-  if (anchored && !recenter) return;
   radiusKm = Math.max(1, Number(nextRadiusKm) || 6371);
   surfaceHeightKm = Math.max(0, Number(nextSurfaceHeightKm) || 0);
   observer.copy(direction).normalize();
+  // The rendered field is deliberately local: ray-marching a whole planet
+  // would waste nearly all fragments behind the horizon.  It must however
+  // follow a walking observer once they leave its weather tile; otherwise
+  // every cloud remains at the location where the surface view was opened.
+  // Re-anchor only after 80 km, well inside the 185 km field, so ordinary
+  // WSAD movement has continuous coverage and never visibly snaps a cloud
+  // under the camera.
+  const distanceFromAnchorKm = anchored
+   ? Math.acos(Math.max(-1, Math.min(1, anchor.position.dot(observer) / anchor.position.length()))) * radiusKm
+   : Infinity;
+  if (anchored && !recenter && (!follow || distanceFromAnchorKm < 80)) return;
   anchor.position.copy(observer).multiplyScalar(Math.max(.1, Number(surfaceRadius) || 1) + surfaceHeightKm / radiusKm);
   anchor.quaternion.setFromUnitVectors(up, observer);
   anchored = true;

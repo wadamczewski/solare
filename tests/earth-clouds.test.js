@@ -110,16 +110,17 @@ test('weather cycles respawn varied cloud shapes under one shared wind direction
  cover.dispose();
 });
 
-test('clouds stay fixed over the globe while the observer walks, and recenter only on an explicit jump', () => {
+test('cloud coverage follows an observer who leaves the current weather tile', () => {
  const cover = createEarthCloudCover();
  const firstObserver = new THREE.Vector3(0, 1, 0);
- const secondObserver = new THREE.Vector3(1, 0, 0);
+ const nearbyObserver = new THREE.Vector3(.001, 1, 0).normalize();
+ const distantObserver = new THREE.Vector3(1, 0, 0);
  cover.setObserver(firstObserver, {radiusKm: 6371, surfaceRadius: 1});
  const anchor = cover.group.getObjectByName('Earth cloud observer anchor');
  const initialPosition = anchor.position.clone();
- cover.setObserver(secondObserver, {radiusKm: 6371, surfaceRadius: 1});
+ cover.setObserver(nearbyObserver, {radiusKm: 6371, surfaceRadius: 1, follow: true});
  assert.deepEqual(anchor.position.toArray(), initialPosition.toArray());
- cover.setObserver(secondObserver, {radiusKm: 6371, surfaceRadius: 1, recenter: true});
+ cover.setObserver(distantObserver, {radiusKm: 6371, surfaceRadius: 1, follow: true});
  assert.ok(anchor.position.distanceTo(initialPosition) > .5);
  cover.dispose();
 });

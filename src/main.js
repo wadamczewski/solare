@@ -1046,7 +1046,8 @@ function updateSurfaceAtmosphere(body,frame){
    radiusKm:body.radius,
    surfaceHeightKm:observerHeightKm,
    surfaceRadius:surfaceBaseRadiusFactor(body,surfaceView.latitude,surfaceView.longitude),
-   recenter:recenterClouds
+   recenter:recenterClouds,
+   follow:true
   });
   if(recenterClouds)surfaceView.cloudsRecenter=false;
   earthCloudCover.setLighting({daylight:cloudOpacity,sunDirection:localSun,quality:adaptiveDetail});
