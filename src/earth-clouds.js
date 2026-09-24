@@ -110,7 +110,7 @@ function cloudVolumeMaterial() {
   // double-blended transparent-box artefact.
   transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,
   uniforms:{uTime:{value:0},uMorph:{value:0},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
-  vertexShader:`attribute mat4 instanceMatrix;attribute float instanceSeed;attribute float instanceOpacity;uniform vec3 uCamera;varying vec3 vBox;varying vec3 vCamera;varying float vSeed;varying float vOpacity;void main(){vec3 scale=vec3(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz),length(instanceMatrix[2].xyz));vBox=position;vCamera=(uCamera-instanceMatrix[3].xyz)/max(scale,vec3(.000001));vSeed=instanceSeed;vOpacity=instanceOpacity;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}`,
+  vertexShader:`attribute float instanceSeed;attribute float instanceOpacity;uniform vec3 uCamera;varying vec3 vBox;varying vec3 vCamera;varying float vSeed;varying float vOpacity;void main(){vec3 scale=vec3(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz),length(instanceMatrix[2].xyz));vBox=position;vCamera=(uCamera-instanceMatrix[3].xyz)/max(scale,vec3(.000001));vSeed=instanceSeed;vOpacity=instanceOpacity;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}`,
   // Adapted from the reference's 3-D fBm/raymarch approach, but marched only
   // inside each cloud proxy. The terrain therefore stays depth-tested and
   // cannot be covered by a full-screen weather pass.
