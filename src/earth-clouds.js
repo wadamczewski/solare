@@ -68,7 +68,7 @@ const shadowMaterial = map => new THREE.MeshBasicMaterial({
 // local volumes instead of a full-screen pass, because a full-screen ray
 // marcher has no knowledge of the terrain depth and would paint through the
 // mountain, ground and interface.
-const CLOUD_CLUSTER_COUNT = 18;
+const CLOUD_CLUSTER_COUNT = 12;
 const cloudRandom = (index, salt = 0) => {
  const value = Math.sin((index + 1) * 127.1 + (salt + 1) * 311.7) * 43758.5453123;
  return value - Math.floor(value);
@@ -76,7 +76,10 @@ const cloudRandom = (index, salt = 0) => {
 
 function cloudVolumeMaterial(seed) {
  return new THREE.ShaderMaterial({
-  transparent:true,depthWrite:false,depthTest:true,side:THREE.BackSide,
+  // March from the entry face. Rendering the back face of a transparent box
+  // made its result depend on driver-specific transparent sorting and could
+  // make an otherwise valid cloud vanish in bright daylight.
+  transparent:true,depthWrite:false,depthTest:true,side:THREE.FrontSide,
   uniforms:{uTime:{value:0},uSeed:{value:seed},uOpacity:{value:.5},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
   vertexShader:`varying vec3 vBox;void main(){vBox=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
   // Adapted from the reference's 3-D fBm/raymarch approach, but marched only
@@ -88,7 +91,7 @@ float hash(float n){return fract(sin(n)*43758.5453);} float noise(vec3 x){vec3 p
 float fbm(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec3(17.0,11.0,7.0);a*=.5;}return v;}
 float density(vec3 p){vec3 flow=vec3(uTime*.018,0.,uTime*.011);float edge=1.0-length(vec3(p.x*1.12,p.y*1.7,p.z*1.12))*1.18;float body=fbm((p+flow)*3.1+uSeed*9.7)*.72+fbm((p-flow*.4)*7.2+uSeed*3.1)*.28;return smoothstep(.49,.74,body+edge*.58);}
 vec2 boxHit(vec3 ro,vec3 rd){vec3 inv=1.0/rd;vec3 a=(-.5-ro)*inv,b=(.5-ro)*inv;vec3 lo=min(a,b),hi=max(a,b);return vec2(max(max(lo.x,lo.y),lo.z),min(min(hi.x,hi.y),hi.z));}
-void main(){vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/24.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<24;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.16;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.98,1.0,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
+void main(){vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/16.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<16;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.22;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.98,1.0,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
  });
 }
 
