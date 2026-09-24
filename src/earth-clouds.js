@@ -238,7 +238,11 @@ function createCloudField() {
   const halfDiagonalFov = Math.min(Math.PI * .5, Math.atan(Math.tan(Math.max(1, cameraFov) * Math.PI / 360) * Math.hypot(1, Math.max(.1, cameraAspect))));
   const cullToViewport = !!(cameraPosition && cameraDirection && cameraDirection.lengthSq() > 1e-12);
   if (cullToViewport) {
-   anchor.updateMatrixWorld(true);
+   // The anchor is nested inside the planet mesh, whose orientation changes
+   // with latitude/longitude. updateMatrixWorld() on a child does not refresh
+   // its parents, so it can cull every cloud against last frame's globe.
+   // updateWorldMatrix(true, false) refreshes that complete chain first.
+   anchor.updateWorldMatrix(true, false);
    localCamera.copy(cameraPosition); anchor.worldToLocal(localCamera);
    anchorInverse.copy(anchor.matrixWorld).invert();
    localViewDirection.copy(cameraDirection).transformDirection(anchorInverse);
@@ -306,7 +310,7 @@ function createCloudField() {
   material.uniforms.uMorph.value = weatherTime * 1.8;
   material.uniforms.uSun.value.copy(light);
   if (cameraPosition) {
-   if (!cullToViewport) anchor.updateMatrixWorld(true);
+   if (!cullToViewport) anchor.updateWorldMatrix(true, false);
    material.uniforms.uCamera.value.copy(localCamera.copy(cameraPosition));
    anchor.worldToLocal(material.uniforms.uCamera.value);
   }
