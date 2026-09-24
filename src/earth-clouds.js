@@ -7,6 +7,17 @@ import * as THREE from 'three';
 const CLOUD_SIZE = Object.freeze({width: 256, height: 128});
 const SHADOW_RADIUS = 1.0012;
 const wrap = value => value - Math.floor(value);
+// The simulation clock is deliberately the dominant source of cloud motion.
+// One simulated day advances the weather phase enough to be apparent, while
+// a small wall-clock term keeps the atmosphere alive while the simulation is
+// paused.  The phase is unitless and deliberately visual: raw atmospheric
+// speeds would alias at the app's high simulation rates.
+export const CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY = .075;
+export const CLOUD_WEATHER_PHASE_PER_WALL_SECOND = .008;
+export function cloudWeatherTime({wallSeconds = 0, simulatedDays = 0} = {}) {
+ return (Number(wallSeconds) || 0) * CLOUD_WEATHER_PHASE_PER_WALL_SECOND
+  + (Number(simulatedDays) || 0) * CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY;
+}
 const smooth = value => value * value * (3 - 2 * value);
 const mix = (a, b, amount) => a + (b - a) * amount;
 const smoothstep = (edge0, edge1, value) => {
@@ -49,8 +60,7 @@ export function createProceduralCloudTexture(width = CLOUD_SIZE.width, height = 
 }
 
 export function cloudDrift({wallSeconds = 0, simulatedDays = 0, drift = 1, shadow = false} = {}) {
- const simulated = Math.tanh(Math.max(0, simulatedDays) / 80) * .18;
- const phase = wrap((wallSeconds * .0005 + simulated) * drift);
+ const phase = wrap(cloudWeatherTime({wallSeconds, simulatedDays}) * drift);
  return {x: phase, y: wrap(.17 + phase * (shadow ? .13 : .19))};
 }
 
@@ -137,9 +147,7 @@ function createCloudField() {
   anchor.quaternion.setFromUnitVectors(up, observer);
  };
  const update = ({wallSeconds = 0, simulatedDays = 0, daylight = 1, cameraPosition, sunDirection} = {}) => {
-  // Wall time gives a smooth, real wind; simulated time makes a fast-forward
-  // visibly advance weather without changing the simulation's dynamics.
-  const weatherTime = wallSeconds * .018 + simulatedDays * .0022;
+  const weatherTime = cloudWeatherTime({wallSeconds, simulatedDays});
   const kilometre = 1 / radiusKm;
   for (const puff of volumes) {
    const wind = weatherTime + puff.seed;

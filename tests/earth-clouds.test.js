@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {cloudDrift, createEarthCloudCover, createProceduralCloudTexture} from '../src/earth-clouds.js';
+import {cloudDrift, cloudWeatherTime, createEarthCloudCover, createProceduralCloudTexture} from '../src/earth-clouds.js';
 
 test('procedural Earth clouds contain both clear sky and opaque cloud cells', () => {
  const texture = createProceduralCloudTexture(48, 24, 41);
@@ -16,6 +16,14 @@ test('cloud drift is deterministic and advances without wrapping out of bounds',
  const later = cloudDrift({wallSeconds: 300, simulatedDays: 6, drift: 1});
  assert.notEqual(first.x, later.x);
  for (const value of Object.values(later)) assert.ok(value >= 0 && value < 1);
+});
+
+test('cloud weather follows simulated days strongly enough to reflect simulation speed', () => {
+ const paused = cloudWeatherTime({wallSeconds: 10, simulatedDays: 0});
+ const twoDaysPerSecond = cloudWeatherTime({wallSeconds: 10, simulatedDays: 2});
+ const fastForward = cloudWeatherTime({wallSeconds: 10, simulatedDays: 365});
+ assert.ok(twoDaysPerSecond - paused > .14);
+ assert.ok(fastForward - twoDaysPerSecond > 20);
 });
 
 test('cloud shadows retain the cloud deck motion with a Sun-facing offset', () => {
