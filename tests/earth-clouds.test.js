@@ -40,7 +40,7 @@ test('cloud advection at 0.02 d/s has the intended 2 d/s visual pace', () => {
  assert.equal(slowMotion, formerFastWeatherPhase);
 });
 
-test('cloud shadows retain the cloud deck motion with a Sun-facing offset', () => {
+test('cloud drift exposes an independent second coordinate for weather evolution', () => {
  const cloud = cloudDrift({wallSeconds: 120, simulatedDays: 2, drift: 1});
  const shadow = cloudDrift({wallSeconds: 120, simulatedDays: 2, drift: 1, shadow: true});
  assert.notEqual(cloud.y, shadow.y);
@@ -57,25 +57,37 @@ test('visible Earth clouds are dynamic ray-marched volumes, not static sprites',
  const cameraPosition=new THREE.Vector3(0,1.01,0);
  cover.update({wallSeconds:0,simulatedDays:0,cameraPosition});
  const start=firstPuff.position.clone();
- cover.update({wallSeconds:0,simulatedDays:4,cameraPosition});
- assert.ok(firstPuff.material.uniforms.uTime.value>3);
- assert.ok(firstPuff.position.distanceTo(start)>.004,'a four-day simulation advance moves the cloud cell by tens of kilometres');
+ cover.update({wallSeconds:0,simulatedDays:.02,cameraPosition});
+ assert.ok(firstPuff.material.uniforms.uTime.value>.01);
+ assert.ok(firstPuff.position.distanceTo(start)>.0005,'a 0.02-day simulation advance visibly advects the cloud cell');
  cover.dispose();
 });
 
-test('nearby cloud volumes project visible moving shadows onto the local ground', () => {
+test('cloud deck keeps visible volumes near the observer without a terrain-intersecting shadow mesh', () => {
  const cover = createEarthCloudCover();
  cover.setObserver(new THREE.Vector3(0, 1, 0), {radiusKm: 6371, surfaceHeightKm: 0, surfaceRadius: 1});
  cover.setLighting({daylight: 1, sunDirection: new THREE.Vector3(.3, .8, .5)});
  const field = cover.group.getObjectByName('Earth dynamic cloud field');
- const shadow = field.getObjectByName('Projected cloud shadow');
  const cameraPosition = new THREE.Vector3(0, 1.001, 0);
  cover.update({wallSeconds: 0, simulatedDays: 0, cameraPosition});
- const start = shadow.position.clone();
+ const puffs = [];
+ field.traverse(item => { if (item.name === 'Ray-marched cloud volume') puffs.push(item); });
  cover.update({wallSeconds: 0, simulatedDays: .02, cameraPosition});
- assert.equal(shadow.visible, true);
- assert.ok(shadow.material.uniforms.uOpacity.value > 0);
- assert.ok(shadow.position.distanceTo(start) > .001, 'shadow follows the advected cloud');
+ assert.equal(field.getObjectByName('Projected cloud shadow'), undefined);
+ assert.equal(puffs.length, 18);
+ assert.ok(puffs.some(puff => Math.hypot(puff.position.x, puff.position.z) * 6371 < 46));
+ assert.ok(puffs.some(puff => puff.position.y > 0), 'some cloud bases remain visibly above the local horizon');
+ cover.dispose();
+});
+
+test('cloud shadows are injected into ground materials without overlay meshes', () => {
+ const cover = createEarthCloudCover();
+ const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial());
+ cover.applyGroundShadows(ground);
+ assert.equal(ground.material.userData.__solareCloudShadow, true);
+ assert.equal(typeof ground.material.onBeforeCompile, 'function');
+ ground.geometry.dispose();
+ ground.material.dispose();
  cover.dispose();
 });
 

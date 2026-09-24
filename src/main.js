@@ -1072,7 +1072,12 @@ function updateSurfaceView(tick=0){
  // worst of them, standing 277 near-planes too low.
  camera.near=Math.max(1e-12,height/20);
  orientSurfaceBody(body,horizon);
- updateSurfaceDetailTiles(views.get(body.id),surfaceView.latitude,surfaceView.longitude);
+ const surfaceDetailView=views.get(body.id);
+ updateSurfaceDetailTiles(surfaceDetailView,surfaceView.latitude,surfaceView.longitude);
+ // New colour/terrain tiles can arrive after the surface view is already
+ // open. Attach the shared procedural cloud-shadow uniforms to each receiver
+ // as it appears; the effect is shader-based, so it cannot z-fight terrain.
+ earthCloudCover?.applyGroundShadows(surfaceDetailView?.mesh);
  earthCloudCover?.update({wallSeconds:performance.now()/1000,simulatedDays:elapsed,cameraPosition:camera.position});
  camera.fov=surfaceView.fov;camera.updateProjectionMatrix();
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
