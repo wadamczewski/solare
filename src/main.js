@@ -1033,9 +1033,8 @@ function updateSurfaceAtmosphere(body,frame){
   const altitude=(sun?.altitude??-90)*Math.PI/180,azimuth=(sun?.azimuth??0)*Math.PI/180;
   const horizontalPart=Math.cos(altitude);
   const worldSun=new THREE.Vector3(...[0,1,2].map(axis=>frame.north[axis]*horizontalPart*Math.cos(azimuth)+frame.east[axis]*horizontalPart*Math.sin(azimuth)+frame.zenith[axis]*Math.sin(altitude)));
-  const cloudView=views.get(body.id),localSun=worldSun,localObserver=new THREE.Vector3(...frame.zenith);
-  if(cloudView?.mesh){const rotation=cloudView.mesh.getWorldQuaternion(new THREE.Quaternion()).invert();localSun.applyQuaternion(rotation);localObserver.applyQuaternion(rotation);}
-  earthCloudCover.setObserver(localObserver);
+  const cloudView=views.get(body.id),localSun=worldSun;
+  if(cloudView?.mesh){const rotation=cloudView.mesh.getWorldQuaternion(new THREE.Quaternion()).invert();localSun.applyQuaternion(rotation);}
   earthCloudCover.setLighting({daylight:cloudOpacity,sunDirection:localSun,quality:adaptiveDetail});
  }
  surfaceAtmosphereLayer.hidden=state.opacity<=0;

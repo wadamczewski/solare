@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {cloudDrift, createProceduralCloudTexture} from '../src/earth-clouds.js';
+import {cloudDrift, createEarthCloudCover, createProceduralCloudTexture} from '../src/earth-clouds.js';
 
 test('procedural Earth clouds contain both clear sky and opaque cloud cells', () => {
  const texture = createProceduralCloudTexture(48, 24, 41);
@@ -21,4 +21,17 @@ test('cloud shadows retain the cloud deck motion with a Sun-facing offset', () =
  const cloud = cloudDrift({wallSeconds: 120, simulatedDays: 2, drift: 1});
  const shadow = cloudDrift({wallSeconds: 120, simulatedDays: 2, drift: 1, shadow: true});
  assert.notEqual(cloud.y, shadow.y);
+});
+
+
+test('visible Earth clouds are a time-driven ray-marched pass, not static sprites', () => {
+ const cover = createEarthCloudCover();
+ const pass = cover.group.getObjectByName('Earth ray-marched cloud layer');
+ assert.ok(pass?.isMesh);
+ assert.match(pass.material.fragmentShader, /densityAt/);
+ assert.match(pass.material.fragmentShader, /uniform float time/);
+ assert.equal(cover.group.children.some(child => child.isSprite), false);
+ cover.update({wallSeconds: 12});
+ assert.equal(pass.material.uniforms.time.value, 12);
+ cover.dispose();
 });
