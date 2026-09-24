@@ -81,10 +81,18 @@ export function cloudDrift({wallSeconds = 0, simulatedDays = 0, drift = 1, shado
 // local volumes instead of a full-screen pass, because a full-screen ray
 // marcher has no knowledge of the terrain depth and would paint through the
 // mountain, ground and interface.
-const CLOUD_CLUSTER_COUNT = 12;
+const CLOUD_CLUSTER_COUNT = 16;
+// A coherent local air mass drives every nearby cloud in one direction. The
+// individual cells differ in altitude and shape, but not in their horizontal
+// wind vector, as neighbouring real clouds do.
+export const CLOUD_WIND_DIRECTION = -.72;
 const CLOUD_SHADOW_KEY = '__solareCloudShadow';
 const cloudRandom = (index, salt = 0) => {
  const value = Math.sin((index + 1) * 127.1 + (salt + 1) * 311.7) * 43758.5453123;
+ return value - Math.floor(value);
+};
+const cloudCycleRandom = (index, cycle, salt = 0) => {
+ const value = Math.sin((index + 1) * 127.1 + (cycle + 1) * 269.5 + (salt + 1) * 419.2) * 43758.5453123;
  return value - Math.floor(value);
 };
 
@@ -97,16 +105,16 @@ function cloudVolumeMaterial(seed) {
   // shader below selects exactly one face for each ray, avoiding the usual
   // double-blended transparent-box artefact.
   transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,
-  uniforms:{uTime:{value:0},uSeed:{value:seed},uOpacity:{value:.5},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
+  uniforms:{uTime:{value:0},uMorph:{value:0},uSeed:{value:seed},uOpacity:{value:.5},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
   vertexShader:`varying vec3 vBox;void main(){vBox=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
   // Adapted from the reference's 3-D fBm/raymarch approach, but marched only
   // inside each cloud proxy. The terrain therefore stays depth-tested and
   // cannot be covered by a full-screen weather pass.
   fragmentShader:`
-varying vec3 vBox;uniform vec3 uCamera;uniform vec3 uSun;uniform float uTime;uniform float uSeed;uniform float uOpacity;
+varying vec3 vBox;uniform vec3 uCamera;uniform vec3 uSun;uniform float uTime;uniform float uMorph;uniform float uSeed;uniform float uOpacity;
 float hash(float n){return fract(sin(n)*43758.5453);} float noise(vec3 x){vec3 p=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);float n=p.x+p.y*57.0+113.0*p.z;return mix(mix(mix(hash(n),hash(n+1.0),f.x),mix(hash(n+57.0),hash(n+58.0),f.x),f.y),mix(mix(hash(n+113.0),hash(n+114.0),f.x),mix(hash(n+170.0),hash(n+171.0),f.x),f.y),f.z);}
 float fbm(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec3(17.0,11.0,7.0);a*=.5;}return v;}
-float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);float enclosure=max(0.,1.0-length(vec3(p.x*1.85,p.y*2.8,p.z*1.85)));float body=fbm((p+flow)*3.1+uSeed*9.7)*.66+fbm((p-flow*.4)*7.2+uSeed*3.1)*.34;return smoothstep(.55,.8,body*.55+enclosure*.92)*smoothstep(.03,.18,enclosure);}
+float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);vec3 warp=vec3(fbm(p*4.7+vec3(uMorph*.31,uMorph*.17,uMorph*.23)),fbm(p.zxy*5.2+vec3(uMorph*.11,uMorph*.29,uMorph*.19)),fbm(p.yzx*4.1+vec3(uMorph*.27,uMorph*.13,uMorph*.37)))-.5;vec3 shaped=p+warp*.18;float enclosure=max(0.,1.0-length(vec3(shaped.x*1.85,shaped.y*2.8,shaped.z*1.85)));float body=fbm((shaped+flow)*3.1+uSeed*9.7)*.66+fbm((shaped-flow*.4)*7.2+uSeed*3.1)*.34;return smoothstep(.55,.8,body*.55+enclosure*.92)*smoothstep(.03,.18,enclosure);}
 vec2 boxHit(vec3 ro,vec3 rd){vec3 inv=1.0/rd;vec3 a=(-.5-ro)*inv,b=(.5-ro)*inv;vec3 lo=min(a,b),hi=max(a,b);return vec2(max(max(lo.x,lo.y),lo.z),min(min(hi.x,hi.y),hi.z));}
 void main(){bool cameraInside=all(lessThan(abs(uCamera),vec3(.5)));if((cameraInside&&gl_FrontFacing)||(!cameraInside&&!gl_FrontFacing))discard;vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/20.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<20;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.1;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.94,.98,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
  });
@@ -179,12 +187,12 @@ function createCloudField() {
   const baseY = layer < .6 ? 1.8 + cloudRandom(cluster, 4) * 3.8
    : layer < .84 ? 5.6 + cloudRandom(cluster, 4) * 3.4
     : 10 + cloudRandom(cluster, 4) * 4;
-  const width = layer < .6 ? 3.8 + cloudRandom(cluster, 5) * 4.8
-   : layer < .84 ? 7 + cloudRandom(cluster, 5) * 7
-    : 13 + cloudRandom(cluster, 5) * 11;
+  const width = layer < .6 ? 9 + cloudRandom(cluster, 5) * 10
+   : layer < .84 ? 16 + cloudRandom(cluster, 5) * 18
+    : 28 + cloudRandom(cluster, 5) * 32;
   const material=cloudVolumeMaterial(cloudRandom(cluster,6));
-  const mesh=new THREE.Mesh(geometry,material);mesh.name='Ray-marched cloud volume';mesh.renderOrder=2;anchor.add(mesh);
-  volumes.push({mesh,material,direction,flowDirection:direction+(cloudRandom(cluster,10)-.5)*.85,flowCycleKm:120+cloudRandom(cluster,11)*70,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?.8+cloudRandom(cluster,8)*1.05:layer<.84?1.2+cloudRandom(cluster,8)*1.5:1+cloudRandom(cluster,8)*1.3,depth:width*(.55+cloudRandom(cluster,9)*.18)});
+  const mesh=new THREE.Mesh(geometry,material);mesh.name='Ray-marched cloud volume';mesh.renderOrder=2;mesh.userData.windDirection=CLOUD_WIND_DIRECTION;anchor.add(mesh);
+  volumes.push({mesh,material,direction,flowCycleKm:150+cloudRandom(cluster,11)*90,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?1.2+cloudRandom(cluster,8)*1.6:layer<.84?2+cloudRandom(cluster,8)*2.5:1.7+cloudRandom(cluster,8)*1.8,depth:width*(.58+cloudRandom(cluster,9)*.26)});
  }
  const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
  let radiusKm = 6371, surfaceHeightKm = 0, anchored = false;
@@ -217,11 +225,21 @@ function createCloudField() {
    const puff = volumes[cloudIndex];
    const wind = motionTime + puff.seed;
    const breathing = .7 + .3 * Math.sin(weatherTime * 1.27 + puff.seed * 1.71);
-   const lifecyclePhase = wrap((windDistanceKm + puff.seed * 23) / puff.flowCycleKm);
+   const cycleOffsetKm = puff.seed * 23;
+   const cycle = Math.floor((windDistanceKm + cycleOffsetKm) / puff.flowCycleKm);
+   const lifecyclePhase = wrap((windDistanceKm + cycleOffsetKm) / puff.flowCycleKm);
    const lifecycle = smoothstep(.02, .16, lifecyclePhase) * (1 - smoothstep(.78, .96, lifecyclePhase));
    const travelKm = (lifecyclePhase - .5) * puff.flowCycleKm;
-   const xKm = puff.baseX + Math.cos(puff.flowDirection) * travelKm;
-   const zKm = puff.baseZ + Math.sin(puff.flowDirection) * travelKm;
+   // New cycles use different spawn offsets and dimensions, but the change
+   // happens while the previous cloud is transparent at the weather-cell
+   // boundary. This provides variety without popping into view.
+   const crossWindKm = (cloudCycleRandom(cloudIndex, cycle, 1) - .5) * 105;
+   const spawnAlongWindKm = (cloudCycleRandom(cloudIndex, cycle, 2) - .5) * 18;
+   const sizeVariation = .7 + cloudCycleRandom(cloudIndex, cycle, 3) * .9;
+   const heightVariation = .72 + cloudCycleRandom(cloudIndex, cycle, 4) * .72;
+   const depthVariation = .68 + cloudCycleRandom(cloudIndex, cycle, 5) * .88;
+   const xKm = puff.baseX + Math.cos(CLOUD_WIND_DIRECTION) * (travelKm + spawnAlongWindKm) - Math.sin(CLOUD_WIND_DIRECTION) * crossWindKm;
+   const zKm = puff.baseZ + Math.sin(CLOUD_WIND_DIRECTION) * (travelKm + spawnAlongWindKm) + Math.cos(CLOUD_WIND_DIRECTION) * crossWindKm;
    // A cloud that remains a fixed height above sea level is lower than the
    // tangent plane at range because Earth curves away. This term also lets
    // low clouds sit visibly below an 8.849 km Everest observer.
@@ -231,9 +249,12 @@ function createCloudField() {
     (puff.baseY - surfaceHeightKm - curvatureKm + Math.sin(wind * 1.13) * .18) * kilometre,
     zKm * kilometre
    );
-   puff.mesh.scale.set(puff.width * breathing * kilometre, puff.height * (1 + .28 * Math.cos(wind)) * kilometre, puff.depth * breathing * kilometre);
-   puff.mesh.rotation.set(.05*Math.sin(wind*.43),puff.seed+motionTime*.08,.04*Math.cos(wind*.37));
+   const shapePulse = .82 + .18 * Math.sin(weatherTime * (1.3 + cloudRandom(cloudIndex, 14)) + puff.seed * 2.3);
+   puff.mesh.scale.set(puff.width * sizeVariation * breathing * shapePulse * kilometre, puff.height * heightVariation * (1 + .34 * Math.cos(wind)) * kilometre, puff.depth * depthVariation * breathing * (1.14 - shapePulse * .14) * kilometre);
+   puff.mesh.rotation.set(.025*Math.sin(wind*.43),CLOUD_WIND_DIRECTION,.025*Math.cos(wind*.37));
    puff.material.uniforms.uTime.value=weatherTime;
+   puff.material.uniforms.uMorph.value=weatherTime*(1.1+cloudRandom(cloudIndex,15))+puff.seed;
+   puff.material.uniforms.uSeed.value=cloudCycleRandom(cloudIndex,cycle,6)*17+puff.seed;
    puff.material.uniforms.uOpacity.value=(.72+.18*Math.min(1,daylight))*daylight*lifecycle;
    puff.material.uniforms.uSun.value.copy(light);
    // Intersect the sunlight ray with the tangent ground plane, then rotate
@@ -249,7 +270,7 @@ function createCloudField() {
     (-surfaceHeightKm-groundCurvatureKm)*kilometre,
     groundZ*kilometre
    ).applyQuaternion(anchor.quaternion).add(anchor.position);
-   shadowRadii[cloudIndex] = puff.width * 1.35 * breathing * lifecycle * kilometre;
+   shadowRadii[cloudIndex] = puff.width * sizeVariation * 1.35 * breathing * lifecycle * kilometre;
   }
   if(cameraPosition){
    field.updateMatrixWorld(true);

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
  CLOUD_MOTION_SIMULATION_MULTIPLIER,
+ CLOUD_WIND_DIRECTION,
  cloudDrift,
  cloudMotionTime,
  cloudWeatherTime,
@@ -94,9 +95,25 @@ test('cloud deck keeps visible volumes near the observer without a terrain-inter
  field.traverse(item => { if (item.name === 'Ray-marched cloud volume') puffs.push(item); });
  cover.update({wallSeconds: 0, simulatedDays: .02, cameraPosition});
  assert.equal(field.getObjectByName('Projected cloud shadow'), undefined);
- assert.equal(puffs.length, 12);
+ assert.equal(puffs.length, 16);
  assert.ok(puffs.some(puff => Math.hypot(puff.position.x, puff.position.z) * 6371 < 34));
+ assert.ok(puffs.some(puff => Math.max(puff.scale.x, puff.scale.z) * 6371 > 24), 'the weather field includes large cloud clusters');
  assert.ok(puffs.some(puff => puff.position.y > 0), 'some cloud bases remain visibly above the local horizon');
+ cover.dispose();
+});
+
+test('weather cycles respawn varied cloud shapes while keeping one shared wind direction', () => {
+ const cover = createEarthCloudCover();
+ cover.setObserver(new THREE.Vector3(0, 1, 0), {radiusKm: 6371, surfaceRadius: 1});
+ cover.update({simulatedDays: 0, cameraPosition: new THREE.Vector3(0, 1.001, 0)});
+ const field = cover.group.getObjectByName('Earth dynamic cloud field');
+ const puffs = [];
+ field.traverse(item => { if (item.name === 'Ray-marched cloud volume') puffs.push(item); });
+ const before = puffs.map(puff => ({seed: puff.material.uniforms.uSeed.value, scale: puff.scale.toArray()}));
+ assert.ok(puffs.every(puff => puff.userData.windDirection === CLOUD_WIND_DIRECTION));
+ cover.update({simulatedDays: 1, cameraPosition: new THREE.Vector3(0, 1.001, 0)});
+ assert.ok(puffs.some((puff, index) => puff.material.uniforms.uSeed.value !== before[index].seed));
+ assert.ok(puffs.some((puff, index) => puff.scale.distanceTo(new THREE.Vector3(...before[index].scale)) > 1e-5));
  cover.dispose();
 });
 
