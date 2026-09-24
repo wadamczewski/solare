@@ -231,10 +231,11 @@ export function enterSurfaceDetail(view, body, maxAnisotropy = 8) {
  view.surfaceDetail.tiles = createSurfaceTileStream(body, maxAnisotropy);
  if (view.surfaceDetail.tiles) view.mesh.add(view.surfaceDetail.tiles.group);
  view.surfaceDetail.topography = createSurfaceTopography(body, material);
- // The survey is selected per observer position. Keep the normal global
- // relief until updateSurfaceDetailTiles() enters a measured region; then it
- // becomes the sole foreground terrain layer together with its own DEM mesh.
- view.surfaceDetail.surveyedDisplacementScale = profile.relief;
+ // The global displacement map and streamed colour sheets approximate the
+ // same surface. On Mars the displaced globe reached through the tile shell,
+ // creating floating bands at the horizon. Keep global relief in the normal
+ // map and reserve real vertex elevation for the local DEM mesh only.
+ material.displacementScale = 0;
  if (view.surfaceDetail.topography) view.mesh.add(view.surfaceDetail.topography.group);
  if (material.map) material.map.anisotropy = Math.max(material.map.anisotropy || 1, Math.min(16, maxAnisotropy));
  material.needsUpdate = true;
@@ -254,12 +255,10 @@ export function updateSurfaceDetailTiles(view, latitude, longitude) {
   detail.tiles.group.visible=!surveyed;
   if(!surveyed)detail.tiles.update(latitude, longitude);
  }
- // Likewise the approximate whole-body displacement is only meaningful away
- // from a DEM patch. Toggling it atomically with the tile shell keeps every
- // edge aligned while walking across the activation boundary.
- if(Number.isFinite(detail.surveyedDisplacementScale)){
-  view.mesh.material.displacementScale=surveyed?0:detail.surveyedDisplacementScale;
- }
+ // Both paths share the undistorted global shell. The survey carries its own
+ // DEM elevation and feathers back to it at the boundary, avoiding a second
+ // height surface when the observer walks between regions.
+ view.mesh.material.displacementScale=0;
 }
 
 export function leaveSurfaceDetail(view) {

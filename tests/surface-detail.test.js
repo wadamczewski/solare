@@ -51,10 +51,9 @@ test('stale shared surface overrides fall back safely instead of leaking another
 });
 
 
-test('measured terrain replaces raised texture tiles while the observer is inside its survey', () => {
+test('surface tiles never coexist with a second displaced global terrain shell', () => {
  const calls=[];
  const view={mesh:{material:{displacementScale:.23}},surfaceDetail:{
-  surveyedDisplacementScale:.23,
   tiles:{group:{visible:true},update:(latitude,longitude)=>calls.push([latitude,longitude])},
   topography:{update:()=>true}
  }};
@@ -65,6 +64,6 @@ test('measured terrain replaces raised texture tiles while the observer is insid
  view.surfaceDetail.topography.update=()=>false;
  updateSurfaceDetailTiles(view,26,86);
  assert.equal(view.surfaceDetail.tiles.group.visible,true);
- assert.equal(view.mesh.material.displacementScale,.23);
+ assert.equal(view.mesh.material.displacementScale,0);
  assert.deepEqual(calls,[[26,86]]);
 });

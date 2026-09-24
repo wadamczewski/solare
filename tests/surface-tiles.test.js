@@ -1,6 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {surfaceAssetKey,surfaceTileAddress,surfaceTileWindow,surfaceTileset} from '../src/surface-tiles.js';
+import {SURFACE_TILE_SHELL_SCALE,surfaceAssetKey,surfaceTileAddress,surfaceTileWindow,surfaceTileset} from '../src/surface-tiles.js';
+
+test('surface texture shell remains within a few metres of the globe', () => {
+ assert.ok(SURFACE_TILE_SHELL_SCALE > 1);
+ assert.ok(SURFACE_TILE_SHELL_SCALE < 1.00001);
+});
 
 test('surface tile addresses wrap longitude and clamp latitude', () => {
  assert.deepEqual(surfaceTileAddress('earth', 0, -180), {key:'earth',column:0,row:2,id:'earth/0-2'});

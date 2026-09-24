@@ -9,6 +9,9 @@ export const SURFACE_TILESETS = Object.freeze({
  moon: Object.freeze({columns:4, rows:2, path:'/textures/surface/tiles/moon'}),
  mars: Object.freeze({columns:4, rows:2, path:'/textures/surface/tiles/mars'})
 });
+// A few metres are sufficient for depth ordering over the base globe. A
+// kilometre-scale shell makes its edge visible at the horizon.
+export const SURFACE_TILE_SHELL_SCALE = 1.000003;
 
 const wrap = (value, length) => ((value % length) + length) % length;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -119,7 +122,7 @@ export function createSurfaceTileStream(body, anisotropy = 1) {
  if (!tileset) return null;
  const group = new THREE.Group();
  group.name = 'surface-detail-tiles';
- group.scale.setScalar(1.00035);
+ group.scale.setScalar(SURFACE_TILE_SHELL_SCALE);
  const meshes = new Map(), wanted = new Set();
  let disposed = false;
 
