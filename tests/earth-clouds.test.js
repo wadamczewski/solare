@@ -33,6 +33,26 @@ test('cloud weather follows simulated days strongly enough to reflect simulation
  assert.ok(fastForward - twoDaysPerSecond > 300);
 });
 
+test('a paused simulation freezes cloud shape and motion regardless of wall time', () => {
+ const cover = createEarthCloudCover();
+ const cameraPosition = new THREE.Vector3(0, 1.001, 0);
+ cover.update({wallSeconds: 0, simulatedDays: 0, cameraPosition});
+ const field = cover.group.getObjectByName('Earth dynamic cloud field');
+ const puff = field.getObjectByName('Ray-marched cloud volume');
+ const before = {
+  position: puff.position.clone(),
+  scale: puff.scale.clone(),
+  rotation: puff.rotation.clone(),
+  time: puff.material.uniforms.uTime.value
+ };
+ cover.update({wallSeconds: 3600, simulatedDays: 0, cameraPosition});
+ assert.deepEqual(puff.position.toArray(), before.position.toArray());
+ assert.deepEqual(puff.scale.toArray(), before.scale.toArray());
+ assert.deepEqual(puff.rotation.toArray(), before.rotation.toArray());
+ assert.equal(puff.material.uniforms.uTime.value, before.time);
+ cover.dispose();
+});
+
 test('cloud advection at 0.02 d/s has the intended 2 d/s visual pace', () => {
  const slowMotion = cloudMotionTime({wallSeconds: 0, simulatedDays: .02});
  const formerFastWeatherPhase = cloudWeatherTime({wallSeconds: 0, simulatedDays: 2});
@@ -74,7 +94,7 @@ test('cloud deck keeps visible volumes near the observer without a terrain-inter
  field.traverse(item => { if (item.name === 'Ray-marched cloud volume') puffs.push(item); });
  cover.update({wallSeconds: 0, simulatedDays: .02, cameraPosition});
  assert.equal(field.getObjectByName('Projected cloud shadow'), undefined);
- assert.equal(puffs.length, 20);
+ assert.equal(puffs.length, 12);
  assert.ok(puffs.some(puff => Math.hypot(puff.position.x, puff.position.z) * 6371 < 34));
  assert.ok(puffs.some(puff => puff.position.y > 0), 'some cloud bases remain visibly above the local horizon');
  cover.dispose();

@@ -8,18 +8,17 @@ const CLOUD_SIZE = Object.freeze({width: 256, height: 128});
 const wrap = value => value - Math.floor(value);
 // The simulation clock is deliberately the dominant source of cloud motion.
 // One simulated day advances the weather phase by almost one complete cloud
-// evolution. A small wall-clock term keeps the atmosphere alive while the
-// simulation is paused. The phase is deliberately visual: raw atmospheric
-// speeds would alias at the app's high simulation rates.
+// evolution. Weather is frozen with the simulation: a paused observer must
+// see a completely stationary atmosphere. The phase is deliberately visual:
+// raw atmospheric speeds would alias at the app's high simulation rates.
 export const CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY = .85;
-export const CLOUD_WEATHER_PHASE_PER_WALL_SECOND = .015;
+export const CLOUD_WEATHER_PHASE_PER_WALL_SECOND = 0;
 // At the slowest offered simulation speed (0.02 d/s), cloud advection should
 // still read as living weather. This factor makes it as visible as the former
 // 2 d/s behaviour, then continues to scale linearly with every speed preset.
 export const CLOUD_MOTION_SIMULATION_MULTIPLIER = 100;
 export function cloudWeatherTime({wallSeconds = 0, simulatedDays = 0} = {}) {
- return (Number(wallSeconds) || 0) * CLOUD_WEATHER_PHASE_PER_WALL_SECOND
-  + (Number(simulatedDays) || 0) * CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY;
+ return (Number(simulatedDays) || 0) * CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY;
 }
 export function cloudMotionTime({wallSeconds = 0, simulatedDays = 0} = {}) {
  return cloudWeatherTime({
@@ -82,7 +81,7 @@ export function cloudDrift({wallSeconds = 0, simulatedDays = 0, drift = 1, shado
 // local volumes instead of a full-screen pass, because a full-screen ray
 // marcher has no knowledge of the terrain depth and would paint through the
 // mountain, ground and interface.
-const CLOUD_CLUSTER_COUNT = 20;
+const CLOUD_CLUSTER_COUNT = 12;
 const CLOUD_SHADOW_KEY = '__solareCloudShadow';
 const cloudRandom = (index, salt = 0) => {
  const value = Math.sin((index + 1) * 127.1 + (salt + 1) * 311.7) * 43758.5453123;
@@ -104,9 +103,9 @@ function cloudVolumeMaterial(seed) {
 varying vec3 vBox;uniform vec3 uCamera;uniform vec3 uSun;uniform float uTime;uniform float uSeed;uniform float uOpacity;
 float hash(float n){return fract(sin(n)*43758.5453);} float noise(vec3 x){vec3 p=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);float n=p.x+p.y*57.0+113.0*p.z;return mix(mix(mix(hash(n),hash(n+1.0),f.x),mix(hash(n+57.0),hash(n+58.0),f.x),f.y),mix(mix(hash(n+113.0),hash(n+114.0),f.x),mix(hash(n+170.0),hash(n+171.0),f.x),f.y),f.z);}
 float fbm(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec3(17.0,11.0,7.0);a*=.5;}return v;}
-float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);float edge=1.0-length(vec3(p.x*1.12,p.y*1.7,p.z*1.12))*1.18;float body=fbm((p+flow)*3.1+uSeed*9.7)*.72+fbm((p-flow*.4)*7.2+uSeed*3.1)*.28;return smoothstep(.49,.74,body+edge*.58);}
+float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);float enclosure=max(0.,1.0-length(vec3(p.x*1.85,p.y*2.8,p.z*1.85)));float body=fbm((p+flow)*3.1+uSeed*9.7)*.66+fbm((p-flow*.4)*7.2+uSeed*3.1)*.34;return smoothstep(.55,.8,body*.55+enclosure*.92)*smoothstep(.03,.18,enclosure);}
 vec2 boxHit(vec3 ro,vec3 rd){vec3 inv=1.0/rd;vec3 a=(-.5-ro)*inv,b=(.5-ro)*inv;vec3 lo=min(a,b),hi=max(a,b);return vec2(max(max(lo.x,lo.y),lo.z),min(min(hi.x,hi.y),hi.z));}
-void main(){vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/16.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<16;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.22;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.98,1.0,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
+void main(){vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/20.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<20;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.1;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.94,.98,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
  });
 }
 
@@ -169,20 +168,20 @@ function createCloudField() {
   // Keep a dense lower deck around the observer, but leave a safe horizontal
   // margin so a ray-march proxy never encloses the camera. Earlier cells were
   // mostly 26–316 km away and therefore appeared only as horizon streaks.
-  const distance = layer < .6 ? 7 + cloudRandom(cluster, 2) * 16
-   : layer < .84 ? 15 + cloudRandom(cluster, 2) * 35
-    : 25 + cloudRandom(cluster, 2) * 58;
+  const distance = layer < .6 ? 6 + cloudRandom(cluster, 2) * 14
+   : layer < .84 ? 14 + cloudRandom(cluster, 2) * 24
+    : 22 + cloudRandom(cluster, 2) * 32;
   const baseX = Math.cos(direction) * distance;
   const baseZ = Math.sin(direction) * distance;
-  const baseY = layer < .6 ? 1.7 + cloudRandom(cluster, 4) * 4.4
-   : layer < .84 ? 5.5 + cloudRandom(cluster, 4) * 4.5
-    : 10 + cloudRandom(cluster, 4) * 5;
-  const width = layer < .6 ? 5 + cloudRandom(cluster, 5) * 8
-   : layer < .84 ? 11 + cloudRandom(cluster, 5) * 16
-    : 22 + cloudRandom(cluster, 5) * 28;
+  const baseY = layer < .6 ? 1.8 + cloudRandom(cluster, 4) * 3.8
+   : layer < .84 ? 5.6 + cloudRandom(cluster, 4) * 3.4
+    : 10 + cloudRandom(cluster, 4) * 4;
+  const width = layer < .6 ? 3.8 + cloudRandom(cluster, 5) * 4.8
+   : layer < .84 ? 7 + cloudRandom(cluster, 5) * 7
+    : 13 + cloudRandom(cluster, 5) * 11;
   const material=cloudVolumeMaterial(cloudRandom(cluster,6));
   const mesh=new THREE.Mesh(geometry,material);mesh.name='Ray-marched cloud volume';mesh.renderOrder=2;anchor.add(mesh);
-  volumes.push({mesh,material,direction,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?1.1+cloudRandom(cluster,8)*1.6:layer<.84?1.6+cloudRandom(cluster,8)*2.1:1.2+cloudRandom(cluster,8)*1.7,depth:width*(.58+cloudRandom(cluster,9)*.22)});
+  volumes.push({mesh,material,direction,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?.8+cloudRandom(cluster,8)*1.05:layer<.84?1.2+cloudRandom(cluster,8)*1.5:1+cloudRandom(cluster,8)*1.3,depth:width*(.55+cloudRandom(cluster,9)*.18)});
  }
  const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
  let radiusKm = 6371, surfaceHeightKm = 0;
@@ -200,7 +199,7 @@ function createCloudField() {
   // Each deck slides sideways around its own local bearing. This preserves a
   // continuous cloud cover over every direction instead of pushing all cells
   // into one distant strip of sky.
-  const weatherLaneKm = 30;
+  const weatherLaneKm = 22;
   const windDistanceKm = motionTime * 15;
   const kilometre = 1 / radiusKm;
   const light= (sunDirection||new THREE.Vector3(0,1,0)).clone().normalize();
@@ -208,7 +207,12 @@ function createCloudField() {
    const puff = volumes[cloudIndex];
    const wind = motionTime + puff.seed;
    const breathing = .7 + .3 * Math.sin(weatherTime * 1.27 + puff.seed * 1.71);
-   const laneOffsetKm = wrap(windDistanceKm / weatherLaneKm + puff.seed / (Math.PI * 2)) * weatherLaneKm - weatherLaneKm / 2;
+   // Keep every proxy within its local weather cell. A wrapped linear offset
+   // crossed the whole cell in one frame at high rates and made a cloud jump
+   // from one edge of the horizon to the other. A continuous meander keeps
+   // the field close to the observer while still advancing with simulation
+   // time at every selected speed.
+   const laneOffsetKm = Math.sin(windDistanceKm / weatherLaneKm * Math.PI * 2 + puff.seed) * weatherLaneKm / 2;
    const xKm = puff.baseX - Math.sin(puff.direction) * laneOffsetKm + Math.cos(wind * .71) * 2.4;
    const zKm = puff.baseZ + Math.cos(puff.direction) * laneOffsetKm + Math.sin(wind * .63) * 2.4;
    // A cloud that remains a fixed height above sea level is lower than the
@@ -223,7 +227,7 @@ function createCloudField() {
    puff.mesh.scale.set(puff.width * breathing * kilometre, puff.height * (1 + .28 * Math.cos(wind)) * kilometre, puff.depth * breathing * kilometre);
    puff.mesh.rotation.set(.05*Math.sin(wind*.43),puff.seed+motionTime*.08,.04*Math.cos(wind*.37));
    puff.material.uniforms.uTime.value=weatherTime;
-   puff.material.uniforms.uOpacity.value=(.8+.2*Math.min(1,daylight))*daylight;
+   puff.material.uniforms.uOpacity.value=(.72+.18*Math.min(1,daylight))*daylight;
    puff.material.uniforms.uSun.value.copy(light);
    // Intersect the sunlight ray with the tangent ground plane, then rotate
    // that point into the body's local coordinates. Receiver materials use
