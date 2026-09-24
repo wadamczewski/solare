@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {createAsteroidBelt} from '../src/asteroid-belt.js';
+import {asteroidBeltVisible,createAsteroidBelt} from '../src/asteroid-belt.js';
 
 test('asteroid belt uses many small instanced rocky bodies that receive shadows',()=>{
  let randomSeed=0;const random=()=>((randomSeed=(randomSeed*1664525+1013904223)>>>0)/4294967296);
@@ -16,4 +16,11 @@ test('asteroid belt uses many small instanced rocky bodies that receive shadows'
  assert.ok(belt.mesh.instanceMatrix.version>version);
  belt.update(1,raw=>new THREE.Vector3(...raw),true,.25);
  assert.equal(belt.mesh.count,3,'far-map LOD reduces updates without rebuilding the belt');
+});
+
+test('main-belt display is disabled from every surface observer view',()=>{
+ assert.equal(asteroidBeltVisible(),true);
+ assert.equal(asteroidBeltVisible({surfaceView:true}),false);
+ assert.equal(asteroidBeltVisible({systemMode:true}),false);
+ assert.equal(asteroidBeltVisible({blackHoleFall:true}),false);
 });
