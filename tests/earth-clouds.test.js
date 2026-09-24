@@ -100,6 +100,22 @@ test('cloud deck keeps visible volumes near the observer without a terrain-inter
  cover.dispose();
 });
 
+test('clouds stay fixed over the globe while the observer walks, and recenter only on an explicit jump', () => {
+ const cover = createEarthCloudCover();
+ const firstObserver = new THREE.Vector3(0, 1, 0);
+ const secondObserver = new THREE.Vector3(1, 0, 0);
+ cover.setObserver(firstObserver, {radiusKm: 6371, surfaceRadius: 1});
+ const anchor = cover.group.getObjectByName('Earth cloud observer anchor');
+ const initialPosition = anchor.position.clone();
+ const initialRotation = anchor.quaternion.clone();
+ cover.setObserver(secondObserver, {radiusKm: 6371, surfaceRadius: 1});
+ assert.deepEqual(anchor.position.toArray(), initialPosition.toArray());
+ assert.deepEqual(anchor.quaternion.toArray(), initialRotation.toArray());
+ cover.setObserver(secondObserver, {radiusKm: 6371, surfaceRadius: 1, recenter: true});
+ assert.ok(anchor.position.distanceTo(initialPosition) > .5);
+ cover.dispose();
+});
+
 test('cloud shadows are injected into ground materials without overlay meshes', () => {
  const cover = createEarthCloudCover();
  const ground = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), new THREE.MeshStandardMaterial());

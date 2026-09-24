@@ -899,7 +899,7 @@ function startSurfaceView(bodyId){
  if(lightFlight)stopLightFlight();
  stopSolarDeath();
  if(!surfaceView)surfaceReturn={compressed,camera:camera.position.clone(),target:controls.target.clone(),fov:camera.fov,follow,speed};
- surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null,locationOverride:false,earthAtmosphereEnabled:true};
+ surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null,locationOverride:false,cloudsRecenter:true,earthAtmosphereEnabled:false};
  if(isEarthSurface(body))beginEarthSurfaceContext();
  aimAtSomethingWorthSeeing(body);
  navigation.reset();surfaceNavigation.reset();follow=null;selected=null;closePanel();
@@ -922,7 +922,7 @@ function goToKnownPlace(bodyId,place){
  const body=bs.find(candidate=>candidate.id===bodyId);if(!body)return;
  startSurfaceView(bodyId);
  if(!surfaceView)return;
- surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;surfaceView.locationOverride=true;
+ surfaceView.latitude=place.latitude;surfaceView.longitude=place.longitude;surfaceView.locationOverride=true;surfaceView.cloudsRecenter=true;
  const landmark=nearestSurfaceFeature(body,surfaceView.latitude,surfaceView.longitude);
  // Only the surveyed landmarks use the cinematic overview. Other named
  // places remain exact point-of-interest destinations.
@@ -977,6 +977,10 @@ function applyEarthObserverLocation(position){
  if(!point){surfaceView.locationState='unavailable';paintEarthLocation();return}
  const firstLocation=surfaceView.locationState!=='granted';
  surfaceView.latitude=point.latitude;surfaceView.longitude=point.longitude;surfaceView.locationAccuracy=point.accuracy;surfaceView.locationState='granted';
+ // The first permitted device location defines the weather cell for this
+ // visit. Subsequent position updates leave clouds in the world so walking
+ // can carry the observer toward or through them.
+ if(firstLocation)surfaceView.cloudsRecenter=true;
  const latitudeInput=document.querySelector('#surface-latitude'),longitudeInput=document.querySelector('#surface-longitude');
  if(latitudeInput)latitudeInput.value=String(point.latitude);
  if(longitudeInput)longitudeInput.value=String(point.longitude);
@@ -1037,11 +1041,14 @@ function updateSurfaceAtmosphere(body,frame){
   const worldSun=new THREE.Vector3(...[0,1,2].map(axis=>frame.north[axis]*horizontalPart*Math.cos(azimuth)+frame.east[axis]*horizontalPart*Math.sin(azimuth)+frame.zenith[axis]*Math.sin(altitude)));
   const cloudView=views.get(body.id),localSun=worldSun,localObserver=new THREE.Vector3(...frame.zenith);
   if(cloudView?.mesh){const rotation=cloudView.mesh.getWorldQuaternion(new THREE.Quaternion()).invert();localSun.applyQuaternion(rotation);localObserver.applyQuaternion(rotation);}
+  const recenterClouds=surfaceView?.cloudsRecenter===true;
   earthCloudCover.setObserver(localObserver,{
    radiusKm:body.radius,
    surfaceHeightKm:observerHeightKm,
-   surfaceRadius:surfaceBaseRadiusFactor(body,surfaceView.latitude,surfaceView.longitude)
+   surfaceRadius:surfaceBaseRadiusFactor(body,surfaceView.latitude,surfaceView.longitude),
+   recenter:recenterClouds
   });
+  if(recenterClouds)surfaceView.cloudsRecenter=false;
   earthCloudCover.setLighting({daylight:cloudOpacity,sunDirection:localSun,quality:adaptiveDetail});
  }
  surfaceAtmosphereLayer.hidden=state.opacity<=0;
@@ -1283,15 +1290,15 @@ function buildSurfaceHud(){
  surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${earthAtmosphere}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
  document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;detachEarthCloudCover();leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
-  clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.trackBrightest=false;
+  clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.cloudsRecenter=true;surfaceView.trackBrightest=false;
   if(isEarthSurface(body))beginEarthSurfaceContext();else clockShown='';
   releaseSurfaceOrientation();requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());attachEarthCloudCover(body);aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
  const earthAtmosphereToggle=document.querySelector('#surface-earth-atmosphere');if(earthAtmosphereToggle)earthAtmosphereToggle.onchange=event=>{surfaceView.earthAtmosphereEnabled=event.target.checked;earthCloudCover?.setEnabled(event.target.checked);updateSurfaceView()};
  surfaceHud.querySelectorAll('.known-place').forEach(button=>button.onclick=()=>goToKnownPlace(surfaceView.bodyId,places[+button.dataset.index]));
  // Dragging a coordinate by hand is exactly as much a manual override as
  // clicking a known place - it must stick the same way.
- document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;surfaceView.locationOverride=true;paintEarthLocation();updateSurfaceView()};
- document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;surfaceView.locationOverride=true;paintEarthLocation();updateSurfaceView()};
+ document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;surfaceView.locationOverride=true;surfaceView.cloudsRecenter=true;paintEarthLocation();updateSurfaceView()};
+ document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;surfaceView.locationOverride=true;surfaceView.cloudsRecenter=true;paintEarthLocation();updateSurfaceView()};
  requestAnimationFrame(layoutSurfaceHud);
 }
 function paintEarthLocation(){

@@ -93,7 +93,10 @@ function cloudVolumeMaterial(seed) {
   // March from the entry face. Rendering the back face of a transparent box
   // made its result depend on driver-specific transparent sorting and could
   // make an otherwise valid cloud vanish in bright daylight.
-  transparent:true,depthWrite:false,depthTest:true,side:THREE.FrontSide,
+  // Double-sided rendering lets the observer enter a cloud volume. The
+  // shader below selects exactly one face for each ray, avoiding the usual
+  // double-blended transparent-box artefact.
+  transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,
   uniforms:{uTime:{value:0},uSeed:{value:seed},uOpacity:{value:.5},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
   vertexShader:`varying vec3 vBox;void main(){vBox=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
   // Adapted from the reference's 3-D fBm/raymarch approach, but marched only
@@ -105,7 +108,7 @@ float hash(float n){return fract(sin(n)*43758.5453);} float noise(vec3 x){vec3 p
 float fbm(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec3(17.0,11.0,7.0);a*=.5;}return v;}
 float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);float enclosure=max(0.,1.0-length(vec3(p.x*1.85,p.y*2.8,p.z*1.85)));float body=fbm((p+flow)*3.1+uSeed*9.7)*.66+fbm((p-flow*.4)*7.2+uSeed*3.1)*.34;return smoothstep(.55,.8,body*.55+enclosure*.92)*smoothstep(.03,.18,enclosure);}
 vec2 boxHit(vec3 ro,vec3 rd){vec3 inv=1.0/rd;vec3 a=(-.5-ro)*inv,b=(.5-ro)*inv;vec3 lo=min(a,b),hi=max(a,b);return vec2(max(max(lo.x,lo.y),lo.z),min(min(hi.x,hi.y),hi.z));}
-void main(){vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/20.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<20;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.1;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.94,.98,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
+void main(){bool cameraInside=all(lessThan(abs(uCamera),vec3(.5)));if((cameraInside&&gl_FrontFacing)||(!cameraInside&&!gl_FrontFacing))discard;vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/20.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<20;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.1;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.94,.98,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
  });
 }
 
@@ -181,25 +184,32 @@ function createCloudField() {
     : 13 + cloudRandom(cluster, 5) * 11;
   const material=cloudVolumeMaterial(cloudRandom(cluster,6));
   const mesh=new THREE.Mesh(geometry,material);mesh.name='Ray-marched cloud volume';mesh.renderOrder=2;anchor.add(mesh);
-  volumes.push({mesh,material,direction,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?.8+cloudRandom(cluster,8)*1.05:layer<.84?1.2+cloudRandom(cluster,8)*1.5:1+cloudRandom(cluster,8)*1.3,depth:width*(.55+cloudRandom(cluster,9)*.18)});
+  volumes.push({mesh,material,direction,flowDirection:direction+(cloudRandom(cluster,10)-.5)*.85,flowCycleKm:120+cloudRandom(cluster,11)*70,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?.8+cloudRandom(cluster,8)*1.05:layer<.84?1.2+cloudRandom(cluster,8)*1.5:1+cloudRandom(cluster,8)*1.3,depth:width*(.55+cloudRandom(cluster,9)*.18)});
  }
  const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
- let radiusKm = 6371, surfaceHeightKm = 0;
- const setObserver = (direction, {radiusKm: nextRadiusKm = radiusKm, surfaceHeightKm: nextSurfaceHeightKm = surfaceHeightKm, surfaceRadius = 1} = {}) => {
+ let radiusKm = 6371, surfaceHeightKm = 0, anchored = false;
+ const setObserver = (direction, {radiusKm: nextRadiusKm = radiusKm, surfaceHeightKm: nextSurfaceHeightKm = surfaceHeightKm, surfaceRadius = 1, recenter = false} = {}) => {
   if (!direction) return;
+  // The cloud field belongs to the globe, not to the camera.  Keeping this
+  // anchor stable means walking with WSAD changes the distance to a cloud,
+  // so an observer can actually approach and pass through one.  A new
+  // surface session or an explicit location jump may recenter the local
+  // weather cell once.
+  if (anchored && !recenter) return;
   radiusKm = Math.max(1, Number(nextRadiusKm) || 6371);
   surfaceHeightKm = Math.max(0, Number(nextSurfaceHeightKm) || 0);
   observer.copy(direction).normalize();
   anchor.position.copy(observer).multiplyScalar(Math.max(.1, Number(surfaceRadius) || 1) + surfaceHeightKm / radiusKm);
   anchor.quaternion.setFromUnitVectors(up, observer);
+  anchored = true;
  };
  const update = ({wallSeconds = 0, simulatedDays = 0, daylight = 1, cameraPosition, sunDirection} = {}) => {
   const weatherTime = cloudWeatherTime({wallSeconds, simulatedDays});
   const motionTime = cloudMotionTime({wallSeconds, simulatedDays});
-  // Each deck slides sideways around its own local bearing. This preserves a
-  // continuous cloud cover over every direction instead of pushing all cells
-  // into one distant strip of sky.
-  const weatherLaneKm = 22;
+  // Each cloud travels through a finite atmospheric weather cell.  It fades
+  // in at the upwind edge and out at the downwind edge, then is recycled
+  // while invisible. This is translation over the globe rather than the
+  // old side-to-side oscillation.
   const windDistanceKm = motionTime * 15;
   const kilometre = 1 / radiusKm;
   const light= (sunDirection||new THREE.Vector3(0,1,0)).clone().normalize();
@@ -207,14 +217,11 @@ function createCloudField() {
    const puff = volumes[cloudIndex];
    const wind = motionTime + puff.seed;
    const breathing = .7 + .3 * Math.sin(weatherTime * 1.27 + puff.seed * 1.71);
-   // Keep every proxy within its local weather cell. A wrapped linear offset
-   // crossed the whole cell in one frame at high rates and made a cloud jump
-   // from one edge of the horizon to the other. A continuous meander keeps
-   // the field close to the observer while still advancing with simulation
-   // time at every selected speed.
-   const laneOffsetKm = Math.sin(windDistanceKm / weatherLaneKm * Math.PI * 2 + puff.seed) * weatherLaneKm / 2;
-   const xKm = puff.baseX - Math.sin(puff.direction) * laneOffsetKm + Math.cos(wind * .71) * 2.4;
-   const zKm = puff.baseZ + Math.cos(puff.direction) * laneOffsetKm + Math.sin(wind * .63) * 2.4;
+   const lifecyclePhase = wrap((windDistanceKm + puff.seed * 23) / puff.flowCycleKm);
+   const lifecycle = smoothstep(.02, .16, lifecyclePhase) * (1 - smoothstep(.78, .96, lifecyclePhase));
+   const travelKm = (lifecyclePhase - .5) * puff.flowCycleKm;
+   const xKm = puff.baseX + Math.cos(puff.flowDirection) * travelKm;
+   const zKm = puff.baseZ + Math.sin(puff.flowDirection) * travelKm;
    // A cloud that remains a fixed height above sea level is lower than the
    // tangent plane at range because Earth curves away. This term also lets
    // low clouds sit visibly below an 8.849 km Everest observer.
@@ -227,7 +234,7 @@ function createCloudField() {
    puff.mesh.scale.set(puff.width * breathing * kilometre, puff.height * (1 + .28 * Math.cos(wind)) * kilometre, puff.depth * breathing * kilometre);
    puff.mesh.rotation.set(.05*Math.sin(wind*.43),puff.seed+motionTime*.08,.04*Math.cos(wind*.37));
    puff.material.uniforms.uTime.value=weatherTime;
-   puff.material.uniforms.uOpacity.value=(.72+.18*Math.min(1,daylight))*daylight;
+   puff.material.uniforms.uOpacity.value=(.72+.18*Math.min(1,daylight))*daylight*lifecycle;
    puff.material.uniforms.uSun.value.copy(light);
    // Intersect the sunlight ray with the tangent ground plane, then rotate
    // that point into the body's local coordinates. Receiver materials use
@@ -242,14 +249,13 @@ function createCloudField() {
     (-surfaceHeightKm-groundCurvatureKm)*kilometre,
     groundZ*kilometre
    ).applyQuaternion(anchor.quaternion).add(anchor.position);
-   shadowRadii[cloudIndex] = puff.width * 1.35 * breathing * kilometre;
+   shadowRadii[cloudIndex] = puff.width * 1.35 * breathing * lifecycle * kilometre;
   }
   if(cameraPosition){
    field.updateMatrixWorld(true);
    for(const puff of volumes)puff.material.uniforms.uCamera.value.copy(puff.mesh.worldToLocal(cameraPosition.clone()));
   }
  };
- setObserver(observer);
  return {
   field,
   setObserver,
