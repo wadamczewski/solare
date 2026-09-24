@@ -71,7 +71,8 @@ test('visible Earth clouds use one instanced ray-marching mesh, not static sprit
  const cover = createEarthCloudCover();
  const mesh = cloudMesh(cover);
  assert.ok(mesh?.isInstancedMesh);
- assert.equal(mesh.count, CLOUD_CLUSTER_COUNT);
+ assert.equal(mesh.userData.logicalCloudCount, CLOUD_CLUSTER_COUNT);
+ assert.equal(mesh.instanceMatrix.count, CLOUD_CLUSTER_COUNT);
  assert.equal(CLOUD_CLUSTER_COUNT, 1600);
  assert.equal(cover.group.children.some(child => child.isSprite), false);
  const cameraPosition = new THREE.Vector3(0, 1.01, 0);
@@ -80,6 +81,24 @@ test('visible Earth clouds use one instanced ray-marching mesh, not static sprit
  cover.update({simulatedDays: .02, cameraPosition});
  assert.ok(mesh.material.uniforms.uTime.value > .01);
  assert.ok(instancePosition(mesh, 0).distanceTo(start) > .0005);
+ cover.dispose();
+});
+
+test('the GPU receives only cloud volumes intersecting the viewport', () => {
+ const cover = createEarthCloudCover();
+ cover.setObserver(new THREE.Vector3(0, 1, 0), {radiusKm: 6371, surfaceRadius: 1});
+ cover.setLighting({daylight: 1, sunDirection: new THREE.Vector3(.3, .8, .5)});
+ const mesh = cloudMesh(cover);
+ cover.update({
+  simulatedDays: .02,
+  cameraPosition: new THREE.Vector3(0, 1.001, 0),
+  cameraDirection: new THREE.Vector3(1, 0, 0),
+  cameraFov: 38,
+  cameraAspect: 16 / 9
+ });
+ assert.ok(mesh.count > 0, 'nearby clouds remain visible');
+ assert.ok(mesh.count < CLOUD_CLUSTER_COUNT, 'off-screen clouds are not submitted to the GPU');
+ assert.equal(mesh.userData.visibleCloudCount, mesh.count);
  cover.dispose();
 });
 

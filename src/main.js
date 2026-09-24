@@ -1071,6 +1071,7 @@ function updateSurfaceView(tick=0){
  const surfaceRadius=surfaceBaseRadiusFactor(body),eyeRadius=surfaceEyeFactor(body);
  const height=radius(body)*Math.max(1e-12,eyeRadius-surfaceRadius);
  const eye=centre.clone().addScaledVector(up,radius(body)*eyeRadius);
+ const lookDirection=surfaceLook(horizon);
  camera.position.copy(eye);camera.up.copy(up);
  // The near plane has to come down with the eye. It is a fixed distance for
  // the rest of the application, and an observer on the ground stands a
@@ -1086,10 +1087,10 @@ function updateSurfaceView(tick=0){
  // open. Attach the shared procedural cloud-shadow uniforms to each receiver
  // as it appears; the effect is shader-based, so it cannot z-fight terrain.
  earthCloudCover?.applyGroundShadows(surfaceDetailView?.mesh);
- earthCloudCover?.update({wallSeconds:performance.now()/1000,simulatedDays:elapsed,cameraPosition:camera.position});
+ earthCloudCover?.update({wallSeconds:performance.now()/1000,simulatedDays:elapsed,cameraPosition:camera.position,cameraDirection:lookDirection,cameraFov:surfaceView.fov,cameraAspect:camera.aspect});
  camera.fov=surfaceView.fov;camera.updateProjectionMatrix();
- camera.lookAt(eye.clone().add(surfaceLook(horizon)));
- controls.target.copy(eye.clone().add(surfaceLook(horizon)));
+ camera.lookAt(eye.clone().add(lookDirection));
+ controls.target.copy(eye.clone().add(lookDirection));
  camera.updateMatrixWorld();
  // The circles and names are DOM overlays while the bodies themselves are
  // rendered every frame. Once time is running, even a modest simulation rate

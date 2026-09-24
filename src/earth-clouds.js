@@ -171,6 +171,10 @@ function createCloudField() {
  const material = cloudVolumeMaterial();
  const cloudMesh = new THREE.InstancedMesh(geometry, material, CLOUD_CLUSTER_COUNT);
  cloudMesh.name = 'Ray-marched cloud volumes'; cloudMesh.renderOrder = 2; cloudMesh.frustumCulled = false;
+ // InstancedMesh reserves its maximum capacity once, but the draw count is
+ // rebuilt each frame from the camera frustum.  Hidden weather cells consume
+ // neither fragment work nor attribute uploads on the GPU.
+ cloudMesh.count = 0; cloudMesh.userData.logicalCloudCount = CLOUD_CLUSTER_COUNT; cloudMesh.userData.visibleCloudCount = 0;
  cloudMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); cloudMesh.userData.windDirection = CLOUD_WIND_DIRECTION;
  const instanceSeeds = new Float32Array(CLOUD_CLUSTER_COUNT);
  const instanceOpacity = new Float32Array(CLOUD_CLUSTER_COUNT);
@@ -200,6 +204,7 @@ function createCloudField() {
  }
  const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
  const identity = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), matrix = new THREE.Matrix4();
+ const localCamera = new THREE.Vector3(), localViewDirection = new THREE.Vector3(), cloudOffset = new THREE.Vector3(), anchorInverse = new THREE.Matrix4();
  let radiusKm = 6371, surfaceHeightKm = 0, anchored = false;
  const setObserver = (direction, {radiusKm: nextRadiusKm = radiusKm, surfaceHeightKm: nextSurfaceHeightKm = surfaceHeightKm, surfaceRadius = 1, recenter = false, follow = false} = {}) => {
   if (!direction) return;
@@ -221,12 +226,25 @@ function createCloudField() {
   anchor.quaternion.setFromUnitVectors(up, observer);
   anchored = true;
  };
- const update = ({wallSeconds = 0, simulatedDays = 0, daylight = 1, cameraPosition, sunDirection} = {}) => {
+ const update = ({wallSeconds = 0, simulatedDays = 0, daylight = 1, cameraPosition, cameraDirection, cameraFov = 70, cameraAspect = 1, sunDirection} = {}) => {
   const weatherTime = cloudWeatherTime({wallSeconds, simulatedDays});
   const motionTime = cloudMotionTime({wallSeconds, simulatedDays});
   const windDistanceKm = motionTime * 15;
   const kilometre = 1 / radiusKm;
   const light = (sunDirection || new THREE.Vector3(0,1,0)).clone().normalize();
+  // A diagonal field of view encloses both the vertical and horizontal edges
+  // of the viewport.  Clouds that merely touch that cone remain drawn, so a
+  // wide volume cannot pop at the edge while the observer turns.
+  const halfDiagonalFov = Math.min(Math.PI * .5, Math.atan(Math.tan(Math.max(1, cameraFov) * Math.PI / 360) * Math.hypot(1, Math.max(.1, cameraAspect))));
+  const cullToViewport = !!(cameraPosition && cameraDirection && cameraDirection.lengthSq() > 1e-12);
+  if (cullToViewport) {
+   anchor.updateMatrixWorld(true);
+   localCamera.copy(cameraPosition); anchor.worldToLocal(localCamera);
+   anchorInverse.copy(anchor.matrixWorld).invert();
+   localViewDirection.copy(cameraDirection).transformDirection(anchorInverse);
+  }
+  cloudMesh.userData.cullToViewport = cullToViewport;
+  let visibleCloudCount = 0, culledCloudCount = 0;
   for (let cloudIndex = 0; cloudIndex < volumes.length; cloudIndex++) {
    const puff = volumes[cloudIndex];
    const wind = motionTime + puff.seed;
@@ -246,9 +264,25 @@ function createCloudField() {
    const shapePulse = .7 + .3 * Math.sin(weatherTime * (1.3 + cloudRandom(cloudIndex, 14)) + puff.seed * 2.3);
    position.set(xKm * kilometre, (puff.baseY - surfaceHeightKm - curvatureKm + Math.sin(wind * 1.13) * .18) * kilometre, zKm * kilometre);
    scale.set(puff.width * sizeVariation * shapePulse * kilometre, puff.height * heightVariation * (1 + .4 * Math.cos(wind)) * kilometre, puff.depth * depthVariation * (1.18 - shapePulse * .18) * kilometre);
-   matrix.compose(position, identity, scale); cloudMesh.setMatrixAt(cloudIndex, matrix);
-   instanceSeeds[cloudIndex] = cloudCycleRandom(cloudIndex, cycle, 6) * 17 + puff.seed;
-   instanceOpacity[cloudIndex] = (.64 + .22 * Math.min(1, daylight)) * daylight * lifecycle;
+   // Keep only the clouds which can contribute to the current viewport.  A
+   // bounding sphere is conservative by design, avoiding temporal popping at
+   // the edge of the view while reducing a dense global field to its local
+   // visible subset.
+   let inViewport = true;
+   if (cullToViewport) {
+    cloudOffset.copy(position).sub(localCamera);
+    const distance = cloudOffset.length(), cloudRadius = Math.max(scale.x, scale.y, scale.z) * .92;
+    if (distance > cloudRadius) {
+     const edgeAngle = Math.asin(Math.min(.99, cloudRadius / distance));
+     inViewport = cloudOffset.dot(localViewDirection) / distance >= Math.cos(Math.min(Math.PI * .5, halfDiagonalFov + edgeAngle));
+    }
+   }
+   if (inViewport) {
+    matrix.compose(position, identity, scale); cloudMesh.setMatrixAt(visibleCloudCount, matrix);
+    instanceSeeds[visibleCloudCount] = cloudCycleRandom(cloudIndex, cycle, 6) * 17 + puff.seed;
+    instanceOpacity[visibleCloudCount] = (.64 + .22 * Math.min(1, daylight)) * daylight * lifecycle;
+    visibleCloudCount++;
+   } else culledCloudCount++;
    // A small representative subset drives terrain shadows. The 1,600 cloud
    // volumes still draw in one GPU batch; shaders cannot safely receive an
    // array of 1,600 shadow centres on common WebGL hardware.
@@ -262,15 +296,19 @@ function createCloudField() {
     shadowRadii[cloudIndex] = puff.width * sizeVariation * 1.35 * lifecycle * kilometre;
    }
   }
-  cloudMesh.instanceMatrix.needsUpdate = true;
-  cloudMesh.geometry.getAttribute('instanceSeed').needsUpdate = true;
-  cloudMesh.geometry.getAttribute('instanceOpacity').needsUpdate = true;
+  cloudMesh.count = visibleCloudCount; cloudMesh.userData.visibleCloudCount = visibleCloudCount; cloudMesh.userData.culledCloudCount = culledCloudCount;
+  if (visibleCloudCount) {
+   cloudMesh.instanceMatrix.needsUpdate = true;
+   cloudMesh.geometry.getAttribute('instanceSeed').needsUpdate = true;
+   cloudMesh.geometry.getAttribute('instanceOpacity').needsUpdate = true;
+  }
   material.uniforms.uTime.value = weatherTime;
   material.uniforms.uMorph.value = weatherTime * 1.8;
   material.uniforms.uSun.value.copy(light);
   if (cameraPosition) {
-   anchor.updateMatrixWorld(true);
-   material.uniforms.uCamera.value.copy(anchor.worldToLocal(cameraPosition.clone()));
+   if (!cullToViewport) anchor.updateMatrixWorld(true);
+   material.uniforms.uCamera.value.copy(localCamera.copy(cameraPosition));
+   anchor.worldToLocal(material.uniforms.uCamera.value);
   }
  };
  return {
@@ -307,9 +345,9 @@ export function createEarthCloudCover() {
    }
    applyVisibility();
   },
-  update({wallSeconds=0,simulatedDays=0,cameraPosition}={}){
+  update({wallSeconds=0,simulatedDays=0,cameraPosition,cameraDirection,cameraFov,cameraAspect}={}){
    if(!enabled||daylight<=.002)return;
-   cloudField.update({wallSeconds,simulatedDays,daylight,cameraPosition,sunDirection:latestSunDirection});
+   cloudField.update({wallSeconds,simulatedDays,daylight,cameraPosition,cameraDirection,cameraFov,cameraAspect,sunDirection:latestSunDirection});
    cloudField.shadowUniforms.opacity.value=daylight>.05 ? .38*daylight : 0;
   },
   dispose(){cloudField.dispose();}
