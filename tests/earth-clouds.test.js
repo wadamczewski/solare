@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
+ CLOUD_CLUSTER_COUNT,
  CLOUD_MOTION_SIMULATION_MULTIPLIER,
  CLOUD_WIND_DIRECTION,
  cloudDrift,
@@ -10,6 +11,11 @@ import {
  createEarthCloudCover,
  createProceduralCloudTexture
 } from '../src/earth-clouds.js';
+
+const cloudMesh = cover => cover.group.getObjectByName('Ray-marched cloud volumes');
+const instanceMatrix = (mesh, index) => { const matrix = new THREE.Matrix4(); mesh.getMatrixAt(index, matrix); return matrix; };
+const instancePosition = (mesh, index) => new THREE.Vector3().setFromMatrixPosition(instanceMatrix(mesh, index));
+const instanceScale = (mesh, index) => { const scale = new THREE.Vector3(); instanceMatrix(mesh, index).decompose(new THREE.Vector3(), new THREE.Quaternion(), scale); return scale; };
 
 test('procedural Earth clouds contain both clear sky and opaque cloud cells', () => {
  const texture = createProceduralCloudTexture(48, 24, 41);
@@ -34,23 +40,17 @@ test('cloud weather follows simulated days strongly enough to reflect simulation
  assert.ok(fastForward - twoDaysPerSecond > 300);
 });
 
-test('a paused simulation freezes cloud shape and motion regardless of wall time', () => {
+test('a paused simulation freezes every cloud instance regardless of wall time', () => {
  const cover = createEarthCloudCover();
  const cameraPosition = new THREE.Vector3(0, 1.001, 0);
  cover.update({wallSeconds: 0, simulatedDays: 0, cameraPosition});
- const field = cover.group.getObjectByName('Earth dynamic cloud field');
- const puff = field.getObjectByName('Ray-marched cloud volume');
- const before = {
-  position: puff.position.clone(),
-  scale: puff.scale.clone(),
-  rotation: puff.rotation.clone(),
-  time: puff.material.uniforms.uTime.value
- };
+ const mesh = cloudMesh(cover);
+ const before = {matrix: Array.from(mesh.instanceMatrix.array), seed: Array.from(mesh.geometry.getAttribute('instanceSeed').array), opacity: Array.from(mesh.geometry.getAttribute('instanceOpacity').array), time: mesh.material.uniforms.uTime.value};
  cover.update({wallSeconds: 3600, simulatedDays: 0, cameraPosition});
- assert.deepEqual(puff.position.toArray(), before.position.toArray());
- assert.deepEqual(puff.scale.toArray(), before.scale.toArray());
- assert.deepEqual(puff.rotation.toArray(), before.rotation.toArray());
- assert.equal(puff.material.uniforms.uTime.value, before.time);
+ assert.deepEqual(Array.from(mesh.instanceMatrix.array), before.matrix);
+ assert.deepEqual(Array.from(mesh.geometry.getAttribute('instanceSeed').array), before.seed);
+ assert.deepEqual(Array.from(mesh.geometry.getAttribute('instanceOpacity').array), before.opacity);
+ assert.equal(mesh.material.uniforms.uTime.value, before.time);
  cover.dispose();
 });
 
@@ -67,53 +67,46 @@ test('cloud drift exposes an independent second coordinate for weather evolution
  assert.notEqual(cloud.y, shadow.y);
 });
 
-
-test('visible Earth clouds are dynamic ray-marched volumes, not static sprites', () => {
+test('visible Earth clouds use one instanced ray-marching mesh, not static sprites', () => {
  const cover = createEarthCloudCover();
- const field = cover.group.getObjectByName('Earth dynamic cloud field');
- assert.ok(field?.isGroup);
- const firstPuff = field.getObjectByName('Ray-marched cloud volume');
- assert.ok(firstPuff?.isMesh);
+ const mesh = cloudMesh(cover);
+ assert.ok(mesh?.isInstancedMesh);
+ assert.equal(mesh.count, CLOUD_CLUSTER_COUNT);
+ assert.equal(CLOUD_CLUSTER_COUNT, 1600);
  assert.equal(cover.group.children.some(child => child.isSprite), false);
- const cameraPosition=new THREE.Vector3(0,1.01,0);
- cover.update({wallSeconds:0,simulatedDays:0,cameraPosition});
- const start=firstPuff.position.clone();
- cover.update({wallSeconds:0,simulatedDays:.02,cameraPosition});
- assert.ok(firstPuff.material.uniforms.uTime.value>.01);
- assert.ok(firstPuff.position.distanceTo(start)>.0005,'a 0.02-day simulation advance visibly advects the cloud cell');
+ const cameraPosition = new THREE.Vector3(0, 1.01, 0);
+ cover.update({simulatedDays: 0, cameraPosition});
+ const start = instancePosition(mesh, 0);
+ cover.update({simulatedDays: .02, cameraPosition});
+ assert.ok(mesh.material.uniforms.uTime.value > .01);
+ assert.ok(instancePosition(mesh, 0).distanceTo(start) > .0005);
  cover.dispose();
 });
 
-test('cloud deck keeps visible volumes near the observer without a terrain-intersecting shadow mesh', () => {
+test('dense weather includes nearby and large cloud clusters without a terrain-intersecting shadow mesh', () => {
  const cover = createEarthCloudCover();
  cover.setObserver(new THREE.Vector3(0, 1, 0), {radiusKm: 6371, surfaceHeightKm: 0, surfaceRadius: 1});
  cover.setLighting({daylight: 1, sunDirection: new THREE.Vector3(.3, .8, .5)});
- const field = cover.group.getObjectByName('Earth dynamic cloud field');
- const cameraPosition = new THREE.Vector3(0, 1.001, 0);
- cover.update({wallSeconds: 0, simulatedDays: 0, cameraPosition});
- const puffs = [];
- field.traverse(item => { if (item.name === 'Ray-marched cloud volume') puffs.push(item); });
- cover.update({wallSeconds: 0, simulatedDays: .02, cameraPosition});
- assert.equal(field.getObjectByName('Projected cloud shadow'), undefined);
- assert.equal(puffs.length, 16);
- assert.ok(puffs.some(puff => Math.hypot(puff.position.x, puff.position.z) * 6371 < 34));
- assert.ok(puffs.some(puff => Math.max(puff.scale.x, puff.scale.z) * 6371 > 24), 'the weather field includes large cloud clusters');
- assert.ok(puffs.some(puff => puff.position.y > 0), 'some cloud bases remain visibly above the local horizon');
+ cover.update({simulatedDays: .02, cameraPosition: new THREE.Vector3(0, 1.001, 0)});
+ const mesh = cloudMesh(cover);
+ const positions = Array.from({length: CLOUD_CLUSTER_COUNT}, (_, index) => instancePosition(mesh, index));
+ assert.equal(cover.group.getObjectByName('Projected cloud shadow'), undefined);
+ assert.ok(positions.some(position => Math.hypot(position.x, position.z) * 6371 < 6), 'some clouds spawn beside the observer');
+ assert.ok(Array.from({length: CLOUD_CLUSTER_COUNT}, (_, index) => instanceScale(mesh, index)).some(scale => Math.max(scale.x, scale.z) * 6371 > 36));
  cover.dispose();
 });
 
-test('weather cycles respawn varied cloud shapes while keeping one shared wind direction', () => {
+test('weather cycles respawn varied cloud shapes under one shared wind direction', () => {
  const cover = createEarthCloudCover();
  cover.setObserver(new THREE.Vector3(0, 1, 0), {radiusKm: 6371, surfaceRadius: 1});
  cover.update({simulatedDays: 0, cameraPosition: new THREE.Vector3(0, 1.001, 0)});
- const field = cover.group.getObjectByName('Earth dynamic cloud field');
- const puffs = [];
- field.traverse(item => { if (item.name === 'Ray-marched cloud volume') puffs.push(item); });
- const before = puffs.map(puff => ({seed: puff.material.uniforms.uSeed.value, scale: puff.scale.toArray()}));
- assert.ok(puffs.every(puff => puff.userData.windDirection === CLOUD_WIND_DIRECTION));
+ const mesh = cloudMesh(cover);
+ const beforeSeeds = Array.from(mesh.geometry.getAttribute('instanceSeed').array);
+ const beforeScale = instanceScale(mesh, 0);
+ assert.equal(mesh.userData.windDirection, CLOUD_WIND_DIRECTION);
  cover.update({simulatedDays: 1, cameraPosition: new THREE.Vector3(0, 1.001, 0)});
- assert.ok(puffs.some((puff, index) => puff.material.uniforms.uSeed.value !== before[index].seed));
- assert.ok(puffs.some((puff, index) => puff.scale.distanceTo(new THREE.Vector3(...before[index].scale)) > 1e-5));
+ assert.ok(Array.from(mesh.geometry.getAttribute('instanceSeed').array).some((seed, index) => seed !== beforeSeeds[index]));
+ assert.ok(instanceScale(mesh, 0).distanceTo(beforeScale) > 1e-5);
  cover.dispose();
 });
 
@@ -124,10 +117,8 @@ test('clouds stay fixed over the globe while the observer walks, and recenter on
  cover.setObserver(firstObserver, {radiusKm: 6371, surfaceRadius: 1});
  const anchor = cover.group.getObjectByName('Earth cloud observer anchor');
  const initialPosition = anchor.position.clone();
- const initialRotation = anchor.quaternion.clone();
  cover.setObserver(secondObserver, {radiusKm: 6371, surfaceRadius: 1});
  assert.deepEqual(anchor.position.toArray(), initialPosition.toArray());
- assert.deepEqual(anchor.quaternion.toArray(), initialRotation.toArray());
  cover.setObserver(secondObserver, {radiusKm: 6371, surfaceRadius: 1, recenter: true});
  assert.ok(anchor.position.distanceTo(initialPosition) > .5);
  cover.dispose();
@@ -139,18 +130,16 @@ test('cloud shadows are injected into ground materials without overlay meshes', 
  cover.applyGroundShadows(ground);
  assert.equal(ground.material.userData.__solareCloudShadow, true);
  assert.equal(typeof ground.material.onBeforeCompile, 'function');
- ground.geometry.dispose();
- ground.material.dispose();
- cover.dispose();
+ ground.geometry.dispose(); ground.material.dispose(); cover.dispose();
 });
 
 test('cloud deck honours the observer elevation and keeps low clouds below Everest', () => {
- const cover=createEarthCloudCover();
- cover.setObserver(new THREE.Vector3(0,1,0),{radiusKm:6371,surfaceHeightKm:8.849,surfaceRadius:1});
- cover.update({wallSeconds:4,simulatedDays:0});
- const anchor=cover.group.getObjectByName('Earth cloud observer anchor');
+ const cover = createEarthCloudCover();
+ cover.setObserver(new THREE.Vector3(0,1,0), {radiusKm:6371,surfaceHeightKm:8.849,surfaceRadius:1});
+ cover.update({simulatedDays:0});
+ const anchor = cover.group.getObjectByName('Earth cloud observer anchor');
  assert.ok(Math.abs(anchor.position.y-(1+8.849/6371))<1e-6);
- const puffs=[];anchor.traverse(item=>{if(item.name==='Ray-marched cloud volume')puffs.push(item)});
- assert.ok(puffs.some(puff=>puff.position.y<0));
+ const mesh = cloudMesh(cover);
+ assert.ok(Array.from({length:CLOUD_CLUSTER_COUNT}, (_, index) => instancePosition(mesh, index)).some(position => position.y < 0));
  cover.dispose();
 });

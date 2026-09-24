@@ -18,9 +18,10 @@ test('asteroid belt uses many small instanced rocky bodies that receive shadows'
  assert.equal(belt.mesh.count,3,'far-map LOD reduces updates without rebuilding the belt');
 });
 
-test('main-belt display is disabled from every surface observer view',()=>{
+test('main-belt display is hidden only in Earth daytime surface views',()=>{
  assert.equal(asteroidBeltVisible(),true);
- assert.equal(asteroidBeltVisible({surfaceView:true}),false);
+ assert.equal(asteroidBeltVisible({earthSurfaceDay:true}),false);
+ assert.equal(asteroidBeltVisible({earthSurfaceDay:false}),true);
  assert.equal(asteroidBeltVisible({systemMode:true}),false);
  assert.equal(asteroidBeltVisible({blackHoleFall:true}),false);
 });

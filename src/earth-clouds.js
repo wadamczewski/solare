@@ -81,7 +81,11 @@ export function cloudDrift({wallSeconds = 0, simulatedDays = 0, drift = 1, shado
 // local volumes instead of a full-screen pass, because a full-screen ray
 // marcher has no knowledge of the terrain depth and would paint through the
 // mountain, ground and interface.
-const CLOUD_CLUSTER_COUNT = 16;
+// A hundred times the original 16 weather cells are simulated. They are
+// rendered through one instanced draw call, so the denser atmosphere does not
+// multiply the CPU draw-call cost.
+export const CLOUD_CLUSTER_COUNT = 1600;
+const CLOUD_SHADOW_CLUSTER_COUNT = 16;
 // A coherent local air mass drives every nearby cloud in one direction. The
 // individual cells differ in altitude and shape, but not in their horizontal
 // wind vector, as neighbouring real clouds do.
@@ -96,7 +100,7 @@ const cloudCycleRandom = (index, cycle, salt = 0) => {
  return value - Math.floor(value);
 };
 
-function cloudVolumeMaterial(seed) {
+function cloudVolumeMaterial() {
  return new THREE.ShaderMaterial({
   // March from the entry face. Rendering the back face of a transparent box
   // made its result depend on driver-specific transparent sorting and could
@@ -105,18 +109,18 @@ function cloudVolumeMaterial(seed) {
   // shader below selects exactly one face for each ray, avoiding the usual
   // double-blended transparent-box artefact.
   transparent:true,depthWrite:false,depthTest:true,side:THREE.DoubleSide,
-  uniforms:{uTime:{value:0},uMorph:{value:0},uSeed:{value:seed},uOpacity:{value:.5},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
-  vertexShader:`varying vec3 vBox;void main(){vBox=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  uniforms:{uTime:{value:0},uMorph:{value:0},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
+  vertexShader:`attribute mat4 instanceMatrix;attribute float instanceSeed;attribute float instanceOpacity;uniform vec3 uCamera;varying vec3 vBox;varying vec3 vCamera;varying float vSeed;varying float vOpacity;void main(){vec3 scale=vec3(length(instanceMatrix[0].xyz),length(instanceMatrix[1].xyz),length(instanceMatrix[2].xyz));vBox=position;vCamera=(uCamera-instanceMatrix[3].xyz)/max(scale,vec3(.000001));vSeed=instanceSeed;vOpacity=instanceOpacity;gl_Position=projectionMatrix*modelViewMatrix*instanceMatrix*vec4(position,1.0);}`,
   // Adapted from the reference's 3-D fBm/raymarch approach, but marched only
   // inside each cloud proxy. The terrain therefore stays depth-tested and
   // cannot be covered by a full-screen weather pass.
   fragmentShader:`
-varying vec3 vBox;uniform vec3 uCamera;uniform vec3 uSun;uniform float uTime;uniform float uMorph;uniform float uSeed;uniform float uOpacity;
+varying vec3 vBox;varying vec3 vCamera;varying float vSeed;varying float vOpacity;uniform vec3 uSun;uniform float uTime;uniform float uMorph;
 float hash(float n){return fract(sin(n)*43758.5453);} float noise(vec3 x){vec3 p=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);float n=p.x+p.y*57.0+113.0*p.z;return mix(mix(mix(hash(n),hash(n+1.0),f.x),mix(hash(n+57.0),hash(n+58.0),f.x),f.y),mix(mix(hash(n+113.0),hash(n+114.0),f.x),mix(hash(n+170.0),hash(n+171.0),f.x),f.y),f.z);}
 float fbm(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec3(17.0,11.0,7.0);a*=.5;}return v;}
-float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);vec3 warp=vec3(fbm(p*4.7+vec3(uMorph*.31,uMorph*.17,uMorph*.23)),fbm(p.zxy*5.2+vec3(uMorph*.11,uMorph*.29,uMorph*.19)),fbm(p.yzx*4.1+vec3(uMorph*.27,uMorph*.13,uMorph*.37)))-.5;vec3 shaped=p+warp*.18;float enclosure=max(0.,1.0-length(vec3(shaped.x*1.85,shaped.y*2.8,shaped.z*1.85)));float body=fbm((shaped+flow)*3.1+uSeed*9.7)*.66+fbm((shaped-flow*.4)*7.2+uSeed*3.1)*.34;return smoothstep(.55,.8,body*.55+enclosure*.92)*smoothstep(.03,.18,enclosure);}
+float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);vec3 warp=vec3(fbm(p*4.7+vec3(uMorph*.31,uMorph*.17,uMorph*.23)),fbm(p.zxy*5.2+vec3(uMorph*.11,uMorph*.29,uMorph*.19)),fbm(p.yzx*4.1+vec3(uMorph*.27,uMorph*.13,uMorph*.37)))-.5;vec3 shaped=p+warp*.18;float enclosure=max(0.,1.0-length(vec3(shaped.x*1.85,shaped.y*2.8,shaped.z*1.85)));float body=fbm((shaped+flow)*3.1+vSeed*9.7)*.66+fbm((shaped-flow*.4)*7.2+vSeed*3.1)*.34;return smoothstep(.55,.8,body*.55+enclosure*.92)*smoothstep(.03,.18,enclosure);}
 vec2 boxHit(vec3 ro,vec3 rd){vec3 inv=1.0/rd;vec3 a=(-.5-ro)*inv,b=(.5-ro)*inv;vec3 lo=min(a,b),hi=max(a,b);return vec2(max(max(lo.x,lo.y),lo.z),min(min(hi.x,hi.y),hi.z));}
-void main(){bool cameraInside=all(lessThan(abs(uCamera),vec3(.5)));if((cameraInside&&gl_FrontFacing)||(!cameraInside&&!gl_FrontFacing))discard;vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/20.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<20;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.1;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.94,.98,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
+void main(){if(vOpacity<.012)discard;bool cameraInside=all(lessThan(abs(vCamera),vec3(.5)));if((cameraInside&&gl_FrontFacing)||(!cameraInside&&!gl_FrontFacing))discard;vec3 ro=vCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/20.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<20;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.1;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.94,.98,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*vOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
  });
 }
 
@@ -141,13 +145,13 @@ function applyGroundCloudShadows(material, uniforms) {
    '#include <begin_vertex>\nvCloudShadowPoint=position;'
   );
   shader.fragmentShader = `varying vec3 vCloudShadowPoint;
-uniform vec3 cloudShadowCenters[${CLOUD_CLUSTER_COUNT}];
-uniform float cloudShadowRadii[${CLOUD_CLUSTER_COUNT}];
+uniform vec3 cloudShadowCenters[${CLOUD_SHADOW_CLUSTER_COUNT}];
+uniform float cloudShadowRadii[${CLOUD_SHADOW_CLUSTER_COUNT}];
 uniform float cloudShadowOpacity;\n` + shader.fragmentShader;
   shader.fragmentShader = shader.fragmentShader.replace('#include <dithering_fragment>', `
 {
  float cloudShade=0.0;
- for(int cloudIndex=0;cloudIndex<${CLOUD_CLUSTER_COUNT};cloudIndex++){
+ for(int cloudIndex=0;cloudIndex<${CLOUD_SHADOW_CLUSTER_COUNT};cloudIndex++){
   float radius=cloudShadowRadii[cloudIndex];
   float distanceToCloud=length(vCloudShadowPoint-cloudShadowCenters[cloudIndex]);
   cloudShade=max(cloudShade,1.0-smoothstep(radius*.42,radius,distanceToCloud));
@@ -164,45 +168,41 @@ function createCloudField() {
  const field = new THREE.Group(); field.name = 'Earth dynamic cloud field';
  const anchor = new THREE.Group(); anchor.name = 'Earth cloud observer anchor'; field.add(anchor);
  const geometry = new THREE.BoxGeometry(1,1,1);
+ const material = cloudVolumeMaterial();
+ const cloudMesh = new THREE.InstancedMesh(geometry, material, CLOUD_CLUSTER_COUNT);
+ cloudMesh.name = 'Ray-marched cloud volumes'; cloudMesh.renderOrder = 2; cloudMesh.frustumCulled = false;
+ cloudMesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage); cloudMesh.userData.windDirection = CLOUD_WIND_DIRECTION;
+ const instanceSeeds = new Float32Array(CLOUD_CLUSTER_COUNT);
+ const instanceOpacity = new Float32Array(CLOUD_CLUSTER_COUNT);
+ geometry.setAttribute('instanceSeed', new THREE.InstancedBufferAttribute(instanceSeeds, 1));
+ geometry.setAttribute('instanceOpacity', new THREE.InstancedBufferAttribute(instanceOpacity, 1));
+ anchor.add(cloudMesh);
  const volumes = [];
- const shadowCenters = Array.from({length:CLOUD_CLUSTER_COUNT}, () => new THREE.Vector3());
- const shadowRadii = new Float32Array(CLOUD_CLUSTER_COUNT);
+ const shadowCenters = Array.from({length:CLOUD_SHADOW_CLUSTER_COUNT}, () => new THREE.Vector3());
+ const shadowRadii = new Float32Array(CLOUD_SHADOW_CLUSTER_COUNT);
  const shadowOpacity = {value: 0};
  for (let cluster = 0; cluster < CLOUD_CLUSTER_COUNT; cluster++) {
-   // Evenly cover the local horizon and retain a small deterministic jitter.
-   // Pure random bearings could leave the active camera sector cloudless.
-   const direction = (cluster / CLOUD_CLUSTER_COUNT) * Math.PI * 2 + (cloudRandom(cluster, 1) - .5) * .24;
-  // Cloud bases are physical heights above mean sea level. Most are low or
-  // middle-level clouds (and therefore below Everest); a smaller high layer
-  // gives an observer on the summit something above the horizon as well.
+  // A dense, seeded weather map covers the whole nearby air mass, including
+  // cells born just beside the observer. Later cycles use new seeded values,
+  // so this remains reproducible without repeating one visible arrangement.
+  const direction = cloudRandom(cluster, 1) * Math.PI * 2;
   const layer = cloudRandom(cluster, 3);
-  // Keep a dense lower deck around the observer, but leave a safe horizontal
-  // margin so a ray-march proxy never encloses the camera. Earlier cells were
-  // mostly 26–316 km away and therefore appeared only as horizon streaks.
-  const distance = layer < .6 ? 6 + cloudRandom(cluster, 2) * 14
-   : layer < .84 ? 14 + cloudRandom(cluster, 2) * 24
-    : 22 + cloudRandom(cluster, 2) * 32;
-  const baseX = Math.cos(direction) * distance;
-  const baseZ = Math.sin(direction) * distance;
-  const baseY = layer < .6 ? 1.8 + cloudRandom(cluster, 4) * 3.8
-   : layer < .84 ? 5.6 + cloudRandom(cluster, 4) * 3.4
+  const distance = layer < .7 ? .6 + cloudRandom(cluster, 2) * 86
+   : layer < .92 ? 14 + cloudRandom(cluster, 2) * 124
+    : 45 + cloudRandom(cluster, 2) * 185;
+  const baseY = layer < .7 ? 1.4 + cloudRandom(cluster, 4) * 4.4
+   : layer < .92 ? 5.5 + cloudRandom(cluster, 4) * 4.8
     : 10 + cloudRandom(cluster, 4) * 4;
-  const width = layer < .6 ? 9 + cloudRandom(cluster, 5) * 10
-   : layer < .84 ? 16 + cloudRandom(cluster, 5) * 18
-    : 28 + cloudRandom(cluster, 5) * 32;
-  const material=cloudVolumeMaterial(cloudRandom(cluster,6));
-  const mesh=new THREE.Mesh(geometry,material);mesh.name='Ray-marched cloud volume';mesh.renderOrder=2;mesh.userData.windDirection=CLOUD_WIND_DIRECTION;anchor.add(mesh);
-  volumes.push({mesh,material,direction,flowCycleKm:150+cloudRandom(cluster,11)*90,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?1.2+cloudRandom(cluster,8)*1.6:layer<.84?2+cloudRandom(cluster,8)*2.5:1.7+cloudRandom(cluster,8)*1.8,depth:width*(.58+cloudRandom(cluster,9)*.26)});
+  const width = layer < .7 ? 4 + cloudRandom(cluster, 5) * 19
+   : layer < .92 ? 12 + cloudRandom(cluster, 5) * 34
+    : 24 + cloudRandom(cluster, 5) * 58;
+  volumes.push({index:cluster,seed:cloudRandom(cluster,7)*Math.PI*2,baseX:Math.cos(direction)*distance,baseY,baseZ:Math.sin(direction)*distance,width,height:layer<.7?1+cloudRandom(cluster,8)*2.8:layer<.92?1.8+cloudRandom(cluster,8)*4.8:1.6+cloudRandom(cluster,8)*3.4,depth:width*(.52+cloudRandom(cluster,9)*.42),flowCycleKm:180+cloudRandom(cluster,11)*260});
  }
  const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
+ const identity = new THREE.Quaternion(), position = new THREE.Vector3(), scale = new THREE.Vector3(), matrix = new THREE.Matrix4();
  let radiusKm = 6371, surfaceHeightKm = 0, anchored = false;
  const setObserver = (direction, {radiusKm: nextRadiusKm = radiusKm, surfaceHeightKm: nextSurfaceHeightKm = surfaceHeightKm, surfaceRadius = 1, recenter = false} = {}) => {
   if (!direction) return;
-  // The cloud field belongs to the globe, not to the camera.  Keeping this
-  // anchor stable means walking with WSAD changes the distance to a cloud,
-  // so an observer can actually approach and pass through one.  A new
-  // surface session or an explicit location jump may recenter the local
-  // weather cell once.
   if (anchored && !recenter) return;
   radiusKm = Math.max(1, Number(nextRadiusKm) || 6371);
   surfaceHeightKm = Math.max(0, Number(nextSurfaceHeightKm) || 0);
@@ -214,78 +214,64 @@ function createCloudField() {
  const update = ({wallSeconds = 0, simulatedDays = 0, daylight = 1, cameraPosition, sunDirection} = {}) => {
   const weatherTime = cloudWeatherTime({wallSeconds, simulatedDays});
   const motionTime = cloudMotionTime({wallSeconds, simulatedDays});
-  // Each cloud travels through a finite atmospheric weather cell.  It fades
-  // in at the upwind edge and out at the downwind edge, then is recycled
-  // while invisible. This is translation over the globe rather than the
-  // old side-to-side oscillation.
   const windDistanceKm = motionTime * 15;
   const kilometre = 1 / radiusKm;
-  const light= (sunDirection||new THREE.Vector3(0,1,0)).clone().normalize();
+  const light = (sunDirection || new THREE.Vector3(0,1,0)).clone().normalize();
   for (let cloudIndex = 0; cloudIndex < volumes.length; cloudIndex++) {
    const puff = volumes[cloudIndex];
    const wind = motionTime + puff.seed;
-   const breathing = .7 + .3 * Math.sin(weatherTime * 1.27 + puff.seed * 1.71);
    const cycleOffsetKm = puff.seed * 23;
    const cycle = Math.floor((windDistanceKm + cycleOffsetKm) / puff.flowCycleKm);
    const lifecyclePhase = wrap((windDistanceKm + cycleOffsetKm) / puff.flowCycleKm);
-   const lifecycle = smoothstep(.02, .16, lifecyclePhase) * (1 - smoothstep(.78, .96, lifecyclePhase));
+   const lifecycle = smoothstep(.02, .14, lifecyclePhase) * (1 - smoothstep(.78, .96, lifecyclePhase));
    const travelKm = (lifecyclePhase - .5) * puff.flowCycleKm;
-   // New cycles use different spawn offsets and dimensions, but the change
-   // happens while the previous cloud is transparent at the weather-cell
-   // boundary. This provides variety without popping into view.
-   const crossWindKm = (cloudCycleRandom(cloudIndex, cycle, 1) - .5) * 105;
-   const spawnAlongWindKm = (cloudCycleRandom(cloudIndex, cycle, 2) - .5) * 18;
-   const sizeVariation = .7 + cloudCycleRandom(cloudIndex, cycle, 3) * .9;
-   const heightVariation = .72 + cloudCycleRandom(cloudIndex, cycle, 4) * .72;
-   const depthVariation = .68 + cloudCycleRandom(cloudIndex, cycle, 5) * .88;
+   const crossWindKm = (cloudCycleRandom(cloudIndex, cycle, 1) - .5) * 240;
+   const spawnAlongWindKm = (cloudCycleRandom(cloudIndex, cycle, 2) - .5) * 35;
+   const sizeVariation = .55 + cloudCycleRandom(cloudIndex, cycle, 3) * 1.25;
+   const heightVariation = .58 + cloudCycleRandom(cloudIndex, cycle, 4) * 1.25;
+   const depthVariation = .55 + cloudCycleRandom(cloudIndex, cycle, 5) * 1.35;
    const xKm = puff.baseX + Math.cos(CLOUD_WIND_DIRECTION) * (travelKm + spawnAlongWindKm) - Math.sin(CLOUD_WIND_DIRECTION) * crossWindKm;
    const zKm = puff.baseZ + Math.sin(CLOUD_WIND_DIRECTION) * (travelKm + spawnAlongWindKm) + Math.cos(CLOUD_WIND_DIRECTION) * crossWindKm;
-   // A cloud that remains a fixed height above sea level is lower than the
-   // tangent plane at range because Earth curves away. This term also lets
-   // low clouds sit visibly below an 8.849 km Everest observer.
    const curvatureKm = (xKm * xKm + zKm * zKm) / (2 * radiusKm);
-   puff.mesh.position.set(
-    xKm * kilometre,
-    (puff.baseY - surfaceHeightKm - curvatureKm + Math.sin(wind * 1.13) * .18) * kilometre,
-    zKm * kilometre
-   );
-   const shapePulse = .82 + .18 * Math.sin(weatherTime * (1.3 + cloudRandom(cloudIndex, 14)) + puff.seed * 2.3);
-   puff.mesh.scale.set(puff.width * sizeVariation * breathing * shapePulse * kilometre, puff.height * heightVariation * (1 + .34 * Math.cos(wind)) * kilometre, puff.depth * depthVariation * breathing * (1.14 - shapePulse * .14) * kilometre);
-   puff.mesh.rotation.set(.025*Math.sin(wind*.43),CLOUD_WIND_DIRECTION,.025*Math.cos(wind*.37));
-   puff.material.uniforms.uTime.value=weatherTime;
-   puff.material.uniforms.uMorph.value=weatherTime*(1.1+cloudRandom(cloudIndex,15))+puff.seed;
-   puff.material.uniforms.uSeed.value=cloudCycleRandom(cloudIndex,cycle,6)*17+puff.seed;
-   puff.material.uniforms.uOpacity.value=(.72+.18*Math.min(1,daylight))*daylight*lifecycle;
-   puff.material.uniforms.uSun.value.copy(light);
-   // Intersect the sunlight ray with the tangent ground plane, then rotate
-   // that point into the body's local coordinates. Receiver materials use
-   // the same coordinate frame, avoiding any floating overlay geometry.
-   const heightToGroundKm=Math.max(.25,puff.baseY);
-   const verticalLight=Math.max(.16,light.y);
-   const groundX=xKm-light.x/verticalLight*heightToGroundKm;
-   const groundZ=zKm-light.z/verticalLight*heightToGroundKm;
-   const groundCurvatureKm=(groundX*groundX+groundZ*groundZ)/(2*radiusKm);
-   shadowCenters[cloudIndex].set(
-    groundX*kilometre,
-    (-surfaceHeightKm-groundCurvatureKm)*kilometre,
-    groundZ*kilometre
-   ).applyQuaternion(anchor.quaternion).add(anchor.position);
-   shadowRadii[cloudIndex] = puff.width * sizeVariation * 1.35 * breathing * lifecycle * kilometre;
+   const shapePulse = .7 + .3 * Math.sin(weatherTime * (1.3 + cloudRandom(cloudIndex, 14)) + puff.seed * 2.3);
+   position.set(xKm * kilometre, (puff.baseY - surfaceHeightKm - curvatureKm + Math.sin(wind * 1.13) * .18) * kilometre, zKm * kilometre);
+   scale.set(puff.width * sizeVariation * shapePulse * kilometre, puff.height * heightVariation * (1 + .4 * Math.cos(wind)) * kilometre, puff.depth * depthVariation * (1.18 - shapePulse * .18) * kilometre);
+   matrix.compose(position, identity, scale); cloudMesh.setMatrixAt(cloudIndex, matrix);
+   instanceSeeds[cloudIndex] = cloudCycleRandom(cloudIndex, cycle, 6) * 17 + puff.seed;
+   instanceOpacity[cloudIndex] = (.64 + .22 * Math.min(1, daylight)) * daylight * lifecycle;
+   // A small representative subset drives terrain shadows. The 1,600 cloud
+   // volumes still draw in one GPU batch; shaders cannot safely receive an
+   // array of 1,600 shadow centres on common WebGL hardware.
+   if (cloudIndex < CLOUD_SHADOW_CLUSTER_COUNT) {
+    const heightToGroundKm = Math.max(.25, puff.baseY);
+    const verticalLight = Math.max(.16, light.y);
+    const groundX = xKm - light.x / verticalLight * heightToGroundKm;
+    const groundZ = zKm - light.z / verticalLight * heightToGroundKm;
+    const groundCurvatureKm = (groundX * groundX + groundZ * groundZ) / (2 * radiusKm);
+    shadowCenters[cloudIndex].set(groundX * kilometre, (-surfaceHeightKm-groundCurvatureKm) * kilometre, groundZ * kilometre).applyQuaternion(anchor.quaternion).add(anchor.position);
+    shadowRadii[cloudIndex] = puff.width * sizeVariation * 1.35 * lifecycle * kilometre;
+   }
   }
-  if(cameraPosition){
-   field.updateMatrixWorld(true);
-   for(const puff of volumes)puff.material.uniforms.uCamera.value.copy(puff.mesh.worldToLocal(cameraPosition.clone()));
+  cloudMesh.instanceMatrix.needsUpdate = true;
+  cloudMesh.geometry.getAttribute('instanceSeed').needsUpdate = true;
+  cloudMesh.geometry.getAttribute('instanceOpacity').needsUpdate = true;
+  material.uniforms.uTime.value = weatherTime;
+  material.uniforms.uMorph.value = weatherTime * 1.8;
+  material.uniforms.uSun.value.copy(light);
+  if (cameraPosition) {
+   anchor.updateMatrixWorld(true);
+   material.uniforms.uCamera.value.copy(anchor.worldToLocal(cameraPosition.clone()));
   }
  };
  return {
   field,
   setObserver,
   update,
+  cloudMesh,
   shadowUniforms: {centers:shadowCenters, radii:shadowRadii, opacity:shadowOpacity},
-  dispose(){geometry.dispose();for(const volume of volumes)volume.material.dispose();}
+  dispose(){geometry.dispose();material.dispose();}
  };
 }
-
 export function createEarthCloudCover() {
  const group = new THREE.Group(); group.name = 'Volumetric Earth clouds';
  const cloudField = createCloudField(); group.add(cloudField.field);

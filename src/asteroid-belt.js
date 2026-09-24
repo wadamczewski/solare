@@ -4,11 +4,12 @@ import {G} from './physics.js';
 export const ASTEROID_COUNT = 1800;
 
 // The map deliberately enlarges main-belt rocks so their structure can be
-// inspected. From a planetary surface that artistic scaling becomes a false
-// nearby meteor stream: real main-belt asteroids are far too faint and sparse
-// to form a visible band in an observer's atmosphere.
-export const asteroidBeltVisible = ({systemMode = false, blackHoleFall = false, surfaceView = false} = {}) =>
- !systemMode && !blackHoleFall && !surfaceView;
+// inspected. It is hidden only from Earth's illuminated atmosphere: the
+// deliberately enlarged map rocks would otherwise look like a nearby meteor
+// stream through the bright daytime sky. Night observations and all other
+// surface worlds preserve the existing educational layer.
+export const asteroidBeltVisible = ({systemMode = false, blackHoleFall = false, earthSurfaceDay = false} = {}) =>
+ !systemMode && !blackHoleFall && !earthSurfaceDay;
 
 // The main belt is a population of small rocky bodies, rather than a painted
 // ring. Their radii are enlarged only enough to preserve a readable belt at
