@@ -1070,17 +1070,12 @@ function updateSurfaceView(tick=0){
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));
  camera.updateMatrixWorld();
- // The HUD, radar and sky-label overlays are DOM work, worth skipping most
- // frames when nothing has moved far - a dragged view already forces a full
- // repaint on every pointer move (tick defaults to 0 there, always a match),
- // so this throttle only ever governs the passive case: sitting still while
- // simulated time carries the sky past. At a slow tempo six rendered frames
- // is a fraction of a degree of sky motion, invisible between repaints; at a
- // fast one the same six frames can be a large arc, so what looked like
- // smooth motion turns into a visible stepped jump every sixth frame. The
- // interval shortens as the simulation speeds up, the same way the orbit
- // lines below refresh every frame once the tempo is fast enough.
- const surfaceRefreshStep=speed>=100?1:speed>=2?3:6;
+ // The circles and names are DOM overlays while the bodies themselves are
+ // rendered every frame. Once time is running, even a modest simulation rate
+ // can move a nearby body by several pixels per display frame; throttling
+ // these labels made them visibly trail the WebGL object. Keep the idle,
+ // paused view cheap, but repaint every running simulation frame.
+ const surfaceRefreshStep=paused?6:1;
  if(tick%surfaceRefreshStep===0){updateSurfaceAtmosphere(body,horizon);paintSurfaceHud(body,horizon);paintSurfaceRadar(body,horizon);paintSkyLabels(body,horizon)}
 }
 // What is worth listing, and where it really is.
@@ -1807,18 +1802,12 @@ function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed
  const sun=bs.find(b=>b.key==='sun');sunlight.visible=!!sun;solarBloom.enabled=!!sun;blackHoleLensing.enabled=blackHoles.length>0&&!blackHoleFall;blackHoleFallPass.enabled=!!blackHoleFall;if(sun)sunlight.position.copy(displayed(sun));if(follow){const b=bs.find(x=>x.id===follow);if(b){const p=displayed(b),offset=camera.position.clone().sub(controls.target);controls.target.copy(p);camera.position.copy(p).add(offset)}}
  selection.visible=!!selected;const chosen=bs.find(x=>x.id===selected);if(chosen){selection.position.copy(displayed(chosen));selection.scale.setScalar(radius(chosen)*largestAxis(chosen));selection.quaternion.copy(camera.quaternion)}
  asteroidBelt.mesh.visible=!systemMode&&!blackHoleFall;if(frame%3===0&&!systemMode)asteroidBelt.update(elapsed,mapped,compressed,asteroidDensity());updateCometDust(now);impactEffects.update(paused||lightFlight||blackHoleFall?0:delta,mapped,elapsed-beforeElapsed,id=>{const b=bs.find(b=>b.id===id);return b?displayed(b):null});if(!panel.hidden&&(frame&1)===0){const body=bs.find(b=>b.id===selected),sun=bs.find(b=>b.key==='sun');preview.update(body,{sunDirection:sun&&body?displayed(sun).sub(displayed(body)):null,brightness:solarBrightness});updateTemperatureReadout()}if((frame&1)===0)updateEducationLayer();syncTimeDock();if(solarDeath)updateSolarDeath(now);if(blackHoleFall)updateBlackHoleFall(now);else if(surfaceView){surfaceNavigation.update(delta);updateSurfaceView(frame)}else if(lightFlight)updateLightFlight(now);else if(cinematic)updateCinematic(now);else{navigation.update(delta);controls.update();const orbitFrameStep=speed>=100?1:2;if(!paused&&frame%orbitFrameStep===0)updateOrbits()}freeFlightHelp.hidden=!!(lightFlight||surfaceView||solarDeath||blackHoleFall||!navigation.active());camera.updateMatrixWorld();if((frame&1)===0)updateExtendedSolarShadows();if(frame%30===0)for(const b of bs){const view=views.get(b.id);if(view?.lodLevel==='high')requestDetailTexture(b)}if(blackHoleLensing.enabled)updateBlackHoleLensing(blackHoleLensing,bs,views,camera,radius);if(blackHoleFall){const hole=bs.find(b=>b.id===blackHoleFall.holeId),projected=hole?displayed(hole).project(camera):new THREE.Vector3();updateBlackHoleFallPass(blackHoleFallPass,blackHoleFallState(blackHoleFall.seconds(now),hole?.mass),new THREE.Vector2(projected.x*.5+.5,projected.y*.5+.5))}else updateBlackHoleFallPass(blackHoleFallPass,null,new THREE.Vector2(.5,.5));for(const v of views.values())if(v.halo)v.halo.quaternion.copy(camera.quaternion);sky.update(camera,delta);updateClock();const interior=lightFlight?solarInteriorState(lightFlight.distance(now),bs.find(b=>b.key==='sun')?.radius):null;interiorHud.hidden=!interior?.inside;flightLabels.hidden=!!interior?.inside;document.body.classList.toggle('inside-sun',!!interior?.inside);if(interior?.inside){document.querySelector('#interior-zone').textContent=interior.zone;document.querySelector('#interior-values').textContent=`${(interior.fraction*100).toLocaleString(getLocale(),{maximumFractionDigits:1})}% R☉ · T ≈ ${Number(interior.temperature.toPrecision(2)).toLocaleString(getLocale())} K`;solarInterior.render(renderer,interior,lightFlight.seconds(now),camera.aspect);deepSkyLabels.replaceChildren()}else{composer.render();
-  // Deep-sky labels are a DOM overlay, not part of the WebGL scene, so unlike
-  // that scene (redrawn every frame regardless) they are only worth the cost
-  // of repainting every 6th frame while the camera holds still. But that
-  // same periodic throttle made them visibly lag a smoothly-dragged camera,
-  // since nothing forced an out-of-turn repaint the way a surface-view drag
-  // already forces the radar/HUD/body labels to repaint on every pointer
-  // move: repaint immediately whenever the camera has actually rotated, and
-  // otherwise fall back to the periodic refresh (for the horizon filter
-  // drifting with time, or the toggle switching on) so it still updates while
-  // the camera is at rest.
+  // These markers share the same screen as moving bodies. During an active
+  // simulation they repaint with the render frame, avoiding a visibly stale
+  // DOM layer; while paused the old low-cost cadence remains sufficient.
   const cameraQuaternionNow=[camera.quaternion.x,camera.quaternion.y,camera.quaternion.z,camera.quaternion.w];
-  if(frame%6===0||quaternionChanged(deepSkyLabelQuaternion,cameraQuaternionNow)){paintDeepSkyLabels();deepSkyLabelQuaternion=cameraQuaternionNow}
+  const deepSkyRefreshStep=paused?6:1;
+  if(frame%deepSkyRefreshStep===0||quaternionChanged(deepSkyLabelQuaternion,cameraQuaternionNow)){paintDeepSkyLabels();deepSkyLabelQuaternion=cameraQuaternionNow}
  }frame++}
 installLanguageUI();
 document.addEventListener('languagechange',()=>{refreshClockFormats();clockShown='';updateClock();layoutRail();if(surfaceView)buildSurfaceHud();if(!panel.hidden&&selected)showBody()});
