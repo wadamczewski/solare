@@ -39,3 +39,12 @@ test('Earth clouds and stars cross-fade through twilight', () => {
  assert.equal(night.clouds,0);
  assert.equal(night.stars,1);
 });
+
+test('mountain observers see the thinner air column at their actual elevation', () => {
+ const seaLevel=surfaceAtmosphere('earth',45,true,0);
+ const everest=surfaceAtmosphere('earth',45,true,8.849);
+ assert.ok(everest.opacity<seaLevel.opacity);
+ assert.ok(everest.density>.3&&everest.density<.4);
+ // Daylight at a mountain is still bright enough to conceal catalogue stars.
+ assert.equal(everest.stars,0);
+});

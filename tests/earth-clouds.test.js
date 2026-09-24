@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import * as THREE from 'three';
 import {cloudDrift, createEarthCloudCover, createProceduralCloudTexture} from '../src/earth-clouds.js';
 
 test('procedural Earth clouds contain both clear sky and opaque cloud cells', () => {
@@ -24,14 +25,25 @@ test('cloud shadows retain the cloud deck motion with a Sun-facing offset', () =
 });
 
 
-test('visible Earth clouds are a time-driven ray-marched pass, not static sprites', () => {
+test('visible Earth clouds are dynamic ray-marched volumes, not static sprites', () => {
  const cover = createEarthCloudCover();
- const pass = cover.group.getObjectByName('Earth ray-marched cloud layer');
- assert.ok(pass?.isMesh);
- assert.match(pass.material.fragmentShader, /densityAt/);
- assert.match(pass.material.fragmentShader, /uniform float time/);
+ const field = cover.group.getObjectByName('Earth dynamic cloud field');
+ assert.ok(field?.isGroup);
+ const firstPuff = field.getObjectByName('Ray-marched cloud volume');
+ assert.ok(firstPuff?.isMesh);
  assert.equal(cover.group.children.some(child => child.isSprite), false);
- cover.update({wallSeconds: 12});
- assert.equal(pass.material.uniforms.time.value, 12);
+ cover.update({wallSeconds: 12,cameraPosition:new THREE.Vector3(0,1.01,0)});
+ assert.ok(firstPuff.material.uniforms.uTime.value>0);
+ cover.dispose();
+});
+
+test('cloud deck honours the observer elevation and keeps low clouds below Everest', () => {
+ const cover=createEarthCloudCover();
+ cover.setObserver(new THREE.Vector3(0,1,0),{radiusKm:6371,surfaceHeightKm:8.849,surfaceRadius:1});
+ cover.update({wallSeconds:4,simulatedDays:0});
+ const anchor=cover.group.getObjectByName('Earth cloud observer anchor');
+ assert.ok(Math.abs(anchor.position.y-(1+8.849/6371))<1e-6);
+ const puffs=[];anchor.traverse(item=>{if(item.name==='Ray-marched cloud volume')puffs.push(item)});
+ assert.ok(puffs.some(puff=>puff.position.y<0));
  cover.dispose();
 });

@@ -1025,7 +1025,9 @@ function attachEarthCloudCover(body){
 function updateSurfaceAtmosphere(body,frame){
  const sun=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).find(item=>item.key==='sun');
  const key=body.key==='moon'?body.name.toLowerCase():body.key;
- const state=surfaceAtmosphere(key,sun?.altitude??-90,body.key!=='earth'||surfaceView?.earthAtmosphereEnabled!==false);
+ const surfaceKey=body.key==='moon'&&['Księżyc','Moon'].includes(body.name)?'moon':body.key;
+ const observerHeightKm=Math.max(0,topographyHeightKm(surfaceKey,body.radius,surfaceView.latitude,surfaceView.longitude));
+ const state=surfaceAtmosphere(key,sun?.altitude??-90,body.key!=='earth'||surfaceView?.earthAtmosphereEnabled!==false,observerHeightKm);
  surfaceView.light={...state,sunAltitude:sun?.altitude??-90};
  sky.setAtmosphereVisibility(state.stars);
  const cloudOpacity=body.key==='earth'?(state.clouds||0):0;
@@ -1033,13 +1035,19 @@ function updateSurfaceAtmosphere(body,frame){
   const altitude=(sun?.altitude??-90)*Math.PI/180,azimuth=(sun?.azimuth??0)*Math.PI/180;
   const horizontalPart=Math.cos(altitude);
   const worldSun=new THREE.Vector3(...[0,1,2].map(axis=>frame.north[axis]*horizontalPart*Math.cos(azimuth)+frame.east[axis]*horizontalPart*Math.sin(azimuth)+frame.zenith[axis]*Math.sin(altitude)));
-  const cloudView=views.get(body.id),localSun=worldSun;
-  if(cloudView?.mesh){const rotation=cloudView.mesh.getWorldQuaternion(new THREE.Quaternion()).invert();localSun.applyQuaternion(rotation);}
+  const cloudView=views.get(body.id),localSun=worldSun,localObserver=new THREE.Vector3(...frame.zenith);
+  if(cloudView?.mesh){const rotation=cloudView.mesh.getWorldQuaternion(new THREE.Quaternion()).invert();localSun.applyQuaternion(rotation);localObserver.applyQuaternion(rotation);}
+  earthCloudCover.setObserver(localObserver,{
+   radiusKm:body.radius,
+   surfaceHeightKm:observerHeightKm,
+   surfaceRadius:surfaceBaseRadiusFactor(body,surfaceView.latitude,surfaceView.longitude)
+  });
   earthCloudCover.setLighting({daylight:cloudOpacity,sunDirection:localSun,quality:adaptiveDetail});
  }
  surfaceAtmosphereLayer.hidden=state.opacity<=0;
  surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-color',state.color);
  surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-opacity',state.opacity.toFixed(3));
+ surfaceAtmosphereLayer.style.setProperty('--surface-atmosphere-density',state.density.toFixed(3));
 }
 function updateSurfaceView(tick=0){
  const body=surfaceBody();if(!body){stopSurfaceView();return}
@@ -1065,7 +1073,7 @@ function updateSurfaceView(tick=0){
  camera.near=Math.max(1e-12,height/20);
  orientSurfaceBody(body,horizon);
  updateSurfaceDetailTiles(views.get(body.id),surfaceView.latitude,surfaceView.longitude);
- earthCloudCover?.update({wallSeconds:performance.now()/1000,simulatedDays:elapsed});
+ earthCloudCover?.update({wallSeconds:performance.now()/1000,simulatedDays:elapsed,cameraPosition:camera.position});
  camera.fov=surfaceView.fov;camera.updateProjectionMatrix();
  camera.lookAt(eye.clone().add(surfaceLook(horizon)));
  controls.target.copy(eye.clone().add(surfaceLook(horizon)));

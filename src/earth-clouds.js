@@ -59,138 +59,150 @@ const shadowMaterial = map => new THREE.MeshBasicMaterial({
  depthWrite: false, side: THREE.FrontSide, toneMapped: false
 });
 
-// The pass lives at the far depth plane. Normal depth testing therefore keeps
-// it behind every terrain pixel and lets it shade only uncovered sky. This
-// makes it a cloud layer in the 3D view rather than a translucent page overlay.
-const CLOUD_PASS_VERTEX = `
-varying vec2 vUv;
-void main(){
- vUv=uv;
- gl_Position=vec4(position.xy,0.99998,1.0);
-}`;
+// A small field of overlapping ellipsoids forms actual cloud volumes above
+// the observer. It deliberately has no image map: its positions, widths and
+// heights are generated from stable seeds and evolve continuously with wind.
+//
+// The model follows the useful part of the reference WebGL Clouds study: a
+// 3-D fBm-like density changes continuously with time.  It is applied to
+// local volumes instead of a full-screen pass, because a full-screen ray
+// marcher has no knowledge of the terrain depth and would paint through the
+// mountain, ground and interface.
+const CLOUD_CLUSTER_COUNT = 18;
+const cloudRandom = (index, salt = 0) => {
+ const value = Math.sin((index + 1) * 127.1 + (salt + 1) * 311.7) * 43758.5453123;
+ return value - Math.floor(value);
+};
 
-// A compact implementation of the method described by Wedekind: fBm/Worley
-// density, Beer-Lambert transmittance, two-step light marching and a
-// Cornette-Shanks phase term. Time shifts all density samples through a 3D
-// wind field, so the cloud volume continuously evolves instead of repeating a
-// static texture.
-const CLOUD_PASS_FRAGMENT = `
-precision highp float;
-varying vec2 vUv;
-uniform float time;
-uniform float daylight;
-uniform float samples;
-uniform vec3 sunDirection;
-uniform float aspect;
-#define PI 3.14159265359
-float hash13(vec3 p){p=fract(p*.1031);p+=dot(p,p.yzx+33.33);return fract((p.x+p.y)*p.z);}
-float valueNoise(vec3 p){
- vec3 cell=floor(p),local=fract(p);local=local*local*(3.0-2.0*local);
- float a=hash13(cell),b=hash13(cell+vec3(1,0,0)),c=hash13(cell+vec3(0,1,0)),d=hash13(cell+vec3(1,1,0));
- float e=hash13(cell+vec3(0,0,1)),f=hash13(cell+vec3(1,0,1)),g=hash13(cell+vec3(0,1,1)),h=hash13(cell+vec3(1,1,1));
- return mix(mix(mix(a,b,local.x),mix(c,d,local.x),local.y),mix(mix(e,f,local.x),mix(g,h,local.x),local.y),local.z);
-}
-float fbm(vec3 p){float value=0.0,weight=.55;for(int i=0;i<4;i++){value+=valueNoise(p)*weight;p=p*2.03+13.7;weight*=.5;}return value;}
-float worley(vec3 p){
- vec3 cell=floor(p),local=fract(p);float nearest=1.0;
- for(int z=-1;z<=1;z++)for(int y=-1;y<=1;y++)for(int x=-1;x<=1;x++){
-  vec3 offset=vec3(float(x),float(y),float(z));
-  vec3 feature=offset+vec3(hash13(cell+offset),hash13(cell+offset+19.1),hash13(cell+offset+43.7));
-  nearest=min(nearest,length(feature-local));
- }
- return nearest;
-}
-float phase(float g,float mu){return 3.0*(1.0-g*g)*(1.0+mu*mu)/(8.0*PI*(2.0+g*g)*pow(1.0+g*g-2.0*g*mu,1.5));}
-float densityAt(vec3 p,float height){
- vec3 wind=vec3(time*.025,0.0,time*.011);
- float cover=fbm(p*.36+wind*.18);
- float billows=1.0-worley(p*1.34+wind*.70);
- float wisps=fbm(p*2.7+wind*.92);
- float vertical=smoothstep(.07,.25,height)*(1.0-smoothstep(.70,.97,height));
- float shape=smoothstep(.61,.79,cover)*smoothstep(.42,.72,billows+wisps*.16);
- return shape*vertical*.72;
-}
-void main(){
- if(daylight<.002)discard;
- vec2 view=(vUv-.5)*vec2(aspect,1.0);
- vec3 ray=normalize(vec3(view.x,view.y+.08,1.25));
- vec3 light=normalize(vec3(sunDirection.x,abs(sunDirection.y)+.18,sunDirection.z));
- // Screen-space jitter remains stable from frame to frame: the wind moves the
- // cloud field while the sampling pattern does not shimmer.
- float jitter=hash13(vec3(gl_FragCoord.xy,0.0));
- float transmittance=1.0;
- vec3 scattering=vec3(0.0);
- float phaseAmount=.36+phase(.68,dot(ray,light))*4.8;
- for(int i=0;i<8;i++){
-  if(float(i)>=samples)break;
-  float t=(float(i)+jitter)/samples;
-  vec3 samplePoint=vec3(ray.x*2.9,ray.y*1.9+t*.4,t*2.8)+vec3(0.0,t*1.08,0.0);
-  float density=densityAt(samplePoint,t);
-  float lightDensity=0.0;
-  for(int j=1;j<=1;j++)lightDensity+=densityAt(samplePoint+light*(float(j)*.32),min(1.0,t+float(j)*.18));
-  float lightTransmission=exp(-lightDensity*.86);
-  float extinction=exp(-density*.92);
-  float powder=1.0-exp(-density*1.7);
-  vec3 cloudColor=mix(vec3(.42,.53,.66),vec3(1.0,.975,.91),lightTransmission*.72+.24);
-  scattering+=transmittance*(1.0-extinction)*cloudColor*(.36+phaseAmount*.24+powder*.38);
-  transmittance*=extinction;
-  if(transmittance<.025)break;
- }
- float alpha=clamp((1.0-transmittance)*.78,0.0,.62)*daylight;
- if(alpha<.006)discard;
- // ShaderMaterial uses straight alpha. Normalize the integrated scattering to
- // the occupied ray fraction so thick clouds remain sunlit rather than
- // darkening the daylight sky.
- vec3 cloudColor=clamp(scattering/max(.025,1.0-transmittance),0.0,1.0);
- gl_FragColor=vec4(cloudColor,alpha);
-}`;
-
-function cloudPassMaterial() {
+function cloudVolumeMaterial(seed) {
  return new THREE.ShaderMaterial({
-  uniforms:{
-   time:{value:0}, daylight:{value:1}, samples:{value:9}, aspect:{value:1},
-   sunDirection:{value:new THREE.Vector3(.35,.8,.48)}
-  },
-  vertexShader:CLOUD_PASS_VERTEX, fragmentShader:CLOUD_PASS_FRAGMENT,
-  transparent:true, depthTest:true, depthWrite:false, depthFunc:THREE.LessEqualDepth,
-  toneMapped:false
+  transparent:true,depthWrite:false,depthTest:true,side:THREE.BackSide,
+  uniforms:{uTime:{value:0},uSeed:{value:seed},uOpacity:{value:.5},uCamera:{value:new THREE.Vector3()},uSun:{value:new THREE.Vector3(0,1,0)}},
+  vertexShader:`varying vec3 vBox;void main(){vBox=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+  // Adapted from the reference's 3-D fBm/raymarch approach, but marched only
+  // inside each cloud proxy. The terrain therefore stays depth-tested and
+  // cannot be covered by a full-screen weather pass.
+  fragmentShader:`
+varying vec3 vBox;uniform vec3 uCamera;uniform vec3 uSun;uniform float uTime;uniform float uSeed;uniform float uOpacity;
+float hash(float n){return fract(sin(n)*43758.5453);} float noise(vec3 x){vec3 p=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);float n=p.x+p.y*57.0+113.0*p.z;return mix(mix(mix(hash(n),hash(n+1.0),f.x),mix(hash(n+57.0),hash(n+58.0),f.x),f.y),mix(mix(hash(n+113.0),hash(n+114.0),f.x),mix(hash(n+170.0),hash(n+171.0),f.x),f.y),f.z);}
+float fbm(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec3(17.0,11.0,7.0);a*=.5;}return v;}
+float density(vec3 p){vec3 flow=vec3(uTime*.018,0.,uTime*.011);float edge=1.0-length(vec3(p.x*1.12,p.y*1.7,p.z*1.12))*1.18;float body=fbm((p+flow)*3.1+uSeed*9.7)*.72+fbm((p-flow*.4)*7.2+uSeed*3.1)*.28;return smoothstep(.49,.74,body+edge*.58);}
+vec2 boxHit(vec3 ro,vec3 rd){vec3 inv=1.0/rd;vec3 a=(-.5-ro)*inv,b=(.5-ro)*inv;vec3 lo=min(a,b),hi=max(a,b);return vec2(max(max(lo.x,lo.y),lo.z),min(min(hi.x,hi.y),hi.z));}
+void main(){vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/24.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<24;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.16;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.98,1.0,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
  });
+}
+
+function createCloudField() {
+ const field = new THREE.Group(); field.name = 'Earth dynamic cloud field';
+ const anchor = new THREE.Group(); anchor.name = 'Earth cloud observer anchor'; field.add(anchor);
+ const geometry = new THREE.BoxGeometry(1,1,1);
+ const volumes = [];
+ for (let cluster = 0; cluster < CLOUD_CLUSTER_COUNT; cluster++) {
+   // Evenly cover the local horizon and retain a small deterministic jitter.
+   // Pure random bearings could leave the active camera sector cloudless.
+   const direction = (cluster / CLOUD_CLUSTER_COUNT) * Math.PI * 2 + (cloudRandom(cluster, 1) - .5) * .24;
+  // Cloud bases are physical heights above mean sea level. Most are low or
+  // middle-level clouds (and therefore below Everest); a smaller high layer
+  // gives an observer on the summit something above the horizon as well.
+  const layer = cloudRandom(cluster, 3);
+  // Stay inside the geometric horizon for each deck. The former common
+  // 46–280 km range placed most low cloud below the curved horizon, making a
+  // perfectly valid cloud field look empty from the ground.
+  const distance = layer < .6 ? 26 + cloudRandom(cluster, 2) * 82
+   : layer < .84 ? 52 + cloudRandom(cluster, 2) * 160
+    : 78 + cloudRandom(cluster, 2) * 238;
+  const baseX = Math.cos(direction) * distance;
+  const baseZ = Math.sin(direction) * distance;
+  const baseY = layer < .6 ? .55 + cloudRandom(cluster, 4) * 2.95
+   : layer < .84 ? 3.4 + cloudRandom(cluster, 4) * 3.1
+    : 7.2 + cloudRandom(cluster, 4) * 5.2;
+  const width = layer < .6 ? 14 + cloudRandom(cluster, 5) * 24
+   : layer < .84 ? 26 + cloudRandom(cluster, 5) * 38
+    : 42 + cloudRandom(cluster, 5) * 54;
+  const material=cloudVolumeMaterial(cloudRandom(cluster,6));
+  const mesh=new THREE.Mesh(geometry,material);mesh.name='Ray-marched cloud volume';mesh.renderOrder=2;anchor.add(mesh);
+  volumes.push({mesh,material,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?.75+cloudRandom(cluster,8)*1.1:layer<.84?1.15+cloudRandom(cluster,8)*1.7:.7+cloudRandom(cluster,8)*1.25,depth:width*(.48+cloudRandom(cluster,9)*.28)});
+ }
+ const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
+ let radiusKm = 6371, surfaceHeightKm = 0;
+ const setObserver = (direction, {radiusKm: nextRadiusKm = radiusKm, surfaceHeightKm: nextSurfaceHeightKm = surfaceHeightKm, surfaceRadius = 1} = {}) => {
+  if (!direction) return;
+  radiusKm = Math.max(1, Number(nextRadiusKm) || 6371);
+  surfaceHeightKm = Math.max(0, Number(nextSurfaceHeightKm) || 0);
+  observer.copy(direction).normalize();
+  anchor.position.copy(observer).multiplyScalar(Math.max(.1, Number(surfaceRadius) || 1) + surfaceHeightKm / radiusKm);
+  anchor.quaternion.setFromUnitVectors(up, observer);
+ };
+ const update = ({wallSeconds = 0, simulatedDays = 0, daylight = 1, cameraPosition, sunDirection} = {}) => {
+  // Wall time gives a smooth, real wind; simulated time makes a fast-forward
+  // visibly advance weather without changing the simulation's dynamics.
+  const weatherTime = wallSeconds * .018 + simulatedDays * .0022;
+  const kilometre = 1 / radiusKm;
+  for (const puff of volumes) {
+   const wind = weatherTime + puff.seed;
+   const breathing = .78 + .22 * Math.sin(weatherTime * 1.27 + puff.seed * 1.71);
+   const xKm = puff.baseX + Math.sin(wind * .71) * 4.4;
+   const zKm = puff.baseZ + weatherTime * 1.15 + Math.cos(wind * .63) * 3.4;
+   // A cloud that remains a fixed height above sea level is lower than the
+   // tangent plane at range because Earth curves away. This term also lets
+   // low clouds sit visibly below an 8.849 km Everest observer.
+   const curvatureKm = (xKm * xKm + zKm * zKm) / (2 * radiusKm);
+   puff.mesh.position.set(
+    xKm * kilometre,
+    (puff.baseY - surfaceHeightKm - curvatureKm + Math.sin(wind * 1.13) * .18) * kilometre,
+    zKm * kilometre
+   );
+   puff.mesh.scale.set(puff.width * breathing * kilometre, puff.height * (1 + .28 * Math.cos(wind)) * kilometre, puff.depth * breathing * kilometre);
+   puff.mesh.rotation.set(.03*Math.sin(wind*.43),puff.seed+weatherTime*.019,.02*Math.cos(wind*.37));
+   puff.material.uniforms.uTime.value=weatherTime;
+   puff.material.uniforms.uOpacity.value=(.8+.2*Math.min(1,daylight))*daylight;
+   puff.material.uniforms.uSun.value.copy(sunDirection||new THREE.Vector3(Math.sin(weatherTime*.01),.9,Math.cos(weatherTime*.01))).normalize();
+  }
+  if(cameraPosition){
+   field.updateMatrixWorld(true);
+   for(const puff of volumes)puff.material.uniforms.uCamera.value.copy(puff.mesh.worldToLocal(cameraPosition.clone()));
+  }
+ };
+ setObserver(observer);
+ return {field, setObserver, update, dispose(){geometry.dispose();for(const volume of volumes)volume.material.dispose();}};
 }
 
 export function createEarthCloudCover() {
  const group = new THREE.Group(); group.name = 'Volumetric Earth clouds';
- const cloudPassGeometry = new THREE.PlaneGeometry(2, 2);
- const cloudPass = new THREE.Mesh(cloudPassGeometry, cloudPassMaterial());
- cloudPass.name = 'Earth ray-marched cloud layer'; cloudPass.renderOrder = 3; cloudPass.frustumCulled = false; group.add(cloudPass);
+ const cloudField = createCloudField(); group.add(cloudField.field);
  const shadowMap = createProceduralCloudTexture(CLOUD_SIZE.width, CLOUD_SIZE.height, 41);
  const shadow = new THREE.Mesh(new THREE.SphereGeometry(1, 96, 64), shadowMaterial(shadowMap));
  shadow.name = 'Earth cloud shadows'; shadow.scale.setScalar(SHADOW_RADIUS); shadow.renderOrder = 2; shadow.frustumCulled = false; group.add(shadow);
  let enabled = true, daylight = 1;
  const applyVisibility=()=>{
   group.visible=enabled&&daylight>.002;
-  cloudPass.material.uniforms.daylight.value=daylight;
-  shadow.material.opacity=.28*daylight;
+  // A spherical shadow receiver encloses the surface camera. From inside it
+  // becomes a translucent fog wall, so it cannot be used as a ground shadow
+  // in surface mode. Local projected shadows are added separately; keep this
+  // legacy orbital receiver invisible until that pass exists.
+  shadow.visible=false;
+  shadow.material.opacity=.33*daylight;
  };
- const resize=()=>{
-  const width=Number(globalThis.innerWidth)||1, height=Number(globalThis.innerHeight)||1;
-  cloudPass.material.uniforms.aspect.value=Math.max(.2,width/height);
- };
- resize();
  return {
   group,
   setEnabled(next){enabled=!!next;applyVisibility();},
+  setObserver(direction, options){cloudField.setObserver(direction, options);},
   setLighting({daylight:nextDaylight=daylight,sunDirection,quality=1}={}){
    daylight=Math.max(0,Math.min(1,Number(nextDaylight)||0));
-   if(sunDirection)cloudPass.material.uniforms.sunDirection.value.copy(sunDirection).normalize();
-   cloudPass.material.uniforms.samples.value=quality>=.82?7:quality>=.55?5:4;
-   resize();applyVisibility();
+   if(sunDirection){
+    // Orient the visual cloud lighting with the real scene light. The material
+    // receives the directional sunlight too; this tint only restores soft
+    // forward scattering in the thin cloud edges.
+    shadow.rotation.y=Math.atan2(sunDirection.x,sunDirection.z)*.04;
+   }
+   applyVisibility();
   },
-  update({wallSeconds=0,simulatedDays=0}={}){
+  update({wallSeconds=0,simulatedDays=0,cameraPosition,sunDirection}={}){
    if(!enabled||daylight<=.002)return;
-   cloudPass.material.uniforms.time.value=wallSeconds+simulatedDays*86400*.00003;
+   cloudField.update({wallSeconds,simulatedDays,daylight,cameraPosition,sunDirection});
    const drift=cloudDrift({wallSeconds,simulatedDays,drift:1,shadow:true});
    shadowMap.offset.set(wrap(drift.x+.038),wrap(drift.y-.016));
   },
-  dispose(){cloudPassGeometry.dispose();cloudPass.material.dispose();shadow.geometry.dispose();shadowMap.dispose();shadow.material.dispose();}
+  dispose(){cloudField.dispose();shadow.geometry.dispose();shadowMap.dispose();shadow.material.dispose();}
  };
 }
