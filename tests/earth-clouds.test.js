@@ -1,7 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
-import {cloudDrift, cloudWeatherTime, createEarthCloudCover, createProceduralCloudTexture} from '../src/earth-clouds.js';
+import {
+ CLOUD_MOTION_SIMULATION_MULTIPLIER,
+ cloudDrift,
+ cloudMotionTime,
+ cloudWeatherTime,
+ createEarthCloudCover,
+ createProceduralCloudTexture
+} from '../src/earth-clouds.js';
 
 test('procedural Earth clouds contain both clear sky and opaque cloud cells', () => {
  const texture = createProceduralCloudTexture(48, 24, 41);
@@ -26,6 +33,13 @@ test('cloud weather follows simulated days strongly enough to reflect simulation
  assert.ok(fastForward - twoDaysPerSecond > 300);
 });
 
+test('cloud advection at 0.02 d/s has the intended 2 d/s visual pace', () => {
+ const slowMotion = cloudMotionTime({wallSeconds: 0, simulatedDays: .02});
+ const formerFastWeatherPhase = cloudWeatherTime({wallSeconds: 0, simulatedDays: 2});
+ assert.equal(CLOUD_MOTION_SIMULATION_MULTIPLIER, 100);
+ assert.equal(slowMotion, formerFastWeatherPhase);
+});
+
 test('cloud shadows retain the cloud deck motion with a Sun-facing offset', () => {
  const cloud = cloudDrift({wallSeconds: 120, simulatedDays: 2, drift: 1});
  const shadow = cloudDrift({wallSeconds: 120, simulatedDays: 2, drift: 1, shadow: true});
@@ -46,6 +60,22 @@ test('visible Earth clouds are dynamic ray-marched volumes, not static sprites',
  cover.update({wallSeconds:0,simulatedDays:4,cameraPosition});
  assert.ok(firstPuff.material.uniforms.uTime.value>3);
  assert.ok(firstPuff.position.distanceTo(start)>.004,'a four-day simulation advance moves the cloud cell by tens of kilometres');
+ cover.dispose();
+});
+
+test('nearby cloud volumes project visible moving shadows onto the local ground', () => {
+ const cover = createEarthCloudCover();
+ cover.setObserver(new THREE.Vector3(0, 1, 0), {radiusKm: 6371, surfaceHeightKm: 0, surfaceRadius: 1});
+ cover.setLighting({daylight: 1, sunDirection: new THREE.Vector3(.3, .8, .5)});
+ const field = cover.group.getObjectByName('Earth dynamic cloud field');
+ const shadow = field.getObjectByName('Projected cloud shadow');
+ const cameraPosition = new THREE.Vector3(0, 1.001, 0);
+ cover.update({wallSeconds: 0, simulatedDays: 0, cameraPosition});
+ const start = shadow.position.clone();
+ cover.update({wallSeconds: 0, simulatedDays: .02, cameraPosition});
+ assert.equal(shadow.visible, true);
+ assert.ok(shadow.material.uniforms.uOpacity.value > 0);
+ assert.ok(shadow.position.distanceTo(start) > .001, 'shadow follows the advected cloud');
  cover.dispose();
 });
 
