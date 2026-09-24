@@ -119,6 +119,12 @@ function materialFor(texture) {
 
 export function createSurfaceTileStream(body, anisotropy = 1) {
  const key=surfaceAssetKey(body),tileset = surfaceTileset(key);
+ // The initial Earth tile pyramid was a coarse preview set, not a seamless
+ // photometric mosaic. At ground level its raised shell exposed tile borders
+ // and changed with the depth buffer as the observer moved. Keep the stable
+ // Blue Marble base map until the planned real Earth tile source replaces it;
+ // the measured Everest DEM remains available independently.
+ if (key === 'earth') return null;
  if (!tileset) return null;
  const group = new THREE.Group();
  group.name = 'surface-detail-tiles';

@@ -82,7 +82,7 @@ export function cloudDrift({wallSeconds = 0, simulatedDays = 0, drift = 1, shado
 // local volumes instead of a full-screen pass, because a full-screen ray
 // marcher has no knowledge of the terrain depth and would paint through the
 // mountain, ground and interface.
-const CLOUD_CLUSTER_COUNT = 18;
+const CLOUD_CLUSTER_COUNT = 20;
 const CLOUD_SHADOW_KEY = '__solareCloudShadow';
 const cloudRandom = (index, salt = 0) => {
  const value = Math.sin((index + 1) * 127.1 + (salt + 1) * 311.7) * 43758.5453123;
@@ -169,20 +169,20 @@ function createCloudField() {
   // Keep a dense lower deck around the observer, but leave a safe horizontal
   // margin so a ray-march proxy never encloses the camera. Earlier cells were
   // mostly 26–316 km away and therefore appeared only as horizon streaks.
-  const distance = layer < .6 ? 11 + cloudRandom(cluster, 2) * 29
-   : layer < .84 ? 18 + cloudRandom(cluster, 2) * 42
-    : 28 + cloudRandom(cluster, 2) * 64;
+  const distance = layer < .6 ? 7 + cloudRandom(cluster, 2) * 16
+   : layer < .84 ? 15 + cloudRandom(cluster, 2) * 35
+    : 25 + cloudRandom(cluster, 2) * 58;
   const baseX = Math.cos(direction) * distance;
   const baseZ = Math.sin(direction) * distance;
-  const baseY = layer < .6 ? 1.4 + cloudRandom(cluster, 4) * 3.8
-   : layer < .84 ? 5 + cloudRandom(cluster, 4) * 4
-    : 9 + cloudRandom(cluster, 4) * 5;
-  const width = layer < .6 ? 10 + cloudRandom(cluster, 5) * 14
-   : layer < .84 ? 16 + cloudRandom(cluster, 5) * 20
-    : 26 + cloudRandom(cluster, 5) * 34;
+  const baseY = layer < .6 ? 1.7 + cloudRandom(cluster, 4) * 4.4
+   : layer < .84 ? 5.5 + cloudRandom(cluster, 4) * 4.5
+    : 10 + cloudRandom(cluster, 4) * 5;
+  const width = layer < .6 ? 5 + cloudRandom(cluster, 5) * 8
+   : layer < .84 ? 11 + cloudRandom(cluster, 5) * 16
+    : 22 + cloudRandom(cluster, 5) * 28;
   const material=cloudVolumeMaterial(cloudRandom(cluster,6));
   const mesh=new THREE.Mesh(geometry,material);mesh.name='Ray-marched cloud volume';mesh.renderOrder=2;anchor.add(mesh);
-  volumes.push({mesh,material,direction,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?1+cloudRandom(cluster,8)*1.35:layer<.84?1.45+cloudRandom(cluster,8)*1.9:1+cloudRandom(cluster,8)*1.55,depth:width*(.5+cloudRandom(cluster,9)*.25)});
+  volumes.push({mesh,material,direction,seed:cloudRandom(cluster,7)*Math.PI*2,baseX,baseY,baseZ,width,height:layer<.6?1.1+cloudRandom(cluster,8)*1.6:layer<.84?1.6+cloudRandom(cluster,8)*2.1:1.2+cloudRandom(cluster,8)*1.7,depth:width*(.58+cloudRandom(cluster,9)*.22)});
  }
  const up = new THREE.Vector3(0, 1, 0), observer = new THREE.Vector3(0, 1, 0);
  let radiusKm = 6371, surfaceHeightKm = 0;
@@ -200,7 +200,7 @@ function createCloudField() {
   // Each deck slides sideways around its own local bearing. This preserves a
   // continuous cloud cover over every direction instead of pushing all cells
   // into one distant strip of sky.
-  const weatherLaneKm = 48;
+  const weatherLaneKm = 30;
   const windDistanceKm = motionTime * 15;
   const kilometre = 1 / radiusKm;
   const light= (sunDirection||new THREE.Vector3(0,1,0)).clone().normalize();

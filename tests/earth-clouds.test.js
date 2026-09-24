@@ -74,8 +74,8 @@ test('cloud deck keeps visible volumes near the observer without a terrain-inter
  field.traverse(item => { if (item.name === 'Ray-marched cloud volume') puffs.push(item); });
  cover.update({wallSeconds: 0, simulatedDays: .02, cameraPosition});
  assert.equal(field.getObjectByName('Projected cloud shadow'), undefined);
- assert.equal(puffs.length, 18);
- assert.ok(puffs.some(puff => Math.hypot(puff.position.x, puff.position.z) * 6371 < 46));
+ assert.equal(puffs.length, 20);
+ assert.ok(puffs.some(puff => Math.hypot(puff.position.x, puff.position.z) * 6371 < 34));
  assert.ok(puffs.some(puff => puff.position.y > 0), 'some cloud bases remain visibly above the local horizon');
  cover.dispose();
 });

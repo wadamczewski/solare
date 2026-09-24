@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SURFACE_TILE_SHELL_SCALE,surfaceAssetKey,surfaceTileAddress,surfaceTileWindow,surfaceTileset} from '../src/surface-tiles.js';
+import {SURFACE_TILE_SHELL_SCALE,createSurfaceTileStream,surfaceAssetKey,surfaceTileAddress,surfaceTileWindow,surfaceTileset} from '../src/surface-tiles.js';
 
 test('surface texture shell remains within a few metres of the globe', () => {
  assert.ok(SURFACE_TILE_SHELL_SCALE > 1);
@@ -27,6 +27,10 @@ test('only Earth, Moon and Mars have streamed surface tile sets', () => {
  assert.ok(surfaceTileset('moon'));
  assert.ok(surfaceTileset('mars'));
  assert.equal(surfaceTileset('jupiter'), null);
+});
+
+test('Earth does not draw the non-seamless preview tile shell in surface view', () => {
+ assert.equal(createSurfaceTileStream({key:'earth',name:'Ziemia'}), null);
 });
 
 test('only Earth’s Moon inherits the moon tile source',()=>{
