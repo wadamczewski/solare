@@ -8,12 +8,12 @@ const CLOUD_SIZE = Object.freeze({width: 256, height: 128});
 const SHADOW_RADIUS = 1.0012;
 const wrap = value => value - Math.floor(value);
 // The simulation clock is deliberately the dominant source of cloud motion.
-// One simulated day advances the weather phase enough to be apparent, while
-// a small wall-clock term keeps the atmosphere alive while the simulation is
-// paused.  The phase is unitless and deliberately visual: raw atmospheric
+// One simulated day advances the weather phase by almost one complete cloud
+// evolution. A small wall-clock term keeps the atmosphere alive while the
+// simulation is paused. The phase is deliberately visual: raw atmospheric
 // speeds would alias at the app's high simulation rates.
-export const CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY = .075;
-export const CLOUD_WEATHER_PHASE_PER_WALL_SECOND = .008;
+export const CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY = .85;
+export const CLOUD_WEATHER_PHASE_PER_WALL_SECOND = .015;
 export function cloudWeatherTime({wallSeconds = 0, simulatedDays = 0} = {}) {
  return (Number(wallSeconds) || 0) * CLOUD_WEATHER_PHASE_PER_WALL_SECOND
   + (Number(simulatedDays) || 0) * CLOUD_WEATHER_PHASE_PER_SIMULATED_DAY;
@@ -99,7 +99,7 @@ function cloudVolumeMaterial(seed) {
 varying vec3 vBox;uniform vec3 uCamera;uniform vec3 uSun;uniform float uTime;uniform float uSeed;uniform float uOpacity;
 float hash(float n){return fract(sin(n)*43758.5453);} float noise(vec3 x){vec3 p=floor(x),f=fract(x);f=f*f*(3.0-2.0*f);float n=p.x+p.y*57.0+113.0*p.z;return mix(mix(mix(hash(n),hash(n+1.0),f.x),mix(hash(n+57.0),hash(n+58.0),f.x),f.y),mix(mix(hash(n+113.0),hash(n+114.0),f.x),mix(hash(n+170.0),hash(n+171.0),f.x),f.y),f.z);}
 float fbm(vec3 p){float v=0.,a=.5;for(int i=0;i<4;i++){v+=a*noise(p);p=p*2.03+vec3(17.0,11.0,7.0);a*=.5;}return v;}
-float density(vec3 p){vec3 flow=vec3(uTime*.018,0.,uTime*.011);float edge=1.0-length(vec3(p.x*1.12,p.y*1.7,p.z*1.12))*1.18;float body=fbm((p+flow)*3.1+uSeed*9.7)*.72+fbm((p-flow*.4)*7.2+uSeed*3.1)*.28;return smoothstep(.49,.74,body+edge*.58);}
+float density(vec3 p){vec3 flow=vec3(uTime*.19,0.,uTime*.13);float edge=1.0-length(vec3(p.x*1.12,p.y*1.7,p.z*1.12))*1.18;float body=fbm((p+flow)*3.1+uSeed*9.7)*.72+fbm((p-flow*.4)*7.2+uSeed*3.1)*.28;return smoothstep(.49,.74,body+edge*.58);}
 vec2 boxHit(vec3 ro,vec3 rd){vec3 inv=1.0/rd;vec3 a=(-.5-ro)*inv,b=(.5-ro)*inv;vec3 lo=min(a,b),hi=max(a,b);return vec2(max(max(lo.x,lo.y),lo.z),min(min(hi.x,hi.y),hi.z));}
 void main(){vec3 ro=uCamera,rd=normalize(vBox-ro);vec2 hit=boxHit(ro,rd);if(hit.y<=max(hit.x,0.))discard;float t=max(hit.x,0.),end=hit.y,stepSize=(end-t)/16.;vec3 colour=vec3(0.0);float trans=1.0;vec3 light=normalize(uSun);for(int i=0;i<16;i++){vec3 p=ro+rd*(t+(float(i)+.5)*stepSize);float d=density(p);if(d>.01){float lit=.48+.52*max(0.,dot(light,normalize(vec3(-p.x,.9,-p.z))));float alpha=d*.22;colour+=trans*alpha*mix(vec3(.48,.61,.72),vec3(.98,1.0,1.0),lit);trans*=1.0-alpha;if(trans<.025)break;}}float alpha=(1.0-trans)*uOpacity;if(alpha<.012)discard;gl_FragColor=vec4(colour,alpha);}`
  });
@@ -148,12 +148,19 @@ function createCloudField() {
  };
  const update = ({wallSeconds = 0, simulatedDays = 0, daylight = 1, cameraPosition, sunDirection} = {}) => {
   const weatherTime = cloudWeatherTime({wallSeconds, simulatedDays});
+  // Keep every weather cell circulating through the local horizon instead of
+  // letting an ever-growing offset carry the whole cloud field out of view.
+  // Four simulated days move a cell by tens of kilometres, which is readily
+  // visible from the surface, while the wrap continuously replaces it.
+  const weatherLaneKm = 440;
+  const windDistanceKm = weatherTime * 15;
   const kilometre = 1 / radiusKm;
   for (const puff of volumes) {
    const wind = weatherTime + puff.seed;
-   const breathing = .78 + .22 * Math.sin(weatherTime * 1.27 + puff.seed * 1.71);
-   const xKm = puff.baseX + Math.sin(wind * .71) * 4.4;
-   const zKm = puff.baseZ + weatherTime * 1.15 + Math.cos(wind * .63) * 3.4;
+   const breathing = .7 + .3 * Math.sin(weatherTime * 1.27 + puff.seed * 1.71);
+   const laneOffsetKm = wrap(windDistanceKm / weatherLaneKm + puff.seed / (Math.PI * 2)) * weatherLaneKm - weatherLaneKm / 2;
+   const xKm = puff.baseX + Math.sin(wind * .71) * 12;
+   const zKm = puff.baseZ + laneOffsetKm + Math.cos(wind * .63) * 8;
    // A cloud that remains a fixed height above sea level is lower than the
    // tangent plane at range because Earth curves away. This term also lets
    // low clouds sit visibly below an 8.849 km Everest observer.
@@ -164,7 +171,7 @@ function createCloudField() {
     zKm * kilometre
    );
    puff.mesh.scale.set(puff.width * breathing * kilometre, puff.height * (1 + .28 * Math.cos(wind)) * kilometre, puff.depth * breathing * kilometre);
-   puff.mesh.rotation.set(.03*Math.sin(wind*.43),puff.seed+weatherTime*.019,.02*Math.cos(wind*.37));
+   puff.mesh.rotation.set(.05*Math.sin(wind*.43),puff.seed+weatherTime*.08,.04*Math.cos(wind*.37));
    puff.material.uniforms.uTime.value=weatherTime;
    puff.material.uniforms.uOpacity.value=(.8+.2*Math.min(1,daylight))*daylight;
    puff.material.uniforms.uSun.value.copy(sunDirection||new THREE.Vector3(Math.sin(weatherTime*.01),.9,Math.cos(weatherTime*.01))).normalize();

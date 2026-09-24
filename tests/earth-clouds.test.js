@@ -22,8 +22,8 @@ test('cloud weather follows simulated days strongly enough to reflect simulation
  const paused = cloudWeatherTime({wallSeconds: 10, simulatedDays: 0});
  const twoDaysPerSecond = cloudWeatherTime({wallSeconds: 10, simulatedDays: 2});
  const fastForward = cloudWeatherTime({wallSeconds: 10, simulatedDays: 365});
- assert.ok(twoDaysPerSecond - paused > .14);
- assert.ok(fastForward - twoDaysPerSecond > 20);
+ assert.ok(twoDaysPerSecond - paused > 1.6);
+ assert.ok(fastForward - twoDaysPerSecond > 300);
 });
 
 test('cloud shadows retain the cloud deck motion with a Sun-facing offset', () => {
@@ -40,8 +40,12 @@ test('visible Earth clouds are dynamic ray-marched volumes, not static sprites',
  const firstPuff = field.getObjectByName('Ray-marched cloud volume');
  assert.ok(firstPuff?.isMesh);
  assert.equal(cover.group.children.some(child => child.isSprite), false);
- cover.update({wallSeconds: 12,cameraPosition:new THREE.Vector3(0,1.01,0)});
- assert.ok(firstPuff.material.uniforms.uTime.value>0);
+ const cameraPosition=new THREE.Vector3(0,1.01,0);
+ cover.update({wallSeconds:0,simulatedDays:0,cameraPosition});
+ const start=firstPuff.position.clone();
+ cover.update({wallSeconds:0,simulatedDays:4,cameraPosition});
+ assert.ok(firstPuff.material.uniforms.uTime.value>3);
+ assert.ok(firstPuff.position.distanceTo(start)>.004,'a four-day simulation advance moves the cloud cell by tens of kilometres');
  cover.dispose();
 });
 
