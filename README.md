@@ -83,6 +83,8 @@ Physics uses AU, solar masses, and days, independently of visual planet enlargem
 
 **Moon orbits and spin axes.** Each planet's spin axis has its tabulated tilt and points where its IAU pole points (`src/planet-poles.js`, using the same rotational elements as the surface view), so seasons, ring opening angles and the view of a ringed planet from its moons are real. Every moon starts on a Keplerian ellipse with its own measured inclination to its planet's equator and its own eccentricity (`MOON_ORBITS` in `src/physics.js`, NASA/JPL mean elements): Saturn's moons lie in the ring plane, Uranus's follow its 98° tilt, Triton is retrograde at 157°, Iapetus is inclined about 15° to Saturn's equator, and Nereid swings from 1.4 to 9.6 million km. The Earth's Moon keeps its real position from `lunar-theory.js`. The line of nodes and the orbital phase of the other moons are composed, since no ephemeris for them is included. Before this, every regular moon orbited backwards and the orbit planes ignored the planets' equators; `tests/moon-orbits.test.js` guards against that.
 
+**Moon maps load without breaking the shader.** A moon's mission map is fetched only when it is needed and assigned to the material that is already drawing it; `applyMoonAppearance` installs its shader patch once per material (it used to wrap `onBeforeCompile` again on every call, which made the recompiled shader declare its uniforms twice and stop drawing the moon and its thumbnail).
+
 Changing the central star does not recreate that star’s actual independent planetary system. It retains current planet positions and adjusts only their velocities to the selected mass, so it is an N-body dynamics experiment rather than an exoplanet catalogue.
 
 ## Current planetary positions

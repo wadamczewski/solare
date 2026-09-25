@@ -75,6 +75,14 @@ export function loadMoonMaps(loader,anisotropy){
 }
 export function applyMoonAppearance(material,body,maps){
  const profile=body.key==='moon'?moonAppearance[body.name]:null;if(!profile)return;
+ // The texture for a mapped moon arrives later (requestMoonTexture) and the
+ // loader used to call this again on the same material. Every call wrapped
+ // onBeforeCompile once more, so the second compile declared moonBase and
+ // moonDark twice, the fragment shader failed to link and the moon - and its
+ // preview - stopped drawing the moment its map loaded. The shader patch is
+ // now installed once per material; the caller assigns the loaded map itself.
+ if(material.userData.moonAppearance===profile.id)return;
+ material.userData.moonAppearance=profile.id;
  material.map=maps[profile.id]||null;material.color.set(profile.map?'#ffffff':profile.base);
  material.metalness=0;material.roughness=1;
  const previousCompile=material.onBeforeCompile,previousKey=material.customProgramCacheKey?.bind(material);

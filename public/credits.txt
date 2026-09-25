@@ -1040,3 +1040,12 @@ box. It is now a card centred above the dock, sized to its content, with the
 keys listed in three columns (two on tablets, one wrapping column on
 phones), and the redesign's own key-cap style no longer distorts the WASD
 key grid. The classic interface is unchanged.
+
+2026-09-25 The Moon stays visible once its map loads:
+The Moon - and every moon with a mission map - vanished, together with its
+thumbnail in the details panel, as soon as its map finished loading.
+applyMoonAppearance ran a second time on the same material when the map
+arrived and wrapped onBeforeCompile again, so the recompiled fragment shader
+declared moonBase and moonDark twice and failed to compile. The appearance is
+now installed once per material (userData.moonAppearance); the loader only
+assigns the map. Test: tests/moon-shader-reload.test.js.
