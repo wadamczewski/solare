@@ -990,3 +990,28 @@ that had been failing. tests/translation-gaps.test.js now checks every
 simulated body's English name against its English Wikipedia article.
 Verified by repeating the English and German render with no Polish label
 left, and with node --test.
+
+2026-09-25 Moons orbit the right way round, in their planets' equators:
+Every regular moon of Mars, Jupiter, Saturn, Uranus and
+Neptune was launched with its velocity pointing the wrong way, so all of
+them went round clockwise seen from ecliptic north (175 degrees), in one
+plane per planet tipped about a different axis from the planet's own spin
+axis - Saturn's moons crossed its rings at 27 degrees, Uranus's at 90, and
+Triton, the one real retrograde moon, came out prograde. src/planet-poles.js
+now gives each planet a spin axis with its tabulated tilt in the direction
+of its IAU pole (the rotational elements surface-frame.js already had),
+and each moon is placed on a Keplerian ellipse around that axis with its
+own inclination and eccentricity (MOON_ORBITS, NASA/JPL mean elements via
+each moon's Wikipedia page); retrograde motion comes from the inclination
+itself. Nereid is referred to the ecliptic, Iapetus to its own Laplace
+plane 14.8 degrees from Saturn's equator; the Moon keeps lunar-theory.js.
+Assumptions: the tabulated tilt stays the editable obliquity, so a spin
+axis can sit up to its planet's orbital inclination (7 degrees for
+Mercury, under 3 elsewhere) from the exact IAU pole; lines of nodes and
+phases of moons without an ephemeris are composed. The renderer orients
+each body's axis group from the same function, so rings, ring particles,
+equators and moon orbits agree by construction; share links carry the pole
+direction too. Io's speed test now allows its real ±0.4% eccentric swing.
+Verified with node --test (448 passing, none failing), a year-long
+collision run of all 47 bodies, npm run build, and screenshots of Saturn,
+Uranus and Jupiter with orbits shown.

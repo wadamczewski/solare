@@ -65,6 +65,9 @@ export function siderealTime(date) {
 }
 
 export const rotatingBodies = () => Object.keys(ROTATION);
+// +1 when a body turns eastward about its IAU north pole, -1 for the
+// retrograde rotators (Venus, Uranus), 0 when it has no tabulated rotation.
+export const rotationSense = key => Math.sign(ROTATION[key]?.rate || 0);
 
 // Pole direction and prime-meridian angle for a body at an instant.
 export function rotationState(key, date) {

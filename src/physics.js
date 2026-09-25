@@ -2,6 +2,7 @@
 import {planetState,toSceneFrame} from './ephemeris.js';
 import {earthMoonSplit} from './lunar-theory.js';
 import {centralStars} from './central-stars.js';
+import {iauSpinPole,poleAzimuth,satelliteState,spinAxis} from './planet-poles.js';
 export const G=0.0002959122082855911, AU=149597870.7, SOLAR_MASS=1.98847e30;
 // name, key, semi-major axis AU, eccentricity, inclination deg, mass M☉, radius km, rotation h, axial tilt deg, colour
 export const planets=[
@@ -44,6 +45,33 @@ export const moons=[
  ['Miranda','uranus',129390,6.59e19,235.8,1.413,false],['Ariel','uranus',190900,1.353e21,578.9,2.52,false],['Umbriel','uranus',266000,1.172e21,584.7,4.144,false],['Tytania','uranus',436300,3.527e21,788.9,8.706,false],['Oberon','uranus',583500,3.014e21,761.4,13.463,false],
  ['Tryton','neptune',354759,2.139e22,1353.4,-5.877,false],['Proteusz','neptune',117647,4.4e19,210,1.122,true],['Nereida','neptune',5513400,3.1e19,170,360.13,false]
 ];
+// Each moon's orbital inclination (degrees) to its planet's equator - the
+// plane its rings lie in, and to within a fraction of a degree the local
+// Laplace plane for every regular moon here - and eccentricity, from the
+// NASA/JPL satellite mean elements (ssd.jpl.nasa.gov/sats/elem) as given on
+// each moon's Wikipedia page. Triton's 157 degrees is what makes it
+// retrograde. Nereid, far enough out that the Sun sets its Laplace plane, is
+// referred to the ecliptic instead. Iapetus's own Laplace plane lies 14.8
+// degrees from Saturn's equator, part-way towards Saturn's orbit, and its 8.1
+// degrees are measured from that plane (it comes to 15.5 degrees from the
+// equator and 17 from the ecliptic; the node is chosen so the result lands
+// within about a degree of both). Earth's Moon is placed by
+// lunar-theory.js.
+export const MOON_ORBITS={
+ 'Fobos':{i:1.093,e:.0151},'Deimos':{i:.93,e:.00033},
+ 'Io':{i:.036,e:.0041},'Europa':{i:.466,e:.009},'Ganimedes':{i:.177,e:.0013},'Kallisto':{i:.192,e:.0074},
+ 'Mimas':{i:1.574,e:.0196},'Enceladus':{i:.009,e:.0047},'Tetyda':{i:1.12,e:.0001},'Dione':{i:.019,e:.0022},'Rea':{i:.345,e:.001},'Tytan':{i:.349,e:.0288},'Japet':{i:8.13,e:.0286,laplace:14.8,node:74},'Hyperion':{i:.43,e:.123},
+ 'Pan':{i:.0001,e:0},'Daphnis':{i:.0036,e:0},'Atlas':{i:.003,e:.0012},'Prometeusz':{i:.008,e:.0022},'Pandora':{i:.05,e:.0042},'Epimeteusz':{i:.335,e:.0098},'Janus':{i:.165,e:.0068},'Aegaeon':{i:.001,e:.0002},
+ 'Methone':{i:.007,e:.0001},'Anthe':{i:.1,e:.0011},'Pallene':{i:.181,e:.004},'Telesto':{i:1.18,e:.0002},'Kalipso':{i:1.499,e:.0005},'Helena':{i:.199,e:.0022},'Polideukes':{i:.177,e:.0192},
+ 'Miranda':{i:4.232,e:.0013},'Ariel':{i:.26,e:.0012},'Umbriel':{i:.205,e:.0039},'Tytania':{i:.34,e:.0011},'Oberon':{i:.058,e:.0014},
+ 'Tryton':{i:156.885,e:.000016},'Proteusz':{i:.524,e:.0005},'Nereida':{i:7.09,e:.7507,reference:'ecliptic'}
+};
+// A pole turned `degrees` from `pole` towards the ecliptic pole (+Y).
+function towardEcliptic(pole,degrees){
+ const k=[pole[1]*0-pole[2]*1,pole[2]*0-pole[0]*0,pole[0]*1-pole[1]*0],length=Math.hypot(...k);if(length<1e-12)return pole;
+ const axis=k.map(x=>x/length),side=[axis[1]*pole[2]-axis[2]*pole[1],axis[2]*pole[0]-axis[0]*pole[2],axis[0]*pole[1]-axis[1]*pole[0]],a=degrees*Math.PI/180;
+ return pole.map((x,j)=>x*Math.cos(a)+side[j]*Math.sin(a));
+}
 let nextId=0;
 export function body(o){return {id:++nextId,p:[0,0,0],v:[0,0,0],mass:1,radius:1,spin:24,tilt:0,color:'#bab9b4',...o};}
 export const relativeVelocity=(body,reference)=>body.v.map((value,index)=>value-reference.v[index]);
@@ -61,16 +89,23 @@ export function initialSystem(date=new Date()){
   // than to the Earth, and the Earth used to be placed there - 4671 km from
   // where it is. Knowing where the Moon is lets the pair be split properly.
   if(key==='earth'){const split=earthMoonSplit(state.p,state.v,date);state=split.earth;lunar=split.moon;}
-  result.push(body({name,key,a,e,mass,radius,spin,tilt,color,p:toSceneFrame(state.p),v:toSceneFrame(state.v)}));
+  // The spin axis keeps its tabulated tilt and takes its direction from the
+  // IAU pole, so rings, seasons and the moons' orbital plane all agree.
+  result.push(body({name,key,a,e,mass,radius,spin,tilt,color,poleAzimuth:poleAzimuth(iauSpinPole(key,date)),p:toSceneFrame(state.p),v:toSceneFrame(state.v)}));
  }
  moons.forEach(([name,parent,dist,kg,radius,days,irregular,rotationHours],i)=>{
-  const host=result.find(b=>b.key===parent),r=dist/AU,t=i*2.399,speed=Math.sqrt(G*host.mass/r)*Math.sign(days),incl=parent==='uranus'?1.706:parent==='neptune'?-0.41:.08;
+  const host=result.find(b=>b.key===parent),mass=kg/SOLAR_MASS,t=i*2.399;
+  // A synchronous moon spins about its orbit normal, so its drawn axis is
+  // that normal; the IAU pole is used for the Moon, whose axis is tabulated.
+  const axisOf=normal=>({tilt:Math.acos(Math.max(-1,Math.min(1,normal[1])))*180/Math.PI,poleAzimuth:poleAzimuth(normal)});
   if(parent==='earth'&&lunar){
-   result.push(body({name,key:'moon',parent:host.id,mass:kg/SOLAR_MASS,radius,spin:days*24,tilt:incl*180/Math.PI,irregular,color:'#b8b8b6',p:toSceneFrame(lunar.p),v:toSceneFrame(lunar.v)}));
+   result.push(body({name,key:'moon',parent:host.id,mass,radius,spin:Math.abs(days)*24,...axisOf(iauSpinPole('moon',date)||[0,1,0]),irregular,color:'#b8b8b6',p:toSceneFrame(lunar.p),v:toSceneFrame(lunar.v)}));
    return;
   }
-  const off=[r*Math.cos(t),r*Math.sin(t)*Math.sin(incl),r*Math.sin(t)*Math.cos(incl)];
-  result.push(body({name,key:'moon',parent:host.id,mass:kg/SOLAR_MASS,radius,spin:rotationHours??days*24,tilt:incl*180/Math.PI,irregular,color:name==='Io'?'#d8c67d':name==='Tytan'?'#d6a668':'#b8b8b6',p:host.p.map((x,k)=>x+off[k]),v:host.v.map((x,k)=>x+[-speed*Math.sin(t),speed*Math.cos(t)*Math.sin(incl),speed*Math.cos(t)*Math.cos(incl)][k])}));
+  const orbit=MOON_ORBITS[name]||{i:0,e:0};
+  const reference=orbit.reference==='ecliptic'?[0,1,0]:orbit.laplace?towardEcliptic(spinAxis(host),orbit.laplace):spinAxis(host);
+  const state=satelliteState({mu:G*(host.mass+mass),a:dist/AU,e:orbit.e,inclinationDeg:orbit.i,nodeRad:orbit.laplace?orbit.node*Math.PI/180:1+i*.9,phaseRad:t,reference});
+  result.push(body({name,key:'moon',parent:host.id,mass,radius,spin:rotationHours??Math.abs(days)*24,...axisOf(state.normal),irregular,color:name==='Io'?'#d8c67d':name==='Tytan'?'#d6a668':'#b8b8b6',p:host.p.map((x,k)=>x+state.p[k]),v:host.v.map((x,k)=>x+state.v[k])}));
  });
  const total=result.reduce((s,b)=>s+b.mass,0),com=[0,0,0],mom=[0,0,0];result.forEach(b=>b.p.forEach((x,k)=>{com[k]+=x*b.mass/total;mom[k]+=b.v[k]*b.mass/total}));result.forEach(b=>b.p.forEach((_,k)=>{b.p[k]-=com[k];b.v[k]-=mom[k]}));return result;
 }

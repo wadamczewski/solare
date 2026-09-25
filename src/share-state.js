@@ -3,7 +3,7 @@ const VERSION = 1;
 const BODY_FIELDS = [
  'name','key','mass','radius','spin','tilt','color','a','e','irregular','gas',
  'textureKey','stellar','starPresetId','colorTemperature','luminosity',
- 'temperature','magneticField','surface','kind'
+ 'temperature','magneticField','surface','kind','poleAzimuth'
 ];
 
 const base64Encode = text => {

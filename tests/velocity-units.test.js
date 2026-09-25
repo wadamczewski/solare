@@ -7,7 +7,9 @@ test('moon speed is measured against its primary and converted from AU per day',
  const bodies=initialSystem(new Date('2026-09-08T00:00:00Z'));
  const io=bodies.find(body=>body.name==='Io'),jupiter=bodies.find(body=>body.name==='Jowisz');
  const speed=velocityKmPerSecond(relativeVelocity(io,jupiter));
- assert.ok(Math.abs(speed-17.334)<.02,`Io orbital speed ${speed}`);
+ // Io's orbit has its real eccentricity (0.0041), so its speed swings by
+ // about ±0.4% around the 17.334 km/s mean over each orbit.
+ assert.ok(Math.abs(speed/17.334-1)<.0045,`Io orbital speed ${speed}`);
 });
 
 test('speed readouts use the selected language numeric convention',()=>{
