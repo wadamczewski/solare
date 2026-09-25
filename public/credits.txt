@@ -1095,3 +1095,18 @@ over a shared view, and a shared Earth surface view does not request the
 receiver's location. Resuming a paused Sun's death now continues from the
 paused moment instead of jumping ahead. Version 1 links still open.
 Tests: tests/share-view.test.js.
+
+2026-09-25 The left side of the screen is one accordion column:
+In the redesigned interface the surface-view panel was placed under the
+layers panel by the classic offset calculation, clamped to 196 px above the
+bottom of the window, so with the layers panel open (and the central-star
+section unfolded) it slid underneath it and was cut off; the Sun's death and
+black-hole fall panels had the same fixed-offset problem. The layers panel,
+these mode panels and the physics card now live in one column between the
+header and the dock. A mode panel opening folds the layers panel (restored
+when the mode ends, unless the viewer changed it); unfolding the layers
+panel folds the mode panel to its title; clicking the title (or Enter/Space)
+unfolds it and folds the layers panel. Automatic folds are not stored as the
+viewer's preference. The classic interface is unchanged. Test: "the layers
+panel and a mode panel share the left column as an accordion" in
+tests/ux-interface.test.js.

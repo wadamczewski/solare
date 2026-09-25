@@ -15,6 +15,8 @@ export const UX_STRINGS={
  'logo.home':['solare° – widok całego układu','solare° – whole-system view','solare° – Gesamtansicht','solare° – vista de todo el sistema'],
  'view.title':['Warstwy i widok','Layers & view','Ebenen & Ansicht','Capas y vista'],
  'view.toggle':['Pokaż lub ukryj panel warstw','Show or hide the layers panel','Ebenenleiste ein- oder ausblenden','Mostrar u ocultar el panel de capas'],
+ 'fold.collapse':['Zwiń panel','Fold the panel','Leiste einklappen','Plegar el panel'],
+ 'fold.expand':['Rozwiń panel','Unfold the panel','Leiste ausklappen','Desplegar el panel'],
  'layers.heading':['Na mapie','On the map','Auf der Karte','En el mapa'],
  'layers.physics':['Wektory fizyczne','Physics vectors','Physikvektoren','Vectores físicos'],
  'layers.physics.hint':['Prędkość i grawitacja każdego poruszającego się ciała w widoku','Velocity and gravity of every moving body in view','Geschwindigkeit und Schwerkraft jedes bewegten Körpers im Blickfeld','Velocidad y gravedad de cada cuerpo en movimiento a la vista'],

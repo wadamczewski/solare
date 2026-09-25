@@ -262,3 +262,30 @@ test('the welcome card shows once',()=>{
  enhanceInterface({doc:second.document,win:second.window,language:()=>'pl',actions:second.actions,storage:second.storage});
  assert.equal(second.document.querySelector('#ux-welcome'),null);
 });
+
+test('the layers panel and a mode panel share the left column as an accordion',async()=>{
+ const {window,document,actions,storage,saved}=fixture();
+ const surface=document.createElement('aside');surface.id='surface-view';surface.hidden=true;document.body.append(surface);
+ const build=()=>{surface.innerHTML='<div class="surface-head"><strong>Ziemia</strong><button id="surface-leave">×</button></div><label class="surface-row">Szerokość <input id="surface-latitude" type="range"></label>'};build();
+ enhanceInterface({doc:document,win:window,language:()=>'pl',actions,storage});
+ const stack=document.querySelector('#ux-left-stack'),control=document.querySelector('#solar-control'),toggle=document.querySelector('#ux-view-toggle');
+ assert.ok(stack.contains(control)&&stack.contains(surface),'both panels live in one column');
+ assert.equal(toggle.getAttribute('aria-expanded'),'true');
+ surface.hidden=false;await flush();
+ assert.equal(toggle.getAttribute('aria-expanded'),'false','a mode panel opening folds the layers panel');
+ assert.equal(saved.get('solare-ux:view-open'),undefined,'an automatic fold is not stored as the viewer\'s choice');
+ const head=()=>surface.querySelector('.surface-head');
+ assert.equal(head().getAttribute('aria-expanded'),'true');
+ toggle.click();
+ assert.equal(toggle.getAttribute('aria-expanded'),'true');
+ assert.ok(surface.classList.contains('ux-collapsed'),'unfolding the layers panel folds the mode panel');
+ build();await flush();
+ assert.equal(head().getAttribute('aria-expanded'),'false','a rebuilt title is decorated again');
+ head().click();
+ assert.ok(!surface.classList.contains('ux-collapsed'));
+ assert.equal(toggle.getAttribute('aria-expanded'),'false','unfolding the mode panel folds the layers panel');
+ surface.querySelector('#surface-leave').click();
+ assert.ok(!surface.classList.contains('ux-collapsed'),'controls inside the title keep their own job');
+ surface.hidden=true;await flush();
+ assert.equal(toggle.getAttribute('aria-expanded'),'true','the layers panel comes back when the mode ends');
+});

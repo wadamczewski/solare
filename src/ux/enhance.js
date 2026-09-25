@@ -176,6 +176,7 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
  // ---- Left: layers & view ------------------------------------------------
  const control=$('#solar-control');
  const mobile=()=>(win.innerWidth||1024)<=640;
+ let setLayersOpen=null,layersToggle=null;
  if(control){
   control.classList.add('ux-view');
   control.setAttribute('aria-label',t('view.title'));control.dataset.uxAria='view.title';
@@ -198,7 +199,77 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
   const setOpen=open=>{control.classList.toggle('collapsed',!open);toggle.setAttribute('aria-expanded',String(open));body.hidden=!open;if(win.Event)win.dispatchEvent?.(new win.Event('resize'))};
   setOpen(saved==null?!mobile():saved==='1');
   toggle.addEventListener('click',()=>{const open=control.classList.contains('collapsed');setOpen(open);store.set('view-open',open?'1':'0')});
+  setLayersOpen=setOpen;layersToggle=toggle;
  }
+
+ // ---- Left column: the layers panel and the running mode's panel ---------
+ // The surface view, the Sun's death and the black-hole fall each bring a
+ // panel of their own. They used to be pinned at fixed offsets and slid under
+ // (or over) the layers panel. They now share one column with it, between
+ // the header and the dock, and behave as an accordion: a mode panel opening
+ // folds the layers panel (and unfolds it again when the mode ends, unless the
+ // viewer folded it themselves), unfolding the layers panel folds the mode
+ // panel to its title, and a click on that title brings it back. Whatever is
+ // open shares the column's height and scrolls inside it, never overlapping.
+ const stack=el('div',{class:'ux-left-stack',id:'ux-left-stack'});
+ doc.body.append(stack);
+ if(control)stack.append(control);
+ const MODE_HEADS={'surface-view':'.surface-head','solar-death':'.death-head','black-hole-fall':'.fall-head'};
+ const modePanels=Object.keys(MODE_HEADS).map(id=>doc.getElementById(id)).filter(Boolean);
+ modePanels.forEach(item=>stack.append(item));
+ const physicsCard=doc.getElementById('education-hud');if(physicsCard)stack.append(physicsCard);
+ const layersOpen=()=>!!control&&!control.classList.contains('collapsed');
+ const shownModes=()=>modePanels.filter(item=>!item.hidden);
+ let autoFolded=false,modeShown=false;
+ const decorateHead=item=>{
+  const head=item.querySelector(MODE_HEADS[item.id]);if(!head)return;
+  // Only write what changed, so observing the panel never feeds itself.
+  const folded=item.classList.contains('ux-collapsed'),set=(name,value)=>{if(head.getAttribute(name)!==value)head.setAttribute(name,value)};
+  if(!head.classList.contains('ux-fold-head'))head.classList.add('ux-fold-head');
+  set('role','button');set('tabindex','0');set('aria-expanded',String(!folded));set('title',t(folded?'fold.expand':'fold.collapse'));
+ };
+ const foldMode=(item,folded)=>{if(item.classList.contains('ux-collapsed')!==folded)item.classList.toggle('ux-collapsed',folded);decorateHead(item)};
+ const toggleMode=item=>{
+  const unfold=item.classList.contains('ux-collapsed');foldMode(item,!unfold);
+  if(unfold&&layersOpen()&&setLayersOpen){setLayersOpen(false);autoFolded=true}
+ };
+ for(const item of modePanels){
+  item.addEventListener('click',event=>{
+   const head=event.target.closest?.(MODE_HEADS[item.id]);
+   if(!head||event.target.closest('button,a,input,select,label'))return;
+   toggleMode(item);
+  });
+  item.addEventListener('keydown',event=>{
+   if(!event.target.classList?.contains('ux-fold-head')||(event.key!=='Enter'&&event.key!==' '))return;
+   event.preventDefault();toggleMode(item);
+  });
+ }
+ layersToggle?.addEventListener('click',()=>{
+  // The viewer chose the layers panel's state; stop restoring it for them.
+  autoFolded=false;
+  if(layersOpen())shownModes().forEach(item=>foldMode(item,true));
+ });
+ const syncStack=()=>{
+  const shown=shownModes();
+  if(shown.length&&!modeShown){
+   shown.forEach(item=>foldMode(item,false));
+   if(layersOpen()&&setLayersOpen){setLayersOpen(false);autoFolded=true}
+  }else if(!shown.length&&modeShown){
+   modePanels.forEach(item=>foldMode(item,false));
+   if(autoFolded&&setLayersOpen)setLayersOpen(true);
+   autoFolded=false;
+  }
+  modeShown=shown.length>0;
+  shown.forEach(decorateHead);
+ };
+ if(win.MutationObserver){
+  // main.js rebuilds these panels' markup, so the title is decorated again
+  // after every rebuild. (Two observers: some DOMs drop attribute records
+  // when one observer also watches the child list.)
+  const shownWatch=new win.MutationObserver(syncStack),markupWatch=new win.MutationObserver(syncStack);
+  modePanels.forEach(item=>{shownWatch.observe(item,{attributes:true,attributeFilter:['hidden']});markupWatch.observe(item,{childList:true})});
+ }
+ syncStack();
 
  // ---- Bottom: time · scenarios · create · share ---------------------------
  const dock=$('#time-dock');

@@ -282,3 +282,29 @@ body.ux .free-flight-keys{grid-template-columns:repeat(3,24px);grid-template-row
 body.ux .free-flight-keys kbd,body.ux #surface-controls-help .surface-controls-keys kbd{display:flex;min-width:0;height:auto;padding:0;border-bottom-width:1px}
 @media (max-width:900px){body.ux .free-flight-list{grid-template-columns:repeat(2,auto)}}
 @media (max-width:640px){body.ux .free-flight-list{grid-template-columns:1fr}body.ux .free-flight-list span{white-space:normal}}
+
+/* Left column shared by the layers panel and the running mode's panel
+   (surface view, the Sun's death, the black-hole fall) plus the physics card.
+   enhance.js moves them in and folds them as an accordion; here they stop
+   being pinned at their classic fixed offsets and share the column height,
+   each scrolling inside its own box instead of sliding under the other. */
+body.ux .ux-left-stack{position:fixed;z-index:9;left:var(--ux-gutter);top:calc(var(--ux-header) + 8px);bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 12px);width:280px;display:flex;flex-direction:column;align-items:flex-start;gap:10px;pointer-events:none}
+body.ux .ux-left-stack>*{pointer-events:auto;position:relative!important;inset:auto!important;transform:none!important;margin:0!important;flex:0 1 auto;min-height:0;max-height:none!important;overflow:auto;width:100%!important;box-sizing:border-box}
+body.ux .ux-left-stack>[hidden]{display:none!important}
+body.ux .ux-left-stack>#solar-control.collapsed{flex:0 0 auto;width:auto!important;overflow:visible}
+body.ux .ux-left-stack>#education-hud{margin-top:auto!important;width:auto!important;flex:0 0 auto}
+body.ux .ux-left-stack>#surface-view,body.ux .ux-left-stack>#solar-death,body.ux .ux-left-stack>#black-hole-fall{flex:0 1 auto;padding:12px 14px 14px;border-radius:15px;background:var(--ux-surface-solid);border:1px solid var(--ux-border);box-shadow:var(--ux-shadow)}
+body.ux .ux-fold-head{cursor:pointer;align-items:center!important;margin:0 0 10px;border-radius:8px}
+body.ux .ux-fold-head:focus-visible{outline:2px solid var(--ux-accent,#9fd0ff);outline-offset:3px}
+body.ux .ux-fold-head>strong:after{content:'';display:inline-block;width:7px;height:7px;margin:0 0 2px 9px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;opacity:.6;transform:rotate(45deg);transition:transform .2s}
+body.ux .ux-collapsed .ux-fold-head{margin-bottom:0}
+body.ux .ux-collapsed .ux-fold-head>strong:after{transform:rotate(-45deg)}
+body.ux .ux-left-stack>.ux-collapsed{flex:0 0 auto;overflow:hidden}
+body.ux .ux-left-stack>.ux-collapsed>:not(.ux-fold-head){display:none!important}
+@media (max-width:640px){
+ body.ux .ux-left-stack{top:calc(var(--ux-header) + 2px);right:var(--ux-gutter-right);width:auto}
+ /* On a phone the surface key help sits right above the dock; the column
+    stops above it instead of running underneath. */
+ body.ux.on-a-surface .ux-left-stack{bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 96px)}
+ body.ux .ux-left-stack>#solar-control.ux-view{max-height:none}
+}
