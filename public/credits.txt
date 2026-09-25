@@ -806,3 +806,44 @@ capture text, not touched by this commit) and a Playwright run against the
 live app confirming all 47 bodies load with no console errors and every
 new moon projects to a sane, positive on-screen size in front of the
 camera.
+
+2026-09-25 Individually orbiting ring fragments, with real differential
+Keplerian rotation - third step of the Saturn realism pass:
+`src/ring-particles.js` is new: it adds a close-up layer of a few thousand
+individually instanced fragments on top of the flat, ringGrain-textured
+disc, each genuinely orbiting the planet on its own, rather than the whole
+ring turning together like a solid wheel. Every fragment's angular rate
+comes from the same vis-viva relation physics.js already uses for every
+other orbit in the scene (n = sqrt(G x planet mass / r^3), with r the
+fragment's own real orbital radius in AU) - an inner fragment therefore
+genuinely outruns an outer one, the same differential rotation Cassini
+measured directly: Saturn's B ring completes an orbit in a bit over 7 hours
+at its inner edge and more than 14 at its outer edge. A new pure function,
+`ringParticleRadius(inner,bands,u)`, decides where each fragment sits: it
+weights each band by its own width x alpha (the same real-optical-depth
+value SATURN_RING_BANDS/URANUS_RING_BANDS already carry, see
+planet-rings.js), so fragments land densely in the B ring and are almost
+never sampled from the Cassini Division or Uranus's wide true gaps -
+mirroring where the ring actually has material rather than seeding every
+band equally.
+Fragments join `axis`, the group that carries only the planet's fixed
+axial tilt, and never `mesh`, the group spun once per planet-day every
+frame in main.js's render loop - parenting them to the spinning mesh
+instead would have locked every fragment to the planet's own rotation
+regardless of its own orbital radius, undoing the entire point of the
+layer. The layer is also gated by camera distance to that specific
+planet (src/main.js): beyond roughly 90 planet radii it is hidden and its
+per-instance matrices are not recomputed at all, since individual
+fragments cannot read as anything but the textured disc already there from
+that far away - this keeps the cost at ordinary system-map distance at
+zero, the same LOD approach the asteroid belt already uses.
+Verified with `node --test` (six new cases in `tests/ring-particles.test.js`
+confirm the radius sampler stays in range and is monotonic in its input,
+samples the dense B ring far more often than the near-empty Cassini
+Division by more than 5x per unit width, an inner fragment's computed
+angular rate exceeds an outer one's, and density scales `mesh.count`
+correctly) and the full existing suite remains green apart from the two
+pre-existing, unrelated translation-coverage failures. Also verified with
+`npm run build` and a Playwright run against the live app: searching
+"Saturn" and focusing it renders the planet and its rings with no new
+console errors.
