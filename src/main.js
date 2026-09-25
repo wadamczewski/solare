@@ -1688,12 +1688,38 @@ function applySharedState(state){
  epoch=date;elapsed=Math.max(0,state.t);speed=Math.max(REAL_TIME,state.s);compressed=!!state.c;solarBrightness=Math.max(5,Math.min(100,state.b));centralStarInput.value=state.z||'sun';showOrbits=!!state.o;document.querySelector('#orbits').checked=showOrbits;setOrbitsVisible(showOrbits);applySolarBrightness();clearTrails();updateOrbits();resetView();
  return true;
 }
+// Sharing used to fall back to window.prompt() whenever the clipboard was
+// refused - and embedded viewers, insecure (plain-http LAN) origins and some
+// browsers refuse both the clipboard and prompt(), so the button looked as if
+// it did nothing. A refused copy now opens the link in the page itself,
+// selected and with its own copy button, and tries the older copy command.
+let shareDialog=null;
+function copySelectedText(input){try{input.focus();input.select();return document.execCommand('copy')}catch{return false}}
+function showShareLink(url){
+ if(!shareDialog){
+  shareDialog=document.createElement('dialog');shareDialog.id='share-dialog';shareDialog.setAttribute('aria-labelledby','share-title');
+  shareDialog.innerHTML='<h2 id="share-title">Link do symulacji</h2><p class="muted">Otwórz ten link w innej przeglądarce, aby zobaczyć tę samą symulację.</p><input id="share-link" type="text" readonly aria-label="Link do symulacji"><p class="muted" id="share-status" role="status"></p><div class="actions"><button class="action" id="share-close" type="button">Zamknij</button><button class="action primary" id="share-copy" type="button">Kopiuj</button></div>';
+  document.body.append(shareDialog);
+  const input=shareDialog.querySelector('#share-link'),status=shareDialog.querySelector('#share-status');
+  const report=done=>{status.textContent=done?'Skopiowano':'Link jest zaznaczony – skopiuj go skrótem Ctrl+C lub ⌘C.'};
+  shareDialog.querySelector('#share-close').onclick=()=>shareDialog.close?.()??shareDialog.removeAttribute('open');
+  shareDialog.querySelector('#share-copy').onclick=()=>{const copied=navigator.clipboard?.writeText?.(input.value);if(copied)copied.then(()=>report(true),()=>report(copySelectedText(input)));else report(copySelectedText(input))};
+  input.addEventListener('focus',()=>input.select());
+ }
+ const input=shareDialog.querySelector('#share-link');input.value=url;shareDialog.querySelector('#share-status').textContent='';
+ if(typeof shareDialog.showModal==='function'){if(!shareDialog.open)shareDialog.showModal()}else shareDialog.setAttribute('open','');
+ if(copySelectedText(input))shareDialog.querySelector('#share-status').textContent='Skopiowano';else input.select();
+}
 function copySharedSimulation(){
  const state=createShareState({bodies:bs,epoch,elapsed,speed,compressed,brightness:solarBrightness,centralStar:centralStarInput.value,showOrbits});
- const url=shareUrl(location,state),button=document.querySelector('#share-simulation');
+ // window.location on purpose: this module's own function location(e) (the
+ // click-point raycast) shadows the global, and passing that made new URL()
+ // throw, so Share did nothing and opening a shared link restored nothing.
+ const url=shareUrl(window.location,state),button=document.querySelector('#share-simulation');
+ const flash=()=>{button.textContent='Skopiowano';setTimeout(()=>button.textContent='Udostępnij',1600)};
  const copied=navigator.clipboard?.writeText?.(url);
- if(copied)copied.then(()=>{button.textContent='Skopiowano';setTimeout(()=>button.textContent='Udostępnij',1600)}).catch(()=>prompt('Skopiuj link do symulacji',url));
- else prompt('Skopiuj link do symulacji',url);
+ if(copied)copied.then(flash).catch(()=>showShareLink(url));
+ else showShareLink(url);
 }
 document.querySelector('#logo').onclick=()=>panel.hidden?showTools():closePanel();document.querySelector('#reset').onclick=restart;
 document.querySelector('#share-simulation').onclick=copySharedSimulation;
@@ -1886,7 +1912,7 @@ function animate(now){requestAnimationFrame(animate);const beforeElapsed=elapsed
  }frame++}
 installLanguageUI();
 document.addEventListener('languagechange',()=>{refreshClockFormats();clockShown='';updateClock();layoutRail();if(surfaceView)buildSurfaceHud();if(!panel.hidden&&selected)showBody()});
-const sharedState=shareTokenFromLocation(location);
+const sharedState=shareTokenFromLocation(window.location); // not this module's location(e), see copySharedSimulation
 if(sharedState)applySharedState(sharedState);
 requestAnimationFrame(animate);
 // Exposed only as an explicit automation surface; no network or persistence.

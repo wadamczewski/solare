@@ -366,9 +366,9 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
   // Escape belongs to whatever this layer has open first: closing a menu or
   // a dialog must not also stop a running light flight or close the panel
   // underneath, which is what main.js does with the same key.
-  if(event.key==='Escape'){if(closeMenus()||confirmDialog.open||helpDialog.open)event.stopImmediatePropagation();return}
+  if(event.key==='Escape'){if(closeMenus()||doc.querySelector?.('dialog[open]'))event.stopImmediatePropagation();return}
   if(isEditableTarget(event.target))return;
-  if(confirmDialog.open||helpDialog.open)return;
+  if(doc.querySelector?.('dialog[open]'))return;
   const action=uxShortcut(event);if(!action)return;
   event.preventDefault();event.stopImmediatePropagation();
   if(action==='search'){searchInput?.focus();searchInput?.select?.()}

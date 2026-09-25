@@ -258,3 +258,8 @@ body.ux #tooltip{font-family:var(--ux-font);font-size:12px;letter-spacing:.02em}
    is a row of the More menu like its neighbours. */
 body.ux #reset.ux-menu-row{font-size:13.5px;letter-spacing:normal;padding:0 12px;min-height:40px;color:var(--ux-danger)}
 body.ux #reset.ux-menu-row span,body.ux #reset.ux-menu-row:hover span{font-size:inherit;color:inherit;margin:0;display:inline;vertical-align:baseline;transform:none}
+/* main.js's share-link dialog, in the redesign's dialog style. */
+body.ux #share-dialog{border-color:var(--ux-border-strong);border-radius:19px;background:var(--ux-surface-solid);color:var(--ux-text);font-family:var(--ux-font);padding:22px}
+body.ux #share-dialog h2{font-size:19px;font-weight:600}
+body.ux #share-dialog .action{min-height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--ux-border);background:var(--ux-raise);color:var(--ux-text)}
+body.ux #share-dialog .action.primary{background:#cfe7ff;color:#07101f;border-color:transparent;font-weight:600}

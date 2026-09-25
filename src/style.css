@@ -216,3 +216,12 @@ body.on-a-surface #solar-brightness { display: none; }
 #surface-view .surface-toggle input:checked+i{background:#7ba6cd;border-color:#cce6ff55}
 #surface-view .surface-toggle input:checked+i:after{transform:translateX(14px);background:#f4f9ff}
 #surface-view .surface-toggle input:focus-visible+i{outline:2px solid #b4d9ef;outline-offset:3px}
+
+/* The share link, shown in the page when the clipboard refuses the copy. */
+#share-dialog{width:min(460px,calc(100vw - 32px));padding:20px;border:1px solid #ffffff24;border-radius:14px;background:#0b1020;color:#e9eaf1;box-shadow:0 24px 70px #000a;font-size:13px}
+#share-dialog::backdrop{background:rgba(2,4,10,.6)}
+#share-dialog h2{margin:0 0 6px;font-size:17px;font-weight:500}
+#share-dialog p{margin:0 0 12px;line-height:1.5}
+#share-dialog #share-link{display:block;width:100%;height:auto;position:static;opacity:1;pointer-events:auto;padding:10px;border:1px solid #ffffff26;border-radius:8px;background:#ffffff0a;color:#eef5ff;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace}
+#share-dialog #share-status{margin:10px 0 0;min-height:1.4em}
+#share-dialog .actions{justify-content:flex-end}

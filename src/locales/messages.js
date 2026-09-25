@@ -244,3 +244,9 @@ rows.push(
  ['Pokaż orbity wszystkich ciał niebieskich','Show the orbits of every body','Umlaufbahnen aller Himmelskörper anzeigen','Mostrar las órbitas de todos los cuerpos celestes'],
  ['Atmosfera i chmury','Atmosphere and clouds','Atmosphäre und Wolken','Atmósfera y nubes']
 );
+rows.push(
+ ['Link do symulacji','Simulation link','Simulationslink','Enlace de la simulación'],
+ ['Otwórz ten link w innej przeglądarce, aby zobaczyć tę samą symulację.','Open this link in another browser to see the same simulation.','Öffne diesen Link in einem anderen Browser, um dieselbe Simulation zu sehen.','Abre este enlace en otro navegador para ver la misma simulación.'],
+ ['Kopiuj','Copy','Kopieren','Copiar'],
+ ['Link jest zaznaczony – skopiuj go skrótem Ctrl+C lub ⌘C.','The link is selected – copy it with Ctrl+C or ⌘C.','Der Link ist markiert – kopiere ihn mit Strg+C oder ⌘C.','El enlace está seleccionado: cópialo con Ctrl+C o ⌘C.']
+);

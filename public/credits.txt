@@ -961,3 +961,17 @@ the old index.html/ux.html pair. Assumption: "replace" means the redesign
 takes over the main address while the original stays reachable, rather
 than being deleted - deleting classic.html is a one-line follow-up if it
 is no longer wanted. main.js and style.css are still unchanged.
+
+2026-09-25 Share works again:
+Share did nothing because main.js declares its own function location(e)
+(the click-point raycast), which shadows window.location inside the module:
+copySharedSimulation passed that function to new URL() and threw before
+copying anything, and the same shadowing meant an opened shared link was
+never read. Both calls now name window.location. The prompt() fallback for
+a refused clipboard (refused, like prompt itself, in embedded viewers and on
+plain-http LAN addresses) is replaced by a small in-page dialog that shows
+the link selected, with its own Copy button and the older copy command as a
+second attempt.
+Verified with node --test and a Playwright run: the copied link restores
+the shared state, and with the clipboard refused the dialog opens with the
+link selected.
