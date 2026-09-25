@@ -17,7 +17,7 @@ export const UX_STRINGS={
  'view.toggle':['Pokaż lub ukryj panel warstw','Show or hide the layers panel','Ebenenleiste ein- oder ausblenden','Mostrar u ocultar el panel de capas'],
  'layers.heading':['Na mapie','On the map','Auf der Karte','En el mapa'],
  'layers.physics':['Wektory fizyczne','Physics vectors','Physikvektoren','Vectores físicos'],
- 'layers.physics.hint':['Prędkość i przyspieszenie zaznaczonego ciała','Velocity and acceleration of the selected body','Geschwindigkeit und Beschleunigung des gewählten Körpers','Velocidad y aceleración del cuerpo seleccionado'],
+ 'layers.physics.hint':['Prędkość i grawitacja każdego poruszającego się ciała w widoku','Velocity and gravity of every moving body in view','Geschwindigkeit und Schwerkraft jedes bewegten Körpers im Blickfeld','Velocidad y gravedad de cada cuerpo en movimiento a la vista'],
  'modes.heading':['Tryby','Modes','Modi','Modos'],
  'modes.surface.desc':['Stań na planecie lub księżycu i spójrz w niebo','Stand on a planet or moon and look at the sky','Auf einem Planeten oder Mond stehen und in den Himmel blicken','Párate en un planeta o luna y mira el cielo'],
  'modes.systems.desc':['Wczytaj inny układ gwiazdowy','Load another star system','Ein anderes Sternsystem laden','Cargar otro sistema estelar'],

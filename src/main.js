@@ -73,6 +73,7 @@ import {surfaceAtmosphere,surfaceLightLabel} from './surface-atmosphere.js';
 import {createEarthCloudCover} from './earth-clouds.js';
 import {moveSurfaceCoordinates,surfaceTraversalSpeed} from './surface-navigation.js';
 import {educationMetrics,vectorLength} from './education-metrics.js';
+import {educationPrimary,movingBodiesInView,screenLength} from './education-vectors.js';
 import {CINEMATIC_DURATION_SECONDS,cinematicPose} from './cinematic-camera.js';
 import {createAdaptiveQuality} from './adaptive-quality.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
@@ -89,7 +90,16 @@ const rateLabel=rate=>rate===REAL_TIME?'1 s / s':rate===MINUTE_PER_SECOND?'1 min
 const rateOptions=(selected)=>RATES.map(rate=>`<option value="${rate}"${rate===selected?' selected':''}>${rateLabel(rate)}</option>`).join('');
 const CAMERA_NEAR=.0000001;
 const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(43,innerWidth/innerHeight,CAMERA_NEAR,2000);const controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.065;controls.minDistance=.00001;controls.maxDistance=maxViewDistance(true);controls.zoomToCursor=true;controls.enablePan=true;controls.panSpeed=.7;
-const educationGroup=new THREE.Group(),velocityArrow=new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(),1,'#78c7ff'),gravityArrow=new THREE.ArrowHelper(new THREE.Vector3(-1,0,0),new THREE.Vector3(),1,'#ffd38c');educationGroup.add(velocityArrow,gravityArrow);educationGroup.visible=false;scene.add(educationGroup);
+// One velocity/gravity arrow pair per moving body in view, created on demand
+// and reused (see updateEducationLayer and education-vectors.js).
+const educationGroup=new THREE.Group(),educationArrows=[];educationGroup.visible=false;scene.add(educationGroup);
+function educationArrowPair(index){
+ if(!educationArrows[index]){
+  const make=(color)=>{const arrow=new THREE.ArrowHelper(new THREE.Vector3(1,0,0),new THREE.Vector3(),1,color);for(const material of [arrow.line.material,arrow.cone.material]){material.transparent=true;material.depthWrite=false}educationGroup.add(arrow);return arrow};
+  educationArrows[index]={velocity:make('#78c7ff'),gravity:make('#ffd38c')};
+ }
+ return educationArrows[index];
+}
 const educationHud=document.createElement('aside');educationHud.id='education-hud';educationHud.hidden=true;document.body.append(educationHud);
 const composer=new EffectComposer(renderer);composer.addPass(new RenderPass(scene,camera));const SOLAR_BLOOM_STRENGTH=.65,SOLAR_LIGHT_INTENSITY=Math.PI;const solarBloom=new UnrealBloomPass(new THREE.Vector2(innerWidth,innerHeight),SOLAR_BLOOM_STRENGTH,.45,2),blackHoleLensing=createBlackHoleLensingPass(ShaderPass),blackHoleFallPass=createBlackHoleFallPass(ShaderPass);composer.addPass(solarBloom);composer.addPass(blackHoleLensing);composer.addPass(blackHoleFallPass);composer.addPass(new OutputPass());
 const adaptiveQuality=createAdaptiveQuality({maxDpr:Math.min(devicePixelRatio,2)});let adaptiveDetail=1;
@@ -154,7 +164,7 @@ const eclipseButton=document.createElement('button');eclipseButton.id='eclipse-s
 const eventTimelineButton=document.createElement('button');eventTimelineButton.id='event-timeline';eventTimelineButton.textContent='Zdarzenia';eventTimelineButton.setAttribute('aria-label','Pokaż przewidywane zdarzenia');timeDock.append(eventTimelineButton);
 const cinematicButton=document.createElement('button');cinematicButton.id='cinematic-camera';cinematicButton.textContent='Kamera';cinematicButton.setAttribute('aria-label','Otwórz kamerę filmową');timeDock.append(cinematicButton);
 const freeFlightHelp=document.createElement('aside');freeFlightHelp.id='free-flight-help';freeFlightHelp.hidden=true;freeFlightHelp.setAttribute('aria-label','Sterowanie swobodnym lotem');freeFlightHelp.innerHTML='<strong class="free-flight-title">Swobodny lot</strong><div class="free-flight-layout"><div class="free-flight-keys" aria-hidden="true"><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></div><div class="free-flight-list"><span>WASD · ruch</span><span>Q / E · dół / góra</span><span>Shift · szybciej</span><span>Mysz · rozglądanie</span><span>Prawy przycisk lub WASD aktywuje mysz</span><span>Escape · zwolnij mysz</span></div></div>';document.body.append(freeFlightHelp);
-const solarControl=document.createElement('aside');solarControl.id='solar-control';solarControl.setAttribute('aria-label','Regulacja gwiazdy centralnej');solarControl.innerHTML=`<label for="central-star"><span>Gwiazda centralna</span></label><select id="central-star" aria-label="Gwiazda centralna">${centralStars.map(star=>`<option value="${star.id}">${star.name}</option>`).join('')}</select><label for="solar-brightness"><span>Jasność gwiazdy</span><output id="solar-brightness-value">100%</output></label><input id="solar-brightness" type="range" min="5" max="100" step="1" value="100" aria-label="Jasność gwiazdy"><label class="sky-toggle" for="orbits"><span>Orbity</span><input id="orbits" type="checkbox" role="switch" aria-label="Pokaż orbity wszystkich ciał niebieskich"${showOrbits?' checked':''}><i aria-hidden="true"></i></label><label class="sky-toggle" for="education"><span>Warstwa edukacyjna</span><input id="education" type="checkbox" role="switch" aria-label="Pokaż wektory fizyczne zaznaczonego ciała"><i aria-hidden="true"></i></label><div class="sky-explorer"><label class="field-title" for="body-search">Szukaj ciała lub obiektu</label><div class="body-search"><input id="body-search" type="text" autocomplete="off" placeholder="Nazwa ciała lub obiektu…" aria-label="Szukaj ciała lub obiektu" role="combobox" aria-expanded="false" aria-controls="body-results" aria-autocomplete="list"><ul id="body-results" class="body-results" role="listbox" aria-label="Wyniki wyszukiwania" hidden></ul></div><label class="sky-toggle" for="constellations"><span>Gwiazdozbiory</span><input id="constellations" type="checkbox" role="switch" aria-label="Pokaż linie gwiazdozbiorów"><i aria-hidden="true"></i></label><label class="sky-toggle" for="deep-sky-markers"><span>Obiekty głębokiego nieba</span><input id="deep-sky-markers" type="checkbox" role="switch" aria-label="Pokaż punkty orientacyjne obiektów głębokiego nieba"><i aria-hidden="true"></i></label><button id="systems" class="sky-mode" aria-label="Otwórz bibliotekę układów gwiazdowych">Symulacja układów</button><button id="surface" class="sky-mode" aria-label="Stań na powierzchni ciała i spójrz w niebo">Widok z powierzchni</button></div>`;
+const solarControl=document.createElement('aside');solarControl.id='solar-control';solarControl.setAttribute('aria-label','Regulacja gwiazdy centralnej');solarControl.innerHTML=`<label for="central-star"><span>Gwiazda centralna</span></label><select id="central-star" aria-label="Gwiazda centralna">${centralStars.map(star=>`<option value="${star.id}">${star.name}</option>`).join('')}</select><label for="solar-brightness"><span>Jasność gwiazdy</span><output id="solar-brightness-value">100%</output></label><input id="solar-brightness" type="range" min="5" max="100" step="1" value="100" aria-label="Jasność gwiazdy"><label class="sky-toggle" for="orbits"><span>Orbity</span><input id="orbits" type="checkbox" role="switch" aria-label="Pokaż orbity wszystkich ciał niebieskich"${showOrbits?' checked':''}><i aria-hidden="true"></i></label><label class="sky-toggle" for="education"><span>Warstwa edukacyjna</span><input id="education" type="checkbox" role="switch" aria-label="Pokaż wektory fizyczne wszystkich poruszających się ciał w widoku"><i aria-hidden="true"></i></label><div class="sky-explorer"><label class="field-title" for="body-search">Szukaj ciała lub obiektu</label><div class="body-search"><input id="body-search" type="text" autocomplete="off" placeholder="Nazwa ciała lub obiektu…" aria-label="Szukaj ciała lub obiektu" role="combobox" aria-expanded="false" aria-controls="body-results" aria-autocomplete="list"><ul id="body-results" class="body-results" role="listbox" aria-label="Wyniki wyszukiwania" hidden></ul></div><label class="sky-toggle" for="constellations"><span>Gwiazdozbiory</span><input id="constellations" type="checkbox" role="switch" aria-label="Pokaż linie gwiazdozbiorów"><i aria-hidden="true"></i></label><label class="sky-toggle" for="deep-sky-markers"><span>Obiekty głębokiego nieba</span><input id="deep-sky-markers" type="checkbox" role="switch" aria-label="Pokaż punkty orientacyjne obiektów głębokiego nieba"><i aria-hidden="true"></i></label><button id="systems" class="sky-mode" aria-label="Otwórz bibliotekę układów gwiazdowych">Symulacja układów</button><button id="surface" class="sky-mode" aria-label="Stań na powierzchni ciała i spójrz w niebo">Widok z powierzchni</button></div>`;
 document.body.append(solarControl);setupBodySearch();document.querySelector('#orbits').onchange=e=>setOrbitsVisible(e.target.checked);document.querySelector('#education').onchange=e=>setEducationVisible(e.target.checked);document.querySelector('#constellations').onchange=e=>setConstellationsVisible(e.target.checked);document.querySelector('#deep-sky-markers').onchange=e=>setDeepSkyMarkersVisible(e.target.checked);document.querySelector('#systems').onclick=()=>showSystemLibrary();document.querySelector('#surface').onclick=()=>surfaceView?stopSurfaceView():startSurfaceView((bs.find(b=>b.key==='earth')||surfaceCandidates()[0])?.id);
 const solarBrightnessInput=document.querySelector('#solar-brightness'),solarBrightnessValue=document.querySelector('#solar-brightness-value'),centralStarInput=document.querySelector('#central-star');
 function applySolarBrightness(){
@@ -1579,6 +1589,7 @@ function layoutEducationHud(){
  const choice=candidates.find(candidate=>!panelBox||!overlaps(candidate.rect,panelBox))||candidates[1];
  educationHud.style.left=choice.left==null?'auto':`${choice.left}px`;educationHud.style.right=choice.right==null?'auto':`${choice.right}px`;educationHud.style.top=choice.top==null?'auto':`${choice.top}px`;educationHud.style.bottom=choice.bottom==null?'auto':`${choice.bottom}px`;
 }
+const educationFrustum=new THREE.Frustum(),educationProjection=new THREE.Matrix4(),educationSphere=new THREE.Sphere(),educationDirection=new THREE.Vector3();
 function updateEducationLayer(){
  if(!educationEnabled||surfaceView||lightFlight||blackHoleFall){educationGroup.visible=false;educationHud.hidden=true;return}
  // The detail sheet is the visible selection. Its id must take precedence
@@ -1586,14 +1597,25 @@ function updateEducationLayer(){
  // Physics card for Earth on screen just because Earth was selected earlier.
  const shownId=panel.hidden?null:Number(panel.dataset.bodyId);
  const body=bs.find(item=>item.id===shownId)||bs.find(item=>item.id===educationSubjectId)||bs.find(item=>item.id===follow)||bs.find(item=>item.id===selected)||bs.find(item=>item.key==='earth')||bs[0];
- const primary=body?.parent?bs.find(item=>item.id===body.parent):body?.key==='sun'?null:bs.find(item=>item.key==='sun');
- const metrics=educationMetrics(body,primary);if(!body||!metrics){educationGroup.visible=false;educationHud.hidden=true;return}
- const position=displayed(body),arrowLength=Math.max(radius(body)*3,Math.min(2.4,camera.position.distanceTo(position)*.12));
- const direction=vector(metrics.direction),gravity=vector(metrics.gravityDirection||[0,0,0]);
- velocityArrow.visible=vectorLength(metrics.direction)>1e-12;gravityArrow.visible=vectorLength(metrics.gravityDirection||[])>1e-12;
- if(velocityArrow.visible){velocityArrow.position.copy(position);velocityArrow.setDirection(direction.normalize());velocityArrow.setLength(arrowLength,arrowLength*.22,arrowLength*.12)}
- if(gravityArrow.visible){gravityArrow.position.copy(position);gravityArrow.setDirection(gravity.normalize());gravityArrow.setLength(arrowLength*.8,arrowLength*.18,arrowLength*.1)}
- educationGroup.visible=true;educationHud.hidden=false;
+ // Arrows for every body in view that moves relative to its primary (its
+ // planet, or the dominant star); the card below still describes one body.
+ camera.updateMatrixWorld();educationProjection.multiplyMatrices(camera.projectionMatrix,camera.matrixWorldInverse);educationFrustum.setFromProjectionMatrix(educationProjection);
+ const inView=item=>{educationSphere.center.copy(displayed(item));educationSphere.radius=radius(item);return educationFrustum.intersectsSphere(educationSphere)};
+ const moving=movingBodiesInView(bs,inView);
+ moving.forEach(({body:item,metrics},index)=>{
+  const pair=educationArrowPair(index),position=displayed(item),distance=camera.position.distanceTo(position),chosen=item===body;
+  const floor=radius(item)*largestAxis(item)*1.6,length=screenLength(chosen?72:38,distance,camera.fov,innerHeight,floor);
+  const opacity=chosen?1:.72;
+  pair.velocity.visible=true;pair.velocity.position.copy(position);pair.velocity.setDirection(educationDirection.fromArray(metrics.direction).normalize());pair.velocity.setLength(length,length*.24,length*.13);
+  const pull=metrics.gravityDirection&&vectorLength(metrics.gravityDirection)>1e-15;pair.gravity.visible=!!pull;
+  if(pull){const pullLength=length*.8;pair.gravity.position.copy(position);pair.gravity.setDirection(educationDirection.fromArray(metrics.gravityDirection).normalize());pair.gravity.setLength(pullLength,pullLength*.24,pullLength*.13)}
+  for(const arrow of [pair.velocity,pair.gravity]){arrow.line.material.opacity=opacity;arrow.cone.material.opacity=opacity}
+ });
+ for(let index=moving.length;index<educationArrows.length;index++){educationArrows[index].velocity.visible=false;educationArrows[index].gravity.visible=false}
+ educationGroup.visible=true;
+ const primary=educationPrimary(body,bs);
+ const metrics=educationMetrics(body,primary);if(!body||!metrics){educationHud.hidden=true;return}
+ educationHud.hidden=false;
  const stamp=`${body.id}:${metrics.speed.toFixed(3)}:${metrics.acceleration.toExponential(2)}`;
  if(stamp!==educationStamp){educationStamp=stamp;educationHud.innerHTML=`<strong>Fizyka · ${body.name}</strong><span><i class="education-velocity"></i>v ${formatNumber(metrics.speed,3)} km/s</span><span><i class="education-gravity"></i>a ${formatNumber(metrics.acceleration,4)} m/s²</span>${metrics.hillRadiusKm?`<span>Granica Hilla ${formatNumber(metrics.hillRadiusKm/1e6,3)} mln km</span>`:''}${metrics.rocheLimitKm?`<span>Granica Roche’a ${formatNumber(metrics.rocheLimitKm/1e3,1)} tys. km</span>`:''}<small>Niebieski: prędkość · złoty: grawitacja</small>`;}layoutEducationHud();
 }

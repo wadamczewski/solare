@@ -318,3 +318,6 @@ rows.push(
  ['Kopiuj','Copy','Kopieren','Copiar'],
  ['Link jest zaznaczony – skopiuj go skrótem Ctrl+C lub ⌘C.','The link is selected – copy it with Ctrl+C or ⌘C.','Der Link ist markiert – kopiere ihn mit Strg+C oder ⌘C.','El enlace está seleccionado: cópialo con Ctrl+C o ⌘C.']
 );
+rows.push(
+ ['Pokaż wektory fizyczne wszystkich poruszających się ciał w widoku','Show the physics vectors of every moving body in view','Physikvektoren aller bewegten Körper im Blickfeld anzeigen','Mostrar los vectores físicos de todos los cuerpos en movimiento a la vista']
+);

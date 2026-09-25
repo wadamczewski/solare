@@ -263,3 +263,6 @@ body.ux #share-dialog{border-color:var(--ux-border-strong);border-radius:19px;ba
 body.ux #share-dialog h2{font-size:19px;font-weight:600}
 body.ux #share-dialog .action{min-height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--ux-border);background:var(--ux-raise);color:var(--ux-text)}
 body.ux #share-dialog .action.primary{background:#cfe7ff;color:#07101f;border-color:transparent;font-weight:600}
+/* The physics card sits bottom-left above the dock; main.js places it by
+   inline style in a corner the camera controls now occupy. */
+body.ux #education-hud{left:var(--ux-gutter)!important;right:auto!important;top:auto!important;bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 16px)!important;border-radius:12px}

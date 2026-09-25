@@ -1015,3 +1015,19 @@ direction too. Io's speed test now allows its real ±0.4% eccentric swing.
 Verified with node --test (448 passing, none failing), a year-long
 collision run of all 47 bodies, npm run build, and screenshots of Saturn,
 Uranus and Jupiter with orbits shown.
+
+2026-09-25 Physics vectors on every moving body in view:
+The Physics vectors toggle drew one velocity and one gravity arrow, for the
+selected body only. It now draws a pair on every body inside the camera's
+view frustum that moves relative to its primary - its parent for a moon,
+otherwise the most massive other body, so planets are measured against the
+Sun and each star of a binary against its companion; a body ten times
+heavier than everything else (the Sun) is the centre and gets none.
+Arrows are sized on screen (38 px, 72 px for the selected body, never
+shorter than the body itself) because at system scale Saturn's moons sit a
+hair apart; the selected body's pair is opaque and the rest slightly
+translucent, and the physics card still describes the selected body. A pool
+of arrow pairs is reused, updated every other frame. The pure parts live in
+src/education-vectors.js with tests/education-vectors.test.js. In the
+redesigned interface the physics card moves bottom-left, clear of the
+camera controls.
