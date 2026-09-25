@@ -78,7 +78,30 @@ export const KNOWN_PLACES = {
  // since every moon without its own tabulated rotation is modelled here as
  // tidally locked (see surface-frame.js's synchronousFrame).
  'Proteusz': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
- 'Nereida': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}]
+ 'Nereida': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ // The 15 small ring-region moons below (shepherds, co-orbitals, the
+ // Alkyonides and the Tethys/Dione trojans) are all Cassini discoveries or
+ // Cassini-era close flybys imaged them well enough to size, but none has a
+ // published, coordinate-mapped named surface feature the way the eight
+ // round Saturn moons above do - even Janus and Epimetheus, whose craters
+ // are informally described in flyby imagery, have no IAU-adopted feature
+ // list with citable coordinates yet. Rather than invent a crater position,
+ // each keeps the same honest fallback used for Proteus and Nereid above.
+ 'Pan': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Daphnis': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Atlas': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Prometeusz': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Pandora': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Epimeteusz': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Janus': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Aegaeon': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Methone': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Anthe': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Pallene': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Telesto': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Kalipso': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Helena': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}],
+ 'Polideukes': [{name: 'Punkt podplanetarny', latitude: 0, longitude: 0}]
 };
 
 // Moons all share the runtime key 'moon' - see the note above - so they are
@@ -127,7 +150,9 @@ const HOST_ARTICLES={
  mercury:'Mercury_(planet)',venus:'Venus',earth:'Earth',mars:'Mars',jupiter:'Jupiter',saturn:'Saturn',uranus:'Uranus',neptune:'Neptune',
  'Księżyc':'Moon',Fobos:'Phobos_(moon)',Deimos:'Deimos_(moon)',Io:'Io_(moon)',Europa:'Europa_(moon)',Ganimedes:'Ganymede_(moon)',Kallisto:'Callisto_(moon)',
  Mimas:'Mimas_(moon)',Enceladus:'Enceladus_(moon)',Tetyda:'Tethys_(moon)',Dione:'Dione_(moon)',Rea:'Rhea_(moon)',Tytan:'Titan_(moon)',Japet:'Iapetus_(moon)',
- Miranda:'Miranda_(moon)',Ariel:'Ariel_(moon)',Umbriel:'Umbriel_(moon)',Tytania:'Titania_(moon)',Oberon:'Oberon_(moon)',Tryton:'Triton_(moon)',Proteusz:'Proteus_(moon)',Nereida:'Nereid_(moon)'
+ Miranda:'Miranda_(moon)',Ariel:'Ariel_(moon)',Umbriel:'Umbriel_(moon)',Tytania:'Titania_(moon)',Oberon:'Oberon_(moon)',Tryton:'Triton_(moon)',Proteusz:'Proteus_(moon)',Nereida:'Nereid_(moon)',
+ Pan:'Pan_(moon)',Daphnis:'Daphnis_(moon)',Atlas:'Atlas_(moon)',Prometeusz:'Prometheus_(moon)',Pandora:'Pandora_(moon)',Epimeteusz:'Epimetheus_(moon)',Janus:'Janus_(moon)',Aegaeon:'Aegaeon_(moon)',
+ Methone:'Methone_(moon)',Anthe:'Anthe_(moon)',Pallene:'Pallene_(moon)',Telesto:'Telesto_(moon)',Kalipso:'Calypso_(moon)',Helena:'Helene_(moon)',Polideukes:'Polydeuces_(moon)'
 };
 
 const placeBodyKey=body=>body?.key==='moon'?body.name:body?.key;

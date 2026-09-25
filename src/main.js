@@ -356,9 +356,17 @@ function radius(b){
  if(host){
   // Satellites inherit a readable fraction of their primary, but never the
   // former uniform moon size. The exponent keeps kilometre-scale moons on
-  // screen while retaining the many-orders-of-magnitude size hierarchy.
+  // screen while retaining the many-orders-of-magnitude size hierarchy. The
+  // floor was lowered when Saturn's ring shepherds and co-orbitals (a few
+  // km to a few tens of km, only a couple of thousand km apart in real
+  // orbital radius) joined the round moons here: at the old .004 floor every
+  // sub-hydrostatic moonlet was clamped to the same displayed size, close
+  // enough together that Atlas and Daphnis's compressed spheres touched
+  // despite never coming near each other in the real orbit. The lower floor
+  // keeps these rubble-pile moonlets legitimately tiny next to Saturn's
+  // round moons, which fixes the crowding rather than papering over it.
   const physicalFraction=Math.max(1e-10,b.radius/host.radius);
-  return radius(host)*Math.min(.34,Math.max(.004,.54*Math.pow(physicalFraction,.68)));
+  return radius(host)*Math.min(.34,Math.max(.0015,.54*Math.pow(physicalFraction,.68)));
  }
  if(b.key==='comet')return Math.min(.029,.006+.018*Math.pow(Math.max(1e-6,b.radius/5.5),.28));
  if(b.key==='fragment'||b.key==='asteroid')return .0015+.045*Math.pow(Math.max(1e-9,b.radius/1000),.32);

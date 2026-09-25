@@ -39,6 +39,35 @@ export const moonAppearance={
  'Tryton':p('triton','#c9b6ab','triton',[nasa+'resource/global-color-mosaic-of-triton/','https://astrogeology.usgs.gov/search/map/triton_voyager_2_global_color_mosaic_600m']),
  'Proteusz':p('proteus','#4b4a47',null,[nasa+'neptune/moons/proteus/',nasa+'neptune/moons/facts/'],{procedural:'dark-ice'}),
  'Nereida':p('nereid','#77736c',null,[nasa+'resource/nereid/',nasa+'neptune/moons/nereid/'],{unknown:true,procedural:'neutral'}),
+ // Cassini's photometry found the small moons embedded in or just outside
+ // the main rings are measurably redder than Saturn's icy mid-sized moons -
+ // ring material spirals onto them and coats their surface - though none of
+ // them was ever resolved into a full colour map, so this keeps a modest
+ // warm tan rather than inventing a saturated hue the data does not support.
+ 'Pan':p('pan','#c49a76',null,['https://solarsystem.nasa.gov/moons/saturn-moons/pan/in-depth/','https://www.jpl.nasa.gov/news/nasas-cassini-finds-saturns-rings-coat-tiny-moons/']),
+ 'Daphnis':p('daphnis','#c49a76',null,['https://solarsystem.nasa.gov/moons/saturn-moons/daphnis/in-depth/','https://www.jpl.nasa.gov/news/nasas-cassini-finds-saturns-rings-coat-tiny-moons/']),
+ 'Atlas':p('atlas','#c49a76',null,['https://solarsystem.nasa.gov/moons/saturn-moons/atlas/in-depth/','https://www.jpl.nasa.gov/news/nasas-cassini-finds-saturns-rings-coat-tiny-moons/']),
+ 'Prometeusz':p('prometheus','#c49a76',null,['https://solarsystem.nasa.gov/moons/saturn-moons/prometheus/in-depth/','https://www.jpl.nasa.gov/news/nasas-cassini-finds-saturns-rings-coat-tiny-moons/']),
+ 'Pandora':p('pandora','#c49a76',null,['https://solarsystem.nasa.gov/moons/saturn-moons/pandora/in-depth/','https://www.jpl.nasa.gov/news/nasas-cassini-finds-saturns-rings-coat-tiny-moons/']),
+ 'Epimeteusz':p('epimetheus','#c49a76',null,['https://solarsystem.nasa.gov/moons/saturn-moons/epimetheus/in-depth/','https://www.jpl.nasa.gov/news/nasas-cassini-finds-saturns-rings-coat-tiny-moons/']),
+ 'Janus':p('janus','#c49a76',null,['https://solarsystem.nasa.gov/moons/saturn-moons/janus/in-depth/','https://www.jpl.nasa.gov/news/nasas-cassini-finds-saturns-rings-coat-tiny-moons/']),
+ // Aegaeon and the three Alkyonides orbit within Saturn's faint, dusty G and
+ // outer-E-ring haze rather than threading through the dense main rings, and
+ // what little Cassini imagery exists of them (barely resolved discs at
+ // best) shows bright, icy surfaces like their much larger neighbours Tethys
+ // and Dione, not the ring moons' reddish tint.
+ 'Aegaeon':p('aegaeon','#c9cfcb',null,saturn,{procedural:'icy'}),
+ 'Methone':p('methone','#d3d8d4',null,saturn,{procedural:'icy'}),
+ 'Anthe':p('anthe','#c9cfcb',null,saturn,{procedural:'icy'}),
+ 'Pallene':p('pallene','#cdd3cf',null,saturn,{procedural:'icy'}),
+ // The four trojans share their host's own composition and colouring by
+ // definition - each co-orbits 60° ahead of or behind Tethys or Dione at a
+ // Lagrange point rather than being an independent world - so their base
+ // tone is drawn from 'Tetyda'/'Dione' just above, not a separate estimate.
+ 'Telesto':p('telesto','#cbd0cd',null,saturn,{procedural:'icy'}),
+ 'Kalipso':p('calypso','#cbd0cd',null,saturn,{procedural:'icy'}),
+ 'Helena':p('helene','#b9ada4',null,saturn),
+ 'Polideukes':p('polydeuces','#b9ada4',null,saturn),
 };
 export function moonMapPath(profile){return profile.map?.startsWith('/')?profile.map:profile.map?`/textures/moons/${profile.map}.jpg`:null;}
 export function loadMoonMaps(loader,anisotropy){

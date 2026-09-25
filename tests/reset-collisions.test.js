@@ -16,8 +16,8 @@ test('compressed scale keeps a visible but ordered size hierarchy',()=>{
  assert.ok(radius(moon)>radius(halley),'Halley must remain smaller than the Moon');
  assert.ok(radius(moon)>radius(dimorphos)*7,'a 151 m asteroid moon must not resemble the Moon');
 });
-test('reset system retains all 32 original bodies through a full year in visual scale',()=>{
+test('reset system retains all 47 original bodies through a full year in visual scale',()=>{
  const ids=bs.map(b=>b.id);let day=0;
  while(day<365){const previous=captureCollisionView(bs,displayed,radius);const c=fastStepSize(bs),dt=Math.min(c.dt,365-day);if(c.split)splitStep(bs,dt,c.states);else step(bs,dt);day+=dt;const current=captureCollisionView(bs,displayed,radius);const events=resolveCollisions(bs,{contactTest:(a,b)=>viewContact(a,b,current,previous)});assert.equal(events.length,0,`unexpected collision at day ${day}`);}
- assert.equal(bs.length,32);assert.deepEqual(bs.map(b=>b.id),ids);
+ assert.equal(bs.length,47);assert.deepEqual(bs.map(b=>b.id),ids);
 });

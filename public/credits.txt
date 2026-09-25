@@ -753,3 +753,56 @@ would give over the same tiny step) and a Playwright run against the live
 app: searching "Saturn", opening its panel and applying focus showed the
 rings rendering with no console errors and their established colour bands
 still in the right places.
+
+2026-09-25 15 more real Saturn moons join the simulation, and the ring
+shepherds surfaced a moon-crowding bug in the compressed display scale -
+second step of the Saturn realism pass:
+`src/physics.js`'s moons table gains 15 further Cassini-characterised
+Saturn moons, all now full N-body bodies with real mass, radius and orbit,
+landable in surface view exactly like the eight round moons already
+simulated: the ring shepherds and co-orbitals (Pan, Daphnis, Atlas,
+Prometeusz, Pandora, Epimeteusz, Janus, Aegaeon), the three Alkyonides
+embedded in the faint dust ring their own collisions help supply (Methone,
+Anthe, Pallene), and the four Tethys/Dione trojans that share those two
+moons' own orbits 60 degrees ahead of and behind them (Telesto, Kalipso,
+Helena, Polideukes) rather than an independently measured distance -
+that co-orbital relationship is the entire reason those four exist.
+Wikipedia currently lists 293 known Saturn moons; these 15 are the ones
+Cassini imaged well enough to size and, where no mass has been measured,
+whose mass could be estimated honestly from that size (500 kg/m^3 assumed
+density x volume, the same convention their own infoboxes use) - the
+remaining roughly 270 are small, distant, retrograde-orbiting captured
+objects (the Inuit, Gallic and Norse groups) that belong in a future
+statistical swarm rather than as individually simulated bodies, since none
+has an individually measured orbit or size.
+Saturn now has 23 simulated moons and the system holds 47 bodies in total
+(was 32); `src/moon-appearance.js` gains a matching appearance profile for
+each new moon (real NASA/JPL source citations, no procedural map since none
+has been photographed closely enough for one, a shared reddish tone for the
+seven ring moons matching Cassini's own photometry, icy tones for the
+Alkyonides, and each trojan pair's exact host colour for Telesto/Kalipso and
+Helena/Polideukes) and `src/surface-places.js` and `src/wikipedia-reference.js`
+gain entries for all 15 so their surface-view "known places" list and
+Wikipedia lookups resolve correctly; none of the 15 has a published,
+coordinate-mapped named surface feature the way the round moons do (even
+Janus and Epimetheus, both imaged at close range, have no IAU-adopted
+feature list with citable coordinates yet), so each honestly falls back to
+the same sub-planetary-point marker already used for Proteus and Nereid
+rather than inventing a crater.
+Adding moons only around 1,000-3,000 km apart in real orbital radius (Pan,
+Daphnis and Atlas are the closest cluster) exposed a genuine bug in the
+compressed display scale, not in the physics: `radius()` in `src/main.js`
+floored every sub-hydrostatic moon's displayed size at the same minimum
+fraction of its planet, so Atlas and Daphnis - never within 1,000 km of
+colliding in the real, unscaled simulation - ended up with compressed
+display spheres large enough to touch. The floor is lowered so these
+kilometre-scale moonlets stay legitimately tiny next to Saturn's round
+moons; a year-long collision-view regression test (already in the suite,
+now covering all 47 bodies) confirms no other pair grazes over a full
+simulated year at this scale.
+Verified with `node --test` (full suite green apart from two pre-existing,
+unrelated translation-coverage failures against main.js's cinematic camera
+capture text, not touched by this commit) and a Playwright run against the
+live app confirming all 47 bodies load with no console errors and every
+new moon projects to a sane, positive on-screen size in front of the
+camera.

@@ -20,6 +20,27 @@ export const moons=[
  ['Fobos','mars',9376,1.0659e16,11.267,.3189,true],['Deimos','mars',23463,1.4762e15,6.2,1.263,true],
  ['Io','jupiter',421700,8.932e22,1821.6,1.769,false],['Europa','jupiter',671034,4.8e22,1560.8,3.551,false],['Ganimedes','jupiter',1070412,1.4819e23,2634.1,7.155,false],['Kallisto','jupiter',1882709,1.0759e23,2410.3,16.689,false],
  ['Mimas','saturn',185539,3.75e19,198.2,.942,false],['Enceladus','saturn',238042,1.08e20,252.1,1.37,false],['Tetyda','saturn',294672,6.175e20,531.1,1.888,false],['Dione','saturn',377415,1.095e21,561.4,2.737,false],['Rea','saturn',527068,2.307e21,763.8,4.518,false],['Tytan','saturn',1221870,1.3452e23,2574.7,15.945,false],['Japet','saturn',3560820,1.8056e21,734.5,79.321,false],['Hyperion','saturn',1481000,5.6e18,135,21.277,true,13*24],
+ // The eight moons above are the only ones round enough to be in
+ // hydrostatic equilibrium; every Saturn moon below this line is a small,
+ // lumpy body Cassini imaged well enough to size (radii and masses from
+ // Cassini-era Wikipedia infoboxes, mass = 500 kg/m³ assumed density × volume
+ // where no measured mass is published, the same convention those infoboxes
+ // themselves use for the smallest ones). They fall into three real groups,
+ // all essentially in Saturn's ring plane - the shared small inclination
+ // already used for every Saturn moon above applies just as well here, so
+ // this file's per-body inclination model does not need to change:
+ // ring shepherds and co-orbitals, threaded through and just outside the
+ // rings themselves, in orbital-radius order -
+ ['Pan','saturn',133600,4.3e15,14.1,.575,true],['Daphnis','saturn',136500,6.8e13,3.8,.594,true],['Atlas','saturn',137700,5.49e15,15.1,.605,true],['Prometeusz','saturn',139400,1.6e17,43.1,.616,true],['Pandora','saturn',141700,1.36e17,40.7,.631,true],['Epimeteusz','saturn',151400,5.26e17,58.1,.697,true],['Janus','saturn',151500,1.89e18,89.5,.697,true],['Aegaeon','saturn',167500,7.5e10,.33,.808,true],
+ // and the Alkyonides, a trio of tiny moonlets embedded in the faint dust
+ // ring their own collisions help supply -
+ ['Methone','saturn',194700,6.4e12,1.45,1.01,true],['Anthe','saturn',198100,1.53e12,.9,1.039,true],['Pallene','saturn',212280,1.15e13,2.23,1.153746,true],
+ // and the trojans, sharing Tethys's and Dione's own orbits 60° ahead of and
+ // behind them at the Lagrange points those two hold the two pairs in - the
+ // same distance and period as 'Tetyda' and 'Dione' above, not independently
+ // measured values, since that co-orbital relationship is the entire reason
+ // these four exist.
+ ['Telesto','saturn',294672,4e15,12.3,1.888,true],['Kalipso','saturn',294672,2e15,9.5,1.888,true],['Helena','saturn',377415,7.1e15,18.1,2.737,true],['Polideukes','saturn',377415,7.5e12,1.53,2.737,true],
  ['Miranda','uranus',129390,6.59e19,235.8,1.413,false],['Ariel','uranus',190900,1.353e21,578.9,2.52,false],['Umbriel','uranus',266000,1.172e21,584.7,4.144,false],['Tytania','uranus',436300,3.527e21,788.9,8.706,false],['Oberon','uranus',583500,3.014e21,761.4,13.463,false],
  ['Tryton','neptune',354759,2.139e22,1353.4,-5.877,false],['Proteusz','neptune',117647,4.4e19,210,1.122,true],['Nereida','neptune',5513400,3.1e19,170,360.13,false]
 ];

@@ -5,7 +5,7 @@ import {Color,MeshStandardMaterial,Texture,ShaderLib} from 'three';
 import {initialSystem} from '../src/physics.js';
 import {moonAppearance,moonMapPath,applyMoonAppearance} from '../src/moon-appearance.js';
 test('every included moon has its own documented appearance; maps are valid local photographs',()=>{
- const moons=initialSystem().filter(b=>b.key==='moon');assert.equal(moons.length,23);
+ const moons=initialSystem().filter(b=>b.key==='moon');assert.equal(moons.length,38);
  for(const moon of moons){const profile=moonAppearance[moon.name];assert.ok(profile,moon.name);assert.ok(new Set(profile.sources).size>=2);for(const url of profile.sources)assert.equal(new URL(url).protocol,'https:');const path=moonMapPath(profile);if(path){const bytes=readFileSync(new URL('../public'+path,import.meta.url));assert.equal(bytes.readUInt16BE(0),0xffd8);assert.ok(bytes.length>10000);if(moon.name!=='Księżyc')assert.notEqual(path,'/textures/moon.jpg');}}
 });
 test('every downloaded moon mosaic has exactly the matching mission-source record',()=>{
