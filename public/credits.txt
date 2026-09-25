@@ -1049,3 +1049,10 @@ arrived and wrapped onBeforeCompile again, so the recompiled fragment shader
 declared moonBase and moonDark twice and failed to compile. The appearance is
 now installed once per material (userData.moonAppearance); the loader only
 assigns the map. Test: tests/moon-shader-reload.test.js.
+
+2026-09-25 Asteroids and ring particles are no longer black:
+Main-belt asteroids, Saturn's ring particles and the irregular-moon swarm
+rendered as black silhouettes: their materials had vertexColors:true, which
+multiplies by the geometry's colour attribute, and the icosahedron has none,
+so WebGL read (0,0,0). Their tones come from instanceColor alone now.
+Test: tests/instanced-rock-colours.test.js.

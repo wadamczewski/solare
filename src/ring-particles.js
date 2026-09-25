@@ -47,7 +47,11 @@ function bandToneAt(bands,r){for(const band of bands)if(r<band.to)return band.to
 
 export function createRingParticles({inner,bands,count=RING_PARTICLE_COUNT,random=Math.random}={}){
  const geometry=new THREE.IcosahedronGeometry(1,0);
- const material=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:1,metalness:0,vertexColors:true});
+ // Per-rock tones come from setColorAt (instanceColor), which three.js applies
+ // on its own. vertexColors:true additionally multiplied by the geometry's
+ // 'color' attribute - which this icosahedron does not have, so WebGL read
+ // it as (0,0,0) and every rock rendered as a black silhouette.
+ const material=new THREE.MeshStandardMaterial({color:'#ffffff',roughness:1,metalness:0});
  const mesh=new THREE.InstancedMesh(geometry,material,count);
  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
  mesh.castShadow=false;mesh.receiveShadow=false;mesh.frustumCulled=false;

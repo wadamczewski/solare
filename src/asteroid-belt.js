@@ -16,7 +16,11 @@ export const asteroidBeltVisible = ({systemMode = false, blackHoleFall = false, 
 // solar-system-map distance; each body remains much smaller than a planet.
 export function createAsteroidBelt({count=ASTEROID_COUNT,random=Math.random}={}){
  const geometry=new THREE.IcosahedronGeometry(1,0);
- const material=new THREE.MeshStandardMaterial({color:'#a69d8e',roughness:1,metalness:0,vertexColors:true});
+ // Per-rock tones come from setColorAt (instanceColor), which three.js applies
+ // on its own. vertexColors:true additionally multiplied by the geometry's
+ // 'color' attribute - which this icosahedron does not have, so WebGL read
+ // it as (0,0,0) and every rock rendered as a black silhouette.
+ const material=new THREE.MeshStandardMaterial({color:'#a69d8e',roughness:1,metalness:0});
  const mesh=new THREE.InstancedMesh(geometry,material,count);
  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
  mesh.castShadow=false;

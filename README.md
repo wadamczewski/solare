@@ -85,6 +85,8 @@ Physics uses AU, solar masses, and days, independently of visual planet enlargem
 
 **Moon maps load without breaking the shader.** A moon's mission map is fetched only when it is needed and assigned to the material that is already drawing it; `applyMoonAppearance` installs its shader patch once per material (it used to wrap `onBeforeCompile` again on every call, which made the recompiled shader declare its uniforms twice and stop drawing the moon and its thumbnail).
 
+**Instanced rocks.** Main-belt asteroids, Saturn's ring particles and the irregular-moon swarm are instanced icosahedra coloured per instance (`setColorAt`); their materials do not set `vertexColors`, which would multiply by a geometry colour attribute the icosahedron does not have and draw every rock black.
+
 Changing the central star does not recreate that star’s actual independent planetary system. It retains current planet positions and adjusts only their velocities to the selected mass, so it is an N-body dynamics experiment rather than an exoplanet catalogue.
 
 ## Current planetary positions
