@@ -1068,3 +1068,11 @@ where the scene light is. Assumption: a moon is small next to its distance
 from the blocker, so one set of angles from its centre is enough. Planets,
 true scale, lunar-eclipse scenarios and the surface view are unchanged.
 Test: tests/moon-eclipse-geometry.test.js.
+
+2026-09-25 Follow frames small moons:
+Follow placed the camera at least 0.3 units from any body on the compressed
+map, which left Phobos, Deimos, Pan, Aegaeon, Nereid and the other small
+moons under one pixel - the view showed their planet beside an empty patch
+of sky. followDistance keeps radius x 3 and the 0.3 floor for planets and
+large moons but lowers the floor to 12 drawn radii, so a small body is framed
+about twenty pixels wide. Test: tests/follow-distance.test.js.

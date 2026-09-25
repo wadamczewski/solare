@@ -29,3 +29,14 @@ export function maxViewDistance(compressed){return compressed?260:1400;}
 // visually consistent with each other and with each other's true relative
 // distances.
 export function satelliteOffset(hostSceneRadius,offsetAU){return hostSceneRadius*1.8+Math.pow(offsetAU*AU/200000,.55)*.8;}
+// How far a followed body's camera starts from it. The readable map used a
+// flat floor of 0.3 units, sized for planets and the large moons; a moon of a
+// few kilometres such as Phobos, Pan or Aegaeon is drawn well under a
+// thousandth of a unit across, so from there it covered less than a pixel and
+// "Follow" showed its planet next to an empty patch of sky. The floor now
+// shrinks with the body so a small one is framed at roughly twenty pixels,
+// while everything whose drawn radius is above 0.025 units keeps the old view.
+export function followDistance(drawnRadius,compressed){
+ const r=Math.max(0,drawnRadius)||0;
+ return Math.max(r*3,compressed?Math.min(.3,r*12):.00001);
+}

@@ -89,6 +89,8 @@ Physics uses AU, solar masses, and days, independently of visual planet enlargem
 
 **Moon eclipses on the compressed map.** The readable map draws a moon a few host radii from its planet under an enlarged Sun, so its eclipses are not taken from that drawn geometry: `trueAngleOccluders` (`src/extended-solar-shadow.js`) measures the Sun's and every blocker's angular radius and their separation from the moon's true position and rebuilds that configuration around the drawn moon, turned so the Sun lies where the scene light is. A moon goes dark only when it is really in a shadow (Io each 42-hour orbit, for example), not whenever it passes behind its enlarged planet on screen. True scale, lunar-eclipse scenarios and the surface view keep the direct geometry.
 
+**Following small bodies.** *Follow* starts three drawn radii away from a planet and at least 0.3 units from a large moon, but that floor shrinks for small bodies (`followDistance` in `src/scene-scale.js`), so Phobos or a ring shepherd is framed about twenty pixels wide instead of below one pixel.
+
 Changing the central star does not recreate that star’s actual independent planetary system. It retains current planet positions and adjusts only their velocities to the selected mass, so it is an N-body dynamics experiment rather than an exoplanet catalogue.
 
 ## Current planetary positions
