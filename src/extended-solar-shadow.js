@@ -145,3 +145,41 @@ export function solarOccludersForReceiver(receiverPosition,sourcePosition,source
   return separation<sunAngular+angular+.002;
  }).sort((a,b)=>b.radius/Math.max(1e-9,b.position.distanceTo(receiverPosition))-a.radius/Math.max(1e-9,a.position.distanceTo(receiverPosition))).slice(0,MAX_SOLAR_OCCLUDERS);
 }
+
+// On the compressed map a moon sits a few host radii from its planet instead
+// of the real 6 (Io) to 60 (our Moon), and the Sun's disc is drawn hundreds of
+// times larger than it looks from there. Evaluating the eclipse in that
+// geometry put a moon into its planet's "shadow" for a large slice of every
+// orbit - Io went black while it was 380 000 km off Jupiter's shadow axis.
+// For a small receiver the eclipse only depends on three angles seen from its
+// centre: the Sun's angular radius, the blocker's and their separation. This
+// takes those angles from the true positions (AU, radii in km) and rebuilds
+// the same configuration around the drawn receiver, rotated so the Sun lies
+// where the scene light actually is. The shader then sees an eclipse exactly
+// when, and as deep as, the real one - and nothing in between.
+export function trueAngleOccluders({receiverTrue,sunTrue,sunRadiusKm,receiverDisplay,sunDisplay,occluders,receiverId,au=149597870.7}){
+ const toSunTrue=new THREE.Vector3().fromArray(sunTrue).sub(new THREE.Vector3().fromArray(receiverTrue)),sunDistanceTrue=toSunTrue.length();
+ const toSunDisplay=sunDisplay.clone().sub(receiverDisplay),sunDistanceDisplay=toSunDisplay.length();
+ const sunRadiusTrue=Math.max(0,sunRadiusKm)/au;
+ if(!(sunDistanceTrue>sunRadiusTrue)||!(sunDistanceDisplay>0))return {sourceRadius:0,occluders:[]};
+ toSunTrue.multiplyScalar(1/sunDistanceTrue);toSunDisplay.multiplyScalar(1/sunDistanceDisplay);
+ const sunAngular=Math.asin(THREE.MathUtils.clamp(sunRadiusTrue/sunDistanceTrue,0,.99995));
+ const turn=new THREE.Quaternion().setFromUnitVectors(toSunTrue,toSunDisplay);
+ const selected=[];
+ for(const candidate of occluders){
+  if(candidate.id===receiverId||!(candidate.radiusKm>0))continue;
+  const toBlocker=new THREE.Vector3().fromArray(candidate.trueP).sub(new THREE.Vector3().fromArray(receiverTrue)),distance=toBlocker.length(),radius=candidate.radiusKm/au;
+  if(distance>=sunDistanceTrue||distance<=radius)continue;
+  toBlocker.multiplyScalar(1/distance);
+  const angular=Math.asin(THREE.MathUtils.clamp(radius/distance,0,.99995));
+  const separation=Math.acos(THREE.MathUtils.clamp(toBlocker.dot(toSunTrue),-1,1));
+  if(separation>=sunAngular+angular+.002)continue;
+  // Any distance that stays between the receiver and the Sun preserves the
+  // angles; the drawn distance keeps the parallax across the receiver's
+  // own surface close to what the old model showed.
+  const drawn=THREE.MathUtils.clamp(candidate.displayPosition.distanceTo(receiverDisplay),1e-6,sunDistanceDisplay*.5);
+  selected.push({id:candidate.id,angular,position:toBlocker.applyQuaternion(turn).multiplyScalar(drawn).add(receiverDisplay),radius:drawn*Math.sin(angular)});
+ }
+ selected.sort((a,b)=>b.angular-a.angular);
+ return {sourceRadius:sunDistanceDisplay*Math.sin(sunAngular),occluders:selected.slice(0,MAX_SOLAR_OCCLUDERS)};
+}

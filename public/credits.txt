@@ -1056,3 +1056,15 @@ rendered as black silhouettes: their materials had vertexColors:true, which
 multiplies by the geometry's colour attribute, and the icosahedron has none,
 so WebGL read (0,0,0). Their tones come from instanceColor alone now.
 Test: tests/instanced-rock-colours.test.js.
+
+2026-09-25 Moon eclipses on the compressed map follow the real geometry:
+On the compressed map a moon's eclipse was computed from the drawn geometry -
+the moon a few host radii out, the Sun's disc enlarged - so a moon went dark
+for a large slice of every orbit; Io, for instance, turned black while
+380 000 km off Jupiter's shadow axis. trueAngleOccluders now takes the Sun's
+and each blocker's angular radius and their separation from the true
+positions and rebuilds them around the drawn moon, turned so the Sun sits
+where the scene light is. Assumption: a moon is small next to its distance
+from the blocker, so one set of angles from its centre is enough. Planets,
+true scale, lunar-eclipse scenarios and the surface view are unchanged.
+Test: tests/moon-eclipse-geometry.test.js.

@@ -51,7 +51,7 @@ import {nearestSurfaceFeature,terrainActivationRadius,topographyHeightKm} from '
 import {createOrbitRibbon,updateOrbitRibbon} from './orbit-ribbon.js';
 import {auRadius,maxViewDistance,satelliteOffset,scaleRatio,sceneRadius} from './scene-scale.js';
 import {configureSolarShadow,participatesInSolarShadow} from './solar-shadows.js';
-import {applyExtendedSolarShadow,solarOccludersForReceiver} from './extended-solar-shadow.js';
+import {applyExtendedSolarShadow,solarOccludersForReceiver,trueAngleOccluders} from './extended-solar-shadow.js';
 import {accretionStateFor,createBlackHoleVisual} from './black-hole.js';
 import {createNeutronStarVisual} from './neutron-star.js';
 import {createBlackHoleLensingPass,updateBlackHoleLensing} from './black-hole-lensing.js';
@@ -446,8 +446,18 @@ function updateExtendedSolarShadows(){
   if(view.eclipseShadow){
    // A body cannot shadow itself, so its own id is excluded from its own
    // candidate list here.
-   const candidates=solarOccludersForReceiver(view.group.position,sourcePosition,sourceRadius,occluders,body.id);
-   view.eclipseShadow.update({sourcePosition,sourceRadius,occluders:candidates,viewMatrix:camera.matrixWorldInverse});
+   // A moon on the compressed map is drawn a few host radii from its planet
+   // under an enlarged Sun, so its eclipse is taken from the true angles
+   // instead (see trueAngleOccluders) - otherwise it goes dark for a large
+   // part of every orbit although it is nowhere near the planet's shadow.
+   if(compressed&&body.parent&&!systemMode&&!lightFlight){
+    const mapped=trueAngleOccluders({receiverTrue:body.p,sunTrue:sun.p,sunRadiusKm:sun.radius,receiverDisplay:view.group.position,sunDisplay:sourcePosition,receiverId:body.id,
+     occluders:bs.filter(participatesInSolarShadow).map(other=>{const otherView=views.get(other.id);return otherView&&{id:other.id,trueP:other.p,radiusKm:other.radius,displayPosition:otherView.group.position}}).filter(Boolean)});
+    view.eclipseShadow.update({sourcePosition,sourceRadius:mapped.sourceRadius,occluders:mapped.occluders,viewMatrix:camera.matrixWorldInverse});
+   }else{
+    const candidates=solarOccludersForReceiver(view.group.position,sourcePosition,sourceRadius,occluders,body.id);
+    view.eclipseShadow.update({sourcePosition,sourceRadius,occluders:candidates,viewMatrix:camera.matrixWorldInverse});
+   }
   }
   if(view.ringEclipseShadow){
    // The ring is a separate surface wrapped around the planet, not the
