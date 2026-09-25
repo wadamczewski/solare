@@ -722,3 +722,34 @@ The main-scene landmark-pin entry point was not separately driven by a real
 click in this run - it calls the identical `goToKnownPlace()` function this
 change modifies, with a click handler this change does not touch - so it is
 covered by the same fix rather than by a second, independent code path.
+
+2026-09-25 Saturn's and Uranus's rings are grain, not a printed stripe -
+first step of an ongoing pass toward realistic rings:
+The rings were a single flat disc whose radial colour came from two clean
+sine terms - a look that reads as a couple of smooth painted bands rather
+than the uncountable population of individual ice and rock particles a real
+ring is actually built from. `src/planet-rings.js` gains `ringGrain(r,seed)`,
+a five-octave coherent-noise sum at particle-plausible radial frequencies,
+replacing that two-term formula; the same real band boundaries and optical
+depths (SATURN_RING_BANDS / URANUS_RING_BANDS, unchanged) still set where
+each named ring and gap falls, but the fill within each band is now dense,
+irregular grain rather than a smooth curve. The noise is deliberately a
+function of radius alone: the ring mesh is a child of the planet's own
+spinning mesh (main.js's addView), so any azimuthal term would incorrectly
+appear to rotate once per planet-day, the way a real ring's broad structure
+does not. Ring geometry resolution also rises (RingGeometry radial segments
+160→420 for Saturn, 220→260 for Uranus) so the finer grain has enough
+vertices to actually show rather than being averaged away between them.
+This is the first commit of a larger pass the rings still need: individual
+close-up particles with their own correct Keplerian orbits (real
+differential rotation, faster close in than far out) and the shepherd,
+co-orbital and trojan moons that share the ring system, all planned as
+their own follow-up commits.
+Verified with `node --test` (a new case in `tests/planet-rings.test.js`
+confirms `ringGrain` is deterministic for a given radius and seed, stays
+bounded, differs between Saturn's and Uranus's seeds, and shows real grain
+at a fine radial step rather than the near-constant value two sine terms
+would give over the same tiny step) and a Playwright run against the live
+app: searching "Saturn", opening its panel and applying focus showed the
+rings rendering with no console errors and their established colour bands
+still in the right places.

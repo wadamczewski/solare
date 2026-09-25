@@ -66,3 +66,30 @@ export function ringBandAt(bands,r){
  for(const band of bands)if(r<band.to)return band;
  return bands[bands.length-1];
 }
+
+// A ring is not a painted disc - it is an uncountable population of
+// individual ice and rock particles, and a real stellar-occultation profile
+// of one reads as dense, irregular grain at every scale, not as a couple of
+// clean sine waves. This sums several octaves of coherent noise at
+// particle-plausible radial frequencies so the same band boundaries above
+// get filled with texture that looks like it is built out of countless
+// separate objects rather than printed on. It is deliberately a function of
+// radius alone (no azimuthal term): the rendered ring mesh is a child of the
+// planet's own spinning mesh (see main.js), so anything that varied with
+// angle would incorrectly appear to rotate once per Saturn day instead of
+// staying fixed, the way a real ring's broad radial structure does on the
+// timescale anyone watches it.
+const grainHash=(x,seed)=>{const v=Math.sin(x*127.1+seed*311.7)*43758.5453123;return v-Math.floor(v)};
+const grainSmooth=v=>v*v*(3-2*v);
+function grainNoise1D(x,seed){
+ const xi=Math.floor(x),t=grainSmooth(x-xi);
+ return grainHash(xi,seed)+(grainHash(xi+1,seed)-grainHash(xi,seed))*t;
+}
+export function ringGrain(radiusInPlanetRadii,seed=4111){
+ let amplitude=1,frequency=95,sum=0,weight=0;
+ for(let octave=0;octave<5;octave++){
+  sum+=(grainNoise1D(radiusInPlanetRadii*frequency,seed+octave*41.7)-.5)*amplitude;
+  weight+=amplitude;amplitude*=.56;frequency*=2.35;
+ }
+ return sum/weight; // roughly -0.5..0.5, mean 0
+}

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {SATURN_RING_INNER, SATURN_RING_BANDS, URANUS_RING_INNER, URANUS_RING_BANDS, ringBandAt} from '../src/planet-rings.js';
+import {SATURN_RING_INNER, SATURN_RING_BANDS, URANUS_RING_INNER, URANUS_RING_BANDS, ringBandAt, ringGrain} from '../src/planet-rings.js';
 
 const isHexColor = value => /^#[0-9a-f]{6}$/i.test(value);
 
@@ -51,4 +51,27 @@ test('Uranus ring bands model real gaps as near-transparent, not merely darker',
 
 test('ringBandAt falls back to the outermost band beyond every boundary', () => {
  assert.equal(ringBandAt(SATURN_RING_BANDS, 999), SATURN_RING_BANDS[SATURN_RING_BANDS.length - 1]);
+});
+
+test('ringGrain is a deterministic, bounded texture rather than a smooth sine wave', () => {
+ // Same radius and seed always returns the same value - the renderer builds
+ // ring geometry once, not per frame, so this has to be pure.
+ assert.equal(ringGrain(1.8, 4111), ringGrain(1.8, 4111));
+ // A different seed (Saturn vs Uranus) gives an unrelated pattern, not just
+ // a phase-shifted copy of the same wave.
+ assert.notEqual(ringGrain(1.8, 4111), ringGrain(1.8, 7331));
+ // The sum of octaves is a weighted average of values in [0,1) shifted by
+ // -0.5, so it always stays safely inside a bounded range.
+ for (let r = 1.1; r < 2.4; r += 0.037) {
+  const value = ringGrain(r, 4111);
+  assert.ok(value > -0.6 && value < 0.6, `ringGrain(${r}) = ${value} should stay bounded`);
+ }
+ // A couple of clean sine terms are smooth enough that neighbouring samples
+ // barely differ; real particulate structure should show visible grain at a
+ // fine radial step even where two samples a full ring-width apart might
+ // coincidentally agree.
+ const samples = [];
+ for (let r = 1.1; r < 2.4; r += 0.0015) samples.push(ringGrain(r, 4111));
+ const distinct = new Set(samples.map(v => v.toFixed(4)));
+ assert.ok(distinct.size > samples.length * 0.5, 'fine radial sampling should show real grain, not a smooth curve');
 });
