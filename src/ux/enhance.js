@@ -352,7 +352,10 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
 
  // ---- Welcome -----------------------------------------------------------
  let welcome=null;
- if(store.get('welcomed')!=='1'){
+ // Someone opening a shared link has come to see that exact view, so the
+ // first-visit card does not cover it (and is still shown on a later visit).
+ const sharedLink=/^#solare=/.test(String(globalThis.location?.hash||''));
+ if(store.get('welcomed')!=='1'&&!sharedLink){
   const dismiss=()=>{store.set('welcomed','1');welcome?.remove();welcome=null};
   welcome=el('aside',{class:'ux-welcome',id:'ux-welcome','aria-labelledby':'ux-welcome-title'},
    el('h2',{id:'ux-welcome-title',text:'welcome.title'}),

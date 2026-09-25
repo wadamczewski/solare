@@ -67,7 +67,7 @@ import {createIrregularMoonSwarm} from './irregular-moon-swarm.js';
 import {applyRingPlanetShadow} from './ring-planet-shadow.js';
 import {SOLAR_ECLIPSES,SOLAR_LEAD_MINUTES,formatEclipseDuration} from './solar-eclipses.js';
 import {LUNAR_ECLIPSES,lunarEclipseLeadMinutes} from './lunar-eclipses.js';
-import {createShareState,shareTokenFromLocation,shareUrl} from './share-state.js';
+import {SHARE_VERSION,createViewShare,expandBodies,restoreReferences,shareTokenFromLocation,shareUrl,validViewport,viewport} from './share-state.js';
 import {timelineEvents} from './event-timeline.js';
 import {surfaceAtmosphere,surfaceLightLabel} from './surface-atmosphere.js';
 import {createEarthCloudCover} from './earth-clouds.js';
@@ -107,7 +107,8 @@ const home=new THREE.Vector3(0,31,43).multiplyScalar(Math.max(1,1.15/(innerWidth
 const preview=createBodyPreview(),impactEffects=createImpactEffects(scene),tidalStreams=createTidalStreams(scene),solarInterior=createSolarInterior();
 const interiorHud=document.createElement('aside');interiorHud.id='solar-interior';interiorHud.hidden=true;interiorHud.innerHTML='<span>Model wnętrza Słońca</span><strong id=interior-zone></strong><div id=interior-values></div><p>Przekrój edukacyjny. Plazma jest nieprzezroczysta; rzeczywiste fotony rozpraszają się zamiast lecieć prostą.</p>';document.body.append(interiorHud);
 const sky=createSky(renderer.getPixelRatio());sky.setViewport(innerWidth,innerHeight);scene.add(sky.group);
-const loadSkyWhenIdle=()=>sky.load().then(info=>{skyInfo=info;sky.setConstellations(showConstellations);sky.setDeepSkyMarkers(showDeepSkyMarkers)}).catch(error=>{skyInfo={error:error.message};console.warn('Nie udało się wczytać mapy nieba:',error.message)});
+let skyLoaded;const skyReady=new Promise(resolve=>{skyLoaded=resolve});
+const loadSkyWhenIdle=()=>sky.load().then(info=>{skyInfo=info;sky.setConstellations(showConstellations);sky.setDeepSkyMarkers(showDeepSkyMarkers);skyLoaded()}).catch(error=>{skyInfo={error:error.message};console.warn('Nie udało się wczytać mapy nieba:',error.message)});
 if(typeof requestIdleCallback==='function')requestIdleCallback(loadSkyWhenIdle,{timeout:450});else setTimeout(loadSkyWhenIdle,80);
 const cometTails=createCometTails(scene);cometTails.setPixelRatio(renderer.getPixelRatio());
 function applyAdaptiveQuality(profile){
@@ -554,7 +555,7 @@ renderer.domElement.addEventListener('pointerup',e=>{clearTimeout(lastTouchTimer
  const constellation=id||landmark||deepSky?null:showConstellations?sky.pickConstellation(e,camera,renderer.domElement):null;
  if(landmark)goToKnownPlace(bodyLandmarks.bodyId,landmark);else if(id){selected=id;showBody()}else if(deepSky)showDeepSky(deepSky);else if(constellation)showConstellation(constellation);else{spawnAt.copy(location(e));showSpawner()}tip.hidden=true});
 renderer.domElement.addEventListener('dblclick',e=>{if(surfaceView)return;const id=hit(e);if(id)focusBody(id)});
-function shell(title,content){preview.clear();delete panel.dataset.bodyId;restoreFocus=document.activeElement;panel.innerHTML=`<div class="panel-head"><h2>${title}</h2><button class="close" aria-label="Zamknij">×</button></div>${content}`;panel.hidden=false;panel.querySelector('.close').onclick=closePanel}
+function shell(title,content){preview.clear();delete panel.dataset.bodyId;panel.dataset.shell=title;restoreFocus=document.activeElement;panel.innerHTML=`<div class="panel-head"><h2>${title}</h2><button class="close" aria-label="Zamknij">×</button></div>${content}`;panel.hidden=false;panel.querySelector('.close').onclick=closePanel}
 function closePanel(){preview.clear();clearBodyLandmarks();panel.hidden=true;selected=null;skySubject=null;restoreFocus?.focus?.()}
 const row=(label,html)=>`<div class="row"><label>${label}</label>${html}</div>`;
 const inputLabel=id=>({mass:'Masa · kg','spawn-mass':'Masa · kg','spawn-solar-mass':'Masa · M☉',radius:'Promień · km','spawn-radius':'Promień · km',spin:'Obrót · godz.',tilt:'Nachylenie osi · °',launch:'Prędkość · km/s',angle:'Kierunek · °',pitch:'Wznoszenie · °'}[id]||`${id.startsWith('v')?'Prędkość':'Położenie'} ${id.slice(-1)} · ${id.startsWith('v')?'km/s':'AU'}`);
@@ -955,15 +956,18 @@ function terrainShowcasePosition(body,feature){
  const targetLongitude=longitude+Math.atan2(Math.sin(bearing)*Math.sin(angular)*Math.cos(latitude),Math.cos(angular)-Math.sin(latitude)*Math.sin(targetLatitude));
  return {latitude:targetLatitude*180/Math.PI,longitude:((targetLongitude*180/Math.PI+540)%360)-180};
 }
-function startSurfaceView(bodyId){
+// `preset` restores a shared surface view: the observer's place, gaze and
+// field of view are taken as given, and neither the device clock nor the
+// device location replaces the shared instant and place.
+function startSurfaceView(bodyId,preset=null){
  if(cinematic)stopCinematic();
  const body=bs.find(b=>b.id===bodyId);if(!body)return;
  if(lightFlight)stopLightFlight();
  stopSolarDeath();
  if(!surfaceView)surfaceReturn={compressed,camera:camera.position.clone(),target:controls.target.clone(),fov:camera.fov,follow,speed};
  surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null,locationOverride:false,cloudsRecenter:true,earthAtmosphereEnabled:false};
- if(isEarthSurface(body))beginEarthSurfaceContext();
- aimAtSomethingWorthSeeing(body);
+ if(preset)Object.assign(surfaceView,preset,{locationState:null,locationOverride:true,cloudsRecenter:true});
+ else{if(isEarthSurface(body))beginEarthSurfaceContext();aimAtSomethingWorthSeeing(body);}
  navigation.reset();surfaceNavigation.reset();follow=null;selected=null;closePanel();
  compressed=false;controls.maxDistance=maxViewDistance(false);controls.enabled=false;
  requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());
@@ -971,7 +975,7 @@ function startSurfaceView(bodyId){
  speed=REAL_TIME;lag=0;last=performance.now();
  document.body.classList.add('on-a-surface');
  clearTrails();updateOrbits();surfaceHud.hidden=false;surfaceControlsHelp.hidden=false;surfaceRadar.hidden=false;skyLabels.hidden=false;buildSurfaceHud();updateSurfaceView();
- if(isEarthSurface(body))requestEarthObserverLocation();
+ if(isEarthSurface(body)&&!preset)requestEarthObserverLocation();
 }
 // Jumps straight into surface view already standing at a named "known place"
 // (see surface-places.js) instead of the default latitude/longitude zero,
@@ -1708,8 +1712,136 @@ function clearTrails(){for(const v of views.values()){v.history=[];v.trail.geome
 // scenario uses the date it is staged from, so the encounter is repeatable.
 function resetSystem(at){stopCinematic();stopSolarDeath();stopBlackHoleFall();stopSurfaceView();systemMode=null;document.body.classList.remove('in-star-system');ambient.intensity=AMBIENT_BASE;solarBloom.strength=SOLAR_BLOOM_STRENGTH;controls.maxDistance=maxViewDistance(true);lightFlight=null;flightPrevious=null;flightStops=[];flightTextureKeys.clear();flightTrueScale=false;document.body.classList.remove('in-light-flight');flightRail.hidden=true;flightLabels.replaceChildren();flightHud.hidden=true;controls.enabled=true;lag=0;last=performance.now();spawnAt.set(0,0,0);selected=null;educationSubjectId=null;educationStamp='';follow=null;down=null;clearTimeout(lastTouchTimer);tip.hidden=true;selection.visible=false;preview.clear();impactEffects.clear();tidalStreams.clear();[...views.keys()].forEach(disposeView);epoch=at;bs=initialSystem(epoch);bs.forEach(addView);centralStarInput.value='sun';solarBrightness=100;solarInfall=0;applySolarBrightness();cometTails.clear();elapsed=0;paused=false;speed=2;compressed=true;updateOrbits();}
 function restart(){resetSystem(new Date());resetView()}
-function applySharedState(state){
- if(!state)return false;
+// ---- Sharing -------------------------------------------------------------
+// A link reproduces what the sender is looking at: the simulated instant and
+// rate, every body's full state, the camera, the followed and selected body,
+// the open panel, the layers, the central star and whichever mode is running
+// (star system, surface view, light flight, black-hole fall, camera shot,
+// the Sun's death) together with the view that mode returns to. Only the
+// receiver's own preferences - language, folded panels - stay theirs; trails
+// and transient effects start empty and rebuild within seconds.
+const shareViewport=(position,target,fov)=>viewport({camera:position.toArray(),target:target.toArray(),fov});
+// Panels that can be reopened as they are, keyed by their untranslated title.
+const SHARED_PANELS={'Symulacja':()=>showTools(),'Symulacja układów':()=>showSystemLibrary(),'Kamera filmowa':()=>showCinematicControls(),'Kurs kolizyjny':()=>showCollisionLauncher(),'Nowe ciało':()=>showSpawner(),'Oś zdarzeń':()=>showEventTimeline(),'Zaćmienia':()=>showEclipseLauncher()};
+function sharePanel(){
+ if(panel.hidden)return null;
+ if(panel.dataset.bodyId!=null&&selected!=null)return {k:'body',id:selected};
+ if(skySubject?.kind==='constellation')return {k:'constellation',id:skySubject.entry.id,start:skySubject.entry.start};
+ if(skySubject?.kind==='deep-sky')return {k:'deep-sky',id:skySubject.entry.id};
+ if(skySubject?.kind==='place')return {k:'place',body:skySubject.bodyId,name:skySubject.place.name};
+ if(SHARED_PANELS[panel.dataset.shell])return {k:'shell',id:panel.dataset.shell};
+ return null;
+}
+function shareModes(now){
+ const modes={};
+ if(systemMode)modes.sys={id:systemMode.id,names:bs.map(b=>[b.id,`${b.key}:${b.name}`])};
+ if(surfaceView){const back=surfaceReturn;modes.srf={body:surfaceView.bodyId,latitude:surfaceView.latitude,longitude:surfaceView.longitude,azimuth:surfaceView.azimuth,altitude:surfaceView.altitude,fov:surfaceView.fov,earthAtmosphereEnabled:surfaceView.earthAtmosphereEnabled,trackBrightest:!!surfaceView.trackBrightest,
+  ret:back&&{cam:shareViewport(back.camera,back.target,back.fov),c:back.compressed?1:0,fo:back.follow??null,s:back.speed}};}
+ if(lightFlight){const back=flightPrevious;modes.lf={sec:lightFlight.seconds(now),rate:lightFlight.rate,paused:lightFlight.pausedAt!==null?1:0,trueScale:flightTrueScale?1:0,
+  ret:back&&{cam:shareViewport(back.camera,back.target,camera.fov),c:back.compressed?1:0,s:back.speed,p:back.paused?1:0}};}
+ if(blackHoleFall){const fall=blackHoleFall,back=fall.previous;modes.bh={hole:fall.temporaryId?null:fall.holeId,sec:fall.seconds(now),rate:fall.clock.rate,paused:fall.clock.pausedAt!=null?1:0,done:fall.finished?1:0,
+  ret:{cam:shareViewport(back.camera,back.target,back.fov),c:back.compressed?1:0,s:back.speed,p:back.paused?1:0}};}
+ if(cinematic){const back=cinematic.previous;modes.cin={body:cinematic.bodyId,sec:Math.max(0,(now-cinematic.startedAt)/1000),ret:{cam:shareViewport(back.camera,back.target,back.fov),fo:back.follow??null,en:back.enabled?1:0}};}
+ if(solarDeath)modes.sd={sec:solarDeath.frozen??Math.max(0,(now-solarDeath.startedAt)/1000),mass:solarDeath.mass};
+ return modes;
+}
+function captureViewShare(){
+ const now=performance.now(),temporary=blackHoleFall?.temporaryId;
+ return createViewShare({epoch,elapsed,speed,paused,compressed,brightness:solarBrightness,infall:solarInfall,
+  layers:{orbits:showOrbits,constellations:showConstellations,deepSky:showDeepSkyMarkers,landmarks:showLandmarks,education:educationEnabled},
+  camera:shareViewport(camera.position,controls.target,camera.fov),follow,selected,educationSubject:educationSubjectId,panel:sharePanel(),modes:shareModes(now),
+  // A star system is rebuilt from its preset; the Sagittarius A* the fall
+  // conjures up when there is no black hole is rebuilt by the fall itself.
+  bodies:systemMode?null:bs.filter(b=>b.id!==temporary),reference:systemMode?[]:initialSystem(epoch)});
+}
+function placeCamera(view,maxDistance){
+ if(!validViewport(view))return;
+ navigation.reset();camera.fov=view.f;camera.updateProjectionMatrix();controls.maxDistance=maxDistance;controls.enableDamping=false;
+ camera.position.fromArray(view.p);controls.target.fromArray(view.t);controls.update();controls.enableDamping=true;
+}
+function applyViewShare(state){
+ const date=new Date(state.e);if(Number.isNaN(date.valueOf()))return false;
+ resetSystem(date);
+ const ids=new Map(),now=()=>performance.now(),idOf=id=>id==null?null:ids.has(id)?ids.get(id):null;
+ const modes=state.m||{};
+ if(modes.sys&&STAR_SYSTEMS.some(item=>item.id===modes.sys.id)){
+  startSystemMode(modes.sys.id);
+  const bySignature=new Map(bs.map(b=>[`${b.key}:${b.name}`,b.id]));
+  for(const [id,name] of modes.sys.names||[])if(bySignature.has(name))ids.set(id,bySignature.get(name));
+ }else if(Array.isArray(state.x)){
+  const expanded=expandBodies(state.x,initialSystem(date));
+  if(expanded){
+   [...views.keys()].forEach(disposeView);
+   const restored=expanded.map(item=>{const made=body(item.fields);ids.set(item.senderId,made.id);return made});
+   expanded.forEach((item,index)=>restoreReferences(restored[index],item.refs,ids));
+   bs=restored;bs.forEach(addView);
+  }
+ }
+ const sun=bs.find(b=>b.key==='sun');
+ centralStarInput.value=sun?.starPresetId||'sun';
+ solarBrightness=Math.max(5,Math.min(100,Number(state.b)||100));solarInfall=Math.max(0,Math.min(1,Number(state.n)||0));applySolarBrightness();
+ epoch=date;elapsed=Math.max(0,state.t);
+ setScaleMode(!!state.c);compressed=!!state.c;if(systemMode)setSystemScale();
+ const layers=state.l||{};
+ setOrbitsVisible(!!layers.o);setConstellationsVisible(!!layers.c);setDeepSkyMarkersVisible(!!layers.d);setLandmarksVisible(!!layers.k);setEducationVisible(!!layers.x);
+ clearTrails();updateOrbits();
+ const maxDistance=()=>systemMode?systemMaxDistance(systemMode.extent):maxViewDistance(compressed);
+ // Each mode starts from the view it will return to, then is moved to the
+ // shared moment of its own clock.
+ const back=(ret)=>{if(!ret)return;if(ret.c!=null){compressed=!!ret.c;}if(ret.s>0)speed=ret.s;if(ret.p!=null)paused=!!ret.p;placeCamera(ret.cam,maxDistance());};
+ if(modes.srf&&!systemMode){
+  const target=bs.find(b=>b.id===idOf(modes.srf.body));
+  if(target){back(modes.srf.ret);follow=idOf(modes.srf.ret?.fo);
+   const {latitude,longitude,azimuth,altitude,fov,earthAtmosphereEnabled,trackBrightest}=modes.srf;
+   startSurfaceView(target.id,{latitude,longitude,azimuth,altitude,fov,earthAtmosphereEnabled:earthAtmosphereEnabled!==false,trackBrightest:!!trackBrightest});
+   earthCloudCover?.setEnabled(earthAtmosphereEnabled!==false);}
+ }
+ if(modes.lf&&!systemMode){
+  back(modes.lf.ret);startLightFlight();
+  if(lightFlight){const at=now();lightFlight.setRate(Math.max(.25,Math.min(8,Number(modes.lf.rate)||1)),at);lightFlight.accumulated=Math.max(0,Number(modes.lf.sec)||0);lightFlight.anchor=at;if(modes.lf.paused)lightFlight.pausedAt=at;
+   flightTrueScale=modes.lf.trueScale!==0;const toggle=document.querySelector('#flight-scale-toggle');if(toggle){toggle.checked=flightTrueScale;toggle.onchange?.({target:toggle})}updateLightFlight(at);}
+ }
+ if(modes.bh&&!systemMode){
+  back(modes.bh.ret);if(modes.bh.hole!=null)selected=idOf(modes.bh.hole);startBlackHoleFall();
+  if(blackHoleFall){const at=now(),clock=blackHoleFall.clock,rate=Math.max(.25,Number(modes.bh.rate)||1);clock.rate=rate;clock.startedAt=at-Math.max(0,Number(modes.bh.sec)||0)*1000/rate;clock.pausedFor=0;clock.pausedAt=modes.bh.paused?at:null;blackHoleFall.finished=!!modes.bh.done;updateBlackHoleFall(at);}
+ }
+ if(modes.cin){
+  const ret=modes.cin.ret;placeCamera(ret?.cam,maxDistance());follow=idOf(ret?.fo);controls.enabled=ret?.en!==0;
+  startCinematic(idOf(modes.cin.body));if(cinematic)cinematic.startedAt=now()-Math.max(0,Number(modes.cin.sec)||0)*1000;
+ }
+ if(modes.sd&&!systemMode){
+  startSolarDeath();
+  if(solarDeath){const seconds=Math.max(0,Number(modes.sd.sec)||0);solarDeath.startedAt=now()-seconds*1000;solarDeath.frozen=seconds;if(Number.isFinite(modes.sd.mass))solarDeath.mass=modes.sd.mass;}
+ }
+ epoch=date;elapsed=Math.max(0,state.t);speed=state.s>0?state.s:speed;lag=0;last=now();
+ const plain=!surfaceView&&!lightFlight&&!blackHoleFall&&!cinematic;
+ if(plain){compressed=!!state.c;follow=idOf(state.fo);selected=idOf(state.se);}
+ if(state.es!=null&&idOf(state.es)!=null)setEducationSubject(idOf(state.es));
+ const shown=state.pn;
+ if(shown&&plain){
+  if(shown.k==='body'&&selected!=null)showBody();
+  else if(shown.k==='shell'&&Object.hasOwn(SHARED_PANELS,shown.id))SHARED_PANELS[shown.id]();
+  else if(shown.k==='constellation'||shown.k==='deep-sky'){
+   // The star catalogue loads after the page; the sky panel (and the camera
+   // it turns) follow once it is there, unless the viewer has moved on.
+   const cam=state.cam,untouched=()=>!validViewport(cam)||camera.position.distanceTo(new THREE.Vector3().fromArray(cam.p))<1e-9*Math.max(1,camera.position.length());
+   skyReady.then(()=>{
+    if(!panel.hidden||!untouched())return;
+    const entry=shown.k==='constellation'?sky.getConstellations().find(item=>item.start===shown.start)||sky.getConstellations().find(item=>item.id===shown.id):sky.getDeepSkyObjects().find(item=>item.id===shown.id);
+    if(!entry)return;if(shown.k==='constellation')showConstellation(entry);else showDeepSky(entry);
+    follow=idOf(state.fo);placeCamera(cam,maxDistance());
+   });
+  }
+  else if(shown.k==='place'){const host=bs.find(b=>b.id===idOf(shown.body)),place=host&&knownPlacesFor(host).find(item=>item.name===shown.name);if(place)showKnownPlace(host.id,place)}
+  // A panel choice may have moved the focus; the shared follow wins.
+  follow=idOf(state.fo);
+ }
+ if(plain)placeCamera(state.cam,maxDistance());
+ setPaused(!!state.p);
+ return true;
+}
+// Links made before the view was shared carry bodies and a few settings only.
+function applyLegacySharedState(state){
  const date=new Date(state.e);if(Number.isNaN(date.valueOf()))return false;
  resetSystem(date);
  const current=new Map(bs.map(item=>[`${item.key}:${item.name}`,item]));
@@ -1727,6 +1859,10 @@ function applySharedState(state){
  }
  epoch=date;elapsed=Math.max(0,state.t);speed=Math.max(REAL_TIME,state.s);compressed=!!state.c;solarBrightness=Math.max(5,Math.min(100,state.b));centralStarInput.value=state.z||'sun';showOrbits=!!state.o;document.querySelector('#orbits').checked=showOrbits;setOrbitsVisible(showOrbits);applySolarBrightness();clearTrails();updateOrbits();resetView();
  return true;
+}
+function applySharedState(state){
+ if(!state)return false;
+ return state.v===SHARE_VERSION?applyViewShare(state):applyLegacySharedState(state);
 }
 // Sharing used to fall back to window.prompt() whenever the clipboard was
 // refused - and embedded viewers, insecure (plain-http LAN) origins and some
@@ -1751,7 +1887,7 @@ function showShareLink(url){
  if(copySelectedText(input))shareDialog.querySelector('#share-status').textContent='Skopiowano';else input.select();
 }
 function copySharedSimulation(){
- const state=createShareState({bodies:bs,epoch,elapsed,speed,compressed,brightness:solarBrightness,centralStar:centralStarInput.value,showOrbits});
+ const state=captureViewShare();
  // window.location on purpose: this module's own function location(e) (the
  // click-point raycast) shadows the global, and passing that made new URL()
  // throw, so Share did nothing and opening a shared link restored nothing.
@@ -1767,7 +1903,10 @@ eventTimelineButton.onclick=showEventTimeline;cinematicButton.onclick=showCinema
 window.addEventListener('keydown',e=>{if(e.target.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;if(e.code==='Space'&&e.target.tagName==='BUTTON')return;if(e.code==='Space'){e.preventDefault();setPaused(!paused);if(!panel.hidden)showTools()}if(e.key==='Escape'){navigation.reset();surfaceNavigation.reset();if(blackHoleFall)stopBlackHoleFall();if(lightFlight)stopLightFlight();closePanel()};if(e.key.toLowerCase()==='r')restart();if(e.key.toLowerCase()==='n'){spawnAt.set(2,0,0);showSpawner()}if(e.key.toLowerCase()==='t')showTools()});window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);composer.setSize(innerWidth,innerHeight);sky.setViewport(innerWidth,innerHeight);layoutRail();layoutSurfaceHud();layoutEducationHud()});
 
 document.addEventListener("visibilitychange",()=>{last=performance.now()});
-function setPaused(value){const now=performance.now();if(lightFlight){if(value)lightFlight.pause(now);else lightFlight.resume(now)}if(blackHoleFall){if(value)blackHoleFall.pause(now);else blackHoleFall.resume(now)}paused=value;last=now;}
+function setPaused(value){const now=performance.now();if(lightFlight){if(value)lightFlight.pause(now);else lightFlight.resume(now)}
+ // The Sun's death runs on its own clock and freezes while paused; resuming
+ // continues from the frozen moment instead of jumping ahead by the pause.
+ if(solarDeath&&!value&&paused&&solarDeath.frozen!=null)solarDeath.startedAt=now-solarDeath.frozen*1000;if(blackHoleFall){if(value)blackHoleFall.pause(now);else blackHoleFall.resume(now)}paused=value;last=now;}
 function createFallClock(now){
  const clock={startedAt:now,pausedAt:null,pausedFor:0,rate:1,
   seconds(at){const end=this.pausedAt??at;return Math.max(0,(end-this.startedAt-this.pausedFor)/1000*this.rate)},
@@ -1971,6 +2110,8 @@ window.solare={
     inFront:screen.z>-1&&screen.z<1,
     pixels:r*innerHeight/(2*p.distanceTo(camera.position)*Math.tan(camera.fov*Math.PI/360)),
     lod:views.get(b.id)?.lodLevel??null};})};},
- getState:()=>({paused,speed,elapsed,pendingDays:lag,compressed,lightFlight:lightFlight?{rate:lightFlight.rate,seconds:lightFlight.seconds(performance.now()),distanceAU:lightFlight.distance(performance.now())}:null,bodies:bs.map(b=>({id:b.id,name:b.name,mass:b.mass,p:[...b.p],v:[...b.v]}))}),reset:restart,pause:()=>setPaused(true),resume:()=>setPaused(false),startLightFlight,stopLightFlight};
+ getState:()=>({paused,speed,elapsed,pendingDays:lag,compressed,lightFlight:lightFlight?{rate:lightFlight.rate,seconds:lightFlight.seconds(performance.now()),distanceAU:lightFlight.distance(performance.now())}:null,bodies:bs.map(b=>({id:b.id,name:b.name,mass:b.mass,p:[...b.p],v:[...b.v]}))}),reset:restart,pause:()=>setPaused(true),resume:()=>setPaused(false),startLightFlight,stopLightFlight,
+ // The link Share would copy, without touching the clipboard.
+ shareLink:()=>shareUrl(window.location,captureViewShare())};
 const modelContext=document.modelContext;
 if(modelContext?.registerTool){const lifecycle=new AbortController();window.addEventListener('pagehide',()=>lifecycle.abort(),{once:true});for(const tool of [{name:'read_simulation',description:'Read current bodies, positions in AU and velocities in AU/day.',inputSchema:{type:'object',properties:{},additionalProperties:false},annotations:{readOnlyHint:true},execute:()=>window.solare.getState()},{name:'set_simulation_paused',description:'Pause or resume the current gravitational simulation.',inputSchema:{type:'object',properties:{paused:{type:'boolean'}},required:['paused'],additionalProperties:false},annotations:{readOnlyHint:false},execute:input=>{if(typeof input?.paused!=='boolean')throw new Error('paused must be a boolean');setPaused(input.paused);if(!panel.hidden)showTools();return {paused}}}]){try{Promise.resolve(modelContext.registerTool(tool,{signal:lifecycle.signal})).catch(()=>{})}catch{}}}

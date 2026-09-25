@@ -1076,3 +1076,22 @@ moons under one pixel - the view showed their planet beside an empty patch
 of sky. followDistance keeps radius x 3 and the 0.3 floor for planets and
 large moons but lowers the floor to 12 drawn radii, so a small body is framed
 about twenty pixels wide. Test: tests/follow-distance.test.js.
+
+2026-09-25 Share reproduces the whole view:
+Share used to carry the bodies, the date, the rate, the scale, the star
+brightness, the central star and the orbit layer; the receiver then started
+from the default camera, running, with no mode or panel. A version 2 link
+carries everything the sender sees: time and pause state, every body at full
+precision (as differences from the default system for the shared epoch, so
+~5 000 characters), the camera, the followed and selected body, the open
+panel, all map layers and the running mode - star system, surface view,
+light flight, black-hole fall, camera shot or the Sun's death - at the same
+point of its own clock, with the view it returns to. Body references are
+remapped to the receiver's ids. The payload is deflated with fflate (bundled
+with three.js). Assumptions: language and folded panels are the receiver's
+own preference; trails and transient effects are not carried and rebuild;
+the camera shot keeps playing on wall time. The first-visit card is not shown
+over a shared view, and a shared Earth surface view does not request the
+receiver's location. Resuming a paused Sun's death now continues from the
+paused moment instead of jumping ahead. Version 1 links still open.
+Tests: tests/share-view.test.js.
