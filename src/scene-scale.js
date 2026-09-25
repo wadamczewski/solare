@@ -1,3 +1,4 @@
+import {AU} from './physics.js';
 // The scene has two radial mappings from heliocentric AU to world units.
 // "Readable" compresses the outer system so every planet stays on screen;
 // "true scale" is linear. Both are radial and strictly increasing, so a scene
@@ -15,3 +16,16 @@ export function scaleRatio(sceneLength,from,to){
 // Neptune sits at 179 world units in true scale, so the readable mode's limit
 // would stop the camera short of the outer system.
 export function maxViewDistance(compressed){return compressed?260:1400;}
+// A satellite's real distance from its own planet ranges from a few hundred
+// kilometres (a ring shepherd) to tens of millions (an irregular moon),
+// while the planet itself is drawn only a few scene units across - shown at
+// that real ratio, every satellite but the very closest would sit off
+// screen or on top of its planet. This compresses a real AU offset from the
+// host the same sub-linear way sceneRadius compresses a planet's own
+// heliocentric distance, anchored on the host's own drawn radius so a
+// satellite always clears its planet first. Every satellite in the scene -
+// the simulated moons in main.js's displayed(), and the decorative
+// irregular-moon swarm - goes through this one function, so they stay
+// visually consistent with each other and with each other's true relative
+// distances.
+export function satelliteOffset(hostSceneRadius,offsetAU){return hostSceneRadius*1.8+Math.pow(offsetAU*AU/200000,.55)*.8;}

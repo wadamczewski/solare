@@ -847,3 +847,62 @@ pre-existing, unrelated translation-coverage failures. Also verified with
 `npm run build` and a Playwright run against the live app: searching
 "Saturn" and focusing it renders the planet and its rings with no new
 console errors.
+
+2026-09-25 A decorative swarm for Saturn's ~268 remaining known moons,
+sorted into their real dynamical families - fourth step of the Saturn
+realism pass:
+`src/irregular-moon-swarm.js` is new. Saturn has 293 confirmed moons; the 23
+simulated as real N-body bodies (see the two entries above) are the ones
+well characterised enough to size individually. The remaining ~268 are
+real, individually discovered objects with their own independently
+determined orbits, but none has a measured size worth a simulated body of
+its own - exactly the population asteroid-belt.js already stands in for
+with the main asteroid belt, so this does the same for Saturn's captured
+moons instead of leaving them out entirely.
+Real dynamicists sort this population into three families by common
+origin, and this reuses that grouping with each family's own measured
+orbital-element ranges (Wikipedia, "Inuit group" / "Gallic group" /
+"Saturn's Norse group of satellites"): the prograde Inuit family (39
+moons, inclination 43-51 degrees, semi-major axis 11-19 million km,
+eccentricity 0.08-0.39) and Gallic family (19 moons, inclination 34-41
+degrees, 16-23.3 million km, eccentricity 0.44-0.57), and the far larger
+retrograde Norse family (210 moons - by far most of Saturn's known moons -
+inclination 136-178 degrees, 11-30 million km, eccentricity 0.13-0.53).
+Each of the 268 instanced fragments draws its own semi-major axis,
+eccentricity and inclination from its family's real range, and a new pure
+function, `irregularMoonOffset()`, places it every frame on a genuine
+eccentric orbit - reusing `eccentricAnomaly()` from ephemeris.js, the exact
+Kepler solver the real planets already use, rather than a simplified
+circular approximation. A Norse-group fragment's retrograde motion is not
+a separate sign flip: it falls directly out of the same rotation formula
+once inclination passes 90 degrees, exactly as it does for a real
+retrograde orbit.
+Placing a fragment at its correct distance from Saturn needed the same
+real-to-scene compression every simulated moon already goes through, so
+that formula (previously inlined in main.js's displayed()) is now
+`satelliteOffset()`, exported from src/scene-scale.js and used by both -
+one source of truth instead of two copies that could drift apart. This
+refactor changes no simulated body's on-screen position; tests/scene-scale
+.test.js gains two new cases covering the extracted function directly, and
+tests/reset-collisions.test.js's own copy of main.js's displayed() (built
+by slicing the source, for testing outside a browser) is updated to pass
+the newly-required function in.
+Phoebe, the Norse family's largest and best-characterised member, is real
+enough to be simulated individually (as Neptune's comparably irregular
+moon Nereid already is), but its real ~175-degree inclination does not fit
+the single inclination value initialSystem() gives every other Saturn
+moon - it stays part of the decorative swarm rather than being shoehorned
+into a model built for near-equatorial orbits, left for a future commit
+that gives it its own treatment.
+Verified with `node --test` (seven new cases in
+`tests/irregular-moon-swarm.test.js` confirm the group populations sum to
+the real 268, every generated fragment stays inside its own family's real
+element ranges, a sub-90-degree inclination is provably prograde and a
+Norse-like one provably retrograde via the same finite-difference angular
+momentum check ephemeris.test.js already uses for the real planets, every
+placed instance clears its own host, and density-based LOD behaves like
+the existing swarms') and the full existing suite, green apart from the
+two pre-existing, unrelated translation-coverage failures. Also verified
+with `npm run build` and a Playwright run against the live app: searching
+"Saturn" and focusing it still renders the planet, its rings and the new
+swarm mesh with no new console errors.
