@@ -1031,3 +1031,12 @@ of arrow pairs is reused, updated every other frame. The pure parts live in
 src/education-vectors.js with tests/education-vectors.test.js. In the
 redesigned interface the physics card moves bottom-left, clear of the
 camera controls.
+
+2026-09-25 Free-flight key help fits its box:
+In the redesigned interface the free-flight help (WASD, Q/E, Shift, mouse)
+kept the classic position - fixed 254 px wide at the bottom-left - which is
+now behind the taller layers panel, and its unwrappable lines ran out of the
+box. It is now a card centred above the dock, sized to its content, with the
+keys listed in three columns (two on tablets, one wrapping column on
+phones), and the redesign's own key-cap style no longer distorts the WASD
+key grid. The classic interface is unchanged.
