@@ -975,3 +975,18 @@ second attempt.
 Verified with node --test and a Playwright run: the copied link restores
 the shared state, and with the clipboard refused the dialog opens with the
 link selected.
+
+2026-09-25 The remaining untranslated labels are translated:
+Rendering every panel in English and German and diffing it
+against Polish found labels the coverage test could not see because they
+carry no Polish diacritic - the physics readout (Fizyka, Granica Hilla/
+Roche'a, tys. km), the event timeline (Oś zdarzeń, Bliski przelot, za … dni),
+the cinematic camera, Share/Copied, the adaptive-quality notice, surface
+lighting phases (Dzień, Zmierzch, Noc), the six solar-eclipse scenario names
+and places, Crab/Vela pulsar, and five Saturn moon names (Prometeusz,
+Epimeteusz, Kalipso, Helena, Polideukes). 65 rows were added to
+locales/messages.js; this also fixes the two translation-coverage tests
+that had been failing. tests/translation-gaps.test.js now checks every
+simulated body's English name against its English Wikipedia article.
+Verified by repeating the English and German render with no Polish label
+left, and with node --test.
