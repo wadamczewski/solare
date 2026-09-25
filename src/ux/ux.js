@@ -1,7 +1,8 @@
-// Entry point of the redesigned interface (ux.html). The classic app is
-// imported first and runs unchanged - same scene, same simulation, same
-// controls - and only once it has built its interface does the redesign
-// regroup it (see enhance.js). index.html never loads this file.
+// Entry point of the redesigned interface (index.html, the default page).
+// The app is imported first and runs unchanged - same scene, same
+// simulation, same controls - and only once it has built its interface does
+// the redesign regroup it (see enhance.js). classic.html, the original
+// interface kept as a fallback, never loads this file.
 import '../main.js';
 import './ux.css';
 import {getLanguage} from '../i18n.js';

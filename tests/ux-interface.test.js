@@ -39,17 +39,17 @@ test('shortcuts the redesign claims never collide with the ones main.js owns',()
  assert.equal(isEditableTarget({isContentEditable:true}),true);assert.equal(isEditableTarget(null),false);
 });
 
-test('ux.html is a copy of index.html that loads the redesign, and index.html is untouched by it',()=>{
- const classic=read('index.html'),redesign=read('ux.html');
+test('index.html loads the redesign and classic.html keeps the original interface',()=>{
+ const classic=read('classic.html'),redesign=read('index.html');
  // main.js needs exactly the same static skeleton on both pages.
  assert.deepEqual(ids(redesign),ids(classic));
  assert.match(redesign,/<script type="module" src="\/src\/ux\/ux\.js"><\/script>/);
  assert.doesNotMatch(redesign,/src\/main\.js/,'ux.js imports main.js itself, so the order is guaranteed');
- assert.doesNotMatch(classic,/ux/);
+ assert.doesNotMatch(classic,/src\/ux/);assert.match(classic,/<script type="module" src="\/src\/main\.js"><\/script>/);
  assert.match(read('src/ux/ux.js'),/^\s*(?:\/\/.*\n)*import '\.\.\/main\.js';/m);
  assert.doesNotMatch(read('src/main.js'),/src\/ux|\.\/ux\//,'the classic app must not know about the redesign');
  const config=read('vite.config.js');
- assert.match(config,/index\.html/);assert.match(config,/ux\.html/);
+ assert.match(config,/index\.html/);assert.match(config,/classic\.html/);
 });
 
 test('the redesign stylesheet only ever applies under body.ux',()=>{

@@ -1,5 +1,5 @@
-/* Redesigned interface (ux.html). Loaded after src/style.css and scoped to
-   body.ux, so index.html - which never adds that class nor loads this file -
+/* Redesigned interface (index.html). Loaded after src/style.css and scoped to
+   body.ux, so classic.html - which never adds that class nor loads this file -
    renders exactly as before. Principles: one obvious place per task (find in
    the header, layers on the left, details on the right, time and scenarios
    at the bottom, camera bottom-right), readable type (never below 11px),

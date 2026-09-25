@@ -6,11 +6,11 @@ A full-screen WebGL sandbox with mutually interacting N-body gravity. The logo, 
 
 Node 20.17+; run `npm ci`, then `npm run dev`. `npm run build` creates `dist`, and `npm test` checks the integrator and system behaviour.
 
-Two interfaces ship side by side: `index.html` is the classic one, and `ux.html` (open `/ux.html` in the dev server or in `dist`) is the redesigned one described below. Both run the same simulation.
+The app opens in the redesigned interface described below (`index.html`). The original interface is kept as a fallback at `classic.html` (reachable from *More → Classic interface*). Both run the same simulation.
 
-## Redesigned interface (`ux.html`)
+## Interface (`index.html`; original in `classic.html`)
 
-A second page with a reorganised, easier interface. It is a layer over the classic app rather than a fork: `src/ux/ux.js` imports `main.js` unchanged, and once the classic controls exist, `src/ux/enhance.js` regroups those same elements (same ids, same listeners, so the simulation keeps driving every one of them) and adds what was missing. `index.html`, `main.js` and `style.css` are untouched; `src/ux/ux.css` applies only under `body.ux`, which only `ux.html` sets. `vite.config.js` lists both pages so `npm run build` emits both.
+The default page uses a reorganised, easier interface. It is a layer over the original app rather than a fork: `src/ux/ux.js` imports `main.js` unchanged, and once the classic controls exist, `src/ux/enhance.js` regroups those same elements (same ids, same listeners, so the simulation keeps driving every one of them) and adds what was missing. `main.js` and `style.css` are untouched, and `classic.html` is the original page as it was; `src/ux/ux.css` applies only under `body.ux`, which only `index.html` sets. `vite.config.js` lists both pages so `npm run build` emits both.
 
 What changes, and why:
 
@@ -23,7 +23,7 @@ What changes, and why:
 - **Phones.** The dock becomes two rows (time on top, actions below), the detail panel a bottom sheet above it, the language chooser moves into *More*, and menus open full-width above the dock.
 - **Languages.** Every new string exists in Polish, English, German and Spanish (`src/ux/strings.js`); the redesign also shows the labels the classic interface left untranslated (camera, share, events) in the interface language.
 
-Kept deliberately as it was: clicking empty space still creates a body there (now mentioned in the *Add body* menu and in the help), and every keyboard shortcut of the classic interface still works. `tests/ux-interface.test.js` checks the regrouping against a DOM fixture of the classic controls, the confirmations, the shortcuts, the translations, that `ux.html` has the same skeleton as `index.html`, and that the new stylesheet cannot leak into the classic page.
+Kept deliberately as it was: clicking empty space still creates a body there (now mentioned in the *Add body* menu and in the help), and every keyboard shortcut of the classic interface still works. `tests/ux-interface.test.js` checks the regrouping against a DOM fixture of the classic controls, the confirmations, the shortcuts, the translations, that `index.html` has the same skeleton as `classic.html`, and that the new stylesheet cannot leak into the classic page.
 
 ## Current capabilities
 

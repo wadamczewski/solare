@@ -1,6 +1,6 @@
-// Every string the redesigned interface (ux.html) adds of its own, in the
+// Every string the redesigned interface (index.html) adds of its own, in the
 // same four languages as the rest of the app. They are kept here rather than
-// in locales/messages.js so the classic interface (index.html) is not touched
+// in locales/messages.js so the classic interface (classic.html) is not touched
 // at all: the elements that carry these strings are marked data-no-translate
 // and re-rendered by enhance.js on the app's own 'languagechange' event,
 // while every original control the redesign merely moves keeps being

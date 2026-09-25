@@ -1,7 +1,7 @@
 import {uxText,uxShortcut,isEditableTarget} from './strings.js';
 
-// The redesigned interface (ux.html) is a layer over the classic one, not a
-// fork of it: main.js builds exactly the same controls as on index.html,
+// The redesigned interface (index.html) is a layer over the classic one, not a
+// fork of it: main.js builds exactly the same controls as on classic.html,
 // with the same ids and listeners, and this module only regroups them,
 // relabels what it must and adds what was missing. Moving a DOM node keeps
 // its listeners and its id, and main.js always looks controls up by id, so
@@ -149,7 +149,7 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
  const helpButton=el('button',{type:'button',class:'ux-icon-button',id:'ux-help-button',aria:'more.help',title:'more.help',onclick:openHelp},icon(doc,'help'));
  const moreButton=el('button',{type:'button',class:'ux-icon-button',id:'ux-more',aria:'more',title:'more'},icon(doc,'more'));
  reset.innerHTML='';reset.className='ux-menu-row danger';reset.append(text('more.reset'),el('kbd',{},doc.createTextNode('R')));
- const classicLink=el('a',{class:'ux-menu-row',id:'ux-classic',href:`./${win.location?.search||''}`},text('more.classic'));
+ const classicLink=el('a',{class:'ux-menu-row',id:'ux-classic',href:`./classic.html${win.location?.search||''}`},text('more.classic'));
  const moreMenu=el('div',{class:'ux-menu ux-menu-right',id:'ux-more-menu',role:'menu'},
   el('button',{type:'button',class:'ux-menu-row',id:'ux-open-tools',onclick:()=>actions.openTools?.()},text('more.tools'),el('kbd',{},doc.createTextNode('T'))),
   el('button',{type:'button',class:'ux-menu-row',id:'ux-fullscreen',onclick:()=>{const root=doc.documentElement;if(doc.fullscreenElement)doc.exitFullscreen?.();else root.requestFullscreen?.()}},text('more.fullscreen')),

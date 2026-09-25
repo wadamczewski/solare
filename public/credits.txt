@@ -949,3 +949,15 @@ its own stylesheet), and Playwright screenshots of both pages at 1440x900,
 1024x768 and 390x844 in Polish, English and German: menus, search,
 body panel with edit mode, help, both confirmations, surface view and a
 light flight, with no console errors.
+
+2026-09-25 The redesigned interface becomes the default page:
+After trying the redesign (see the previous entry) the choice was to make it
+the main interface. index.html now loads src/ux/ux.js (the redesign), and
+the original page moves unchanged to classic.html, kept as a fallback and
+linked from More -> Classic interface (that link now points at
+classic.html instead of the site root). vite.config.js builds index.html
+and classic.html; tests/ux-interface.test.js checks that pair instead of
+the old index.html/ux.html pair. Assumption: "replace" means the redesign
+takes over the main address while the original stays reachable, rather
+than being deleted - deleting classic.html is a one-line follow-up if it
+is no longer wanted. main.js and style.css are still unchanged.
