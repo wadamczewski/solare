@@ -6,6 +6,25 @@ A full-screen WebGL sandbox with mutually interacting N-body gravity. The logo, 
 
 Node 20.17+; run `npm ci`, then `npm run dev`. `npm run build` creates `dist`, and `npm test` checks the integrator and system behaviour.
 
+Two interfaces ship side by side: `index.html` is the classic one, and `ux.html` (open `/ux.html` in the dev server or in `dist`) is the redesigned one described below. Both run the same simulation.
+
+## Redesigned interface (`ux.html`)
+
+A second page with a reorganised, easier interface. It is a layer over the classic app rather than a fork: `src/ux/ux.js` imports `main.js` unchanged, and once the classic controls exist, `src/ux/enhance.js` regroups those same elements (same ids, same listeners, so the simulation keeps driving every one of them) and adds what was missing. `index.html`, `main.js` and `style.css` are untouched; `src/ux/ux.css` applies only under `body.ux`, which only `ux.html` sets. `vite.config.js` lists both pages so `npm run build` emits both.
+
+What changes, and why:
+
+- **One place per task.** Search sits in the header (`/` or Ctrl/⌘+K) instead of halfway down a side panel; map layers and viewing modes are on the left; details of the selected body on the right; time and scenarios in the bottom dock; camera controls (zoom in/out, whole-system view) bottom-right, as on any map. The logo now returns to the whole-system view.
+- **A calmer dock.** The eleven equally weighted buttons are grouped: time (pause, speed, the simulated date and time — moved into the dock from where it floated above it — and true scale), then *Scenarios* (light flight, death of the Sun, black-hole fall, collision course, eclipses, upcoming events — each with a one-line description), *Add body* (catalogue object or a custom black hole, previously only reachable through the logo's hidden panel or N), camera recording and sharing. While a scenario runs, an *End scenario* button stays visible in the dock.
+- **Layers & view panel** with plain-language labels ("Physics vectors" instead of "educational layer"), descriptions on the two viewing modes, the rarely used central-star settings folded away, and a collapse button that is remembered between visits (collapsed by default on phones).
+- **Body details lead with what people open them for.** *Follow* is the primary action instead of *Apply*; speed and reference body stay at the top; the physical parameters are read-only until *Edit*, which offers *Apply changes* and *Cancel* (Cancel restores the previous values).
+- **Nothing destructive happens by accident.** Reset (button or R) and removing a body ask for confirmation, with the safe choice focused; Escape closes a menu or dialog without also stopping a running flight.
+- **Help where it is needed.** A shortcuts dialog (? or the help button), a short first-visit welcome card (shown once), tooltips and accessible names on every icon button, visible focus rings, text no smaller than 11 px and targets of at least 36–40 px.
+- **Phones.** The dock becomes two rows (time on top, actions below), the detail panel a bottom sheet above it, the language chooser moves into *More*, and menus open full-width above the dock.
+- **Languages.** Every new string exists in Polish, English, German and Spanish (`src/ux/strings.js`); the redesign also shows the labels the classic interface left untranslated (camera, share, events) in the interface language.
+
+Kept deliberately as it was: clicking empty space still creates a body there (now mentioned in the *Add body* menu and in the help), and every keyboard shortcut of the classic interface still works. `tests/ux-interface.test.js` checks the regrouping against a DOM fixture of the classic controls, the confirmations, the shortcuts, the translations, that `ux.html` has the same skeleton as `index.html`, and that the new stylesheet cannot leak into the classic page.
+
 ## Current capabilities
 
 - **Central-star selection:** alongside the Sun, Sirius A, Vega, Betelgeuse, R136a1, and WOH G64 are available. Selecting one updates the mass used by gravity, radius, colour temperature, luminosity, and body temperature readings. Planet positions are preserved and heliocentric velocities are rescaled for the new stellar mass so the change does not artificially eject the system.

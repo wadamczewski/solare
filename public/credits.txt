@@ -906,3 +906,46 @@ two pre-existing, unrelated translation-coverage failures. Also verified
 with `npm run build` and a Playwright run against the live app: searching
 "Saturn" and focusing it still renders the planet, its rings and the new
 swarm mesh with no new console errors.
+
+2026-09-25 A redesigned interface, in its own page (ux.html) - the classic
+index.html is unchanged:
+Asked to rethink the interface for usability and to build the result in a
+copy of the page without touching the original. ux.html is a copy of
+index.html whose only difference is its entry script, src/ux/ux.js. That
+script imports the unchanged main.js, and only after main.js has built its
+controls does src/ux/enhance.js regroup them - moving the original
+elements (same ids, same listeners, so everything main.js updates by id
+keeps working wherever it now sits) rather than re-implementing any of
+them. index.html, main.js and style.css are byte-for-byte what they were;
+src/ux/ux.css applies only under body.ux, which only ux.html sets; the new
+vite.config.js lists both pages so a build emits both.
+Why each change: search was the most useful control and sat halfway down a
+side panel, so it moved to the header (/ or Ctrl/Cmd+K). The bottom bar had
+eleven equally weighted buttons mixing time controls with one-off
+scenarios and tools; they are now grouped - time, a Scenarios menu with a
+one-line description per scenario, Add body, recording and sharing - and a
+running scenario keeps an End button in view. Zoom and the whole-system
+view were hidden behind the logo's panel; they are now standard map
+controls bottom-right, and the logo itself goes home. Reset (a single R
+keypress) and removing a body happened without warning; both now ask,
+with the safe choice focused. The body panel led with Apply for editable
+physics; it now leads with Follow and keeps the parameters read-only until
+Edit, with Cancel restoring the old values. New: a shortcuts dialog, a
+one-time welcome card, a collapsible layers panel that is remembered, a
+phone layout (two-row dock, bottom-sheet details, language under More), and
+translations in all four languages for every new label plus the three the
+classic interface left untranslated (camera, share, events). Assumptions:
+the redesign reaches the app only through what a person could do - a wheel
+event on the canvas for zoom, main.js's own T and N shortcuts to open the
+simulation panel (for the whole-system button) and the spawner - so it
+needs no change to main.js; the one thing it reads from main.js's output
+is that a rejected parameter edit starts with the Polish 'Sprawdź', to keep
+the edit form open in that case.
+Verified with `node --test` (16 new cases in tests/ux-interface.test.js,
+against a linkedom fixture of the classic controls; full suite green apart
+from the two pre-existing translation-coverage failures in main.js), `npm
+run build` (dist/index.html and dist/ux.html, the classic page linking only
+its own stylesheet), and Playwright screenshots of both pages at 1440x900,
+1024x768 and 390x844 in Polish, English and German: menus, search,
+body panel with edit mode, help, both confirmations, surface view and a
+light flight, with no console errors.

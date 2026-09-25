@@ -1,0 +1,260 @@
+/* Redesigned interface (ux.html). Loaded after src/style.css and scoped to
+   body.ux, so index.html - which never adds that class nor loads this file -
+   renders exactly as before. Principles: one obvious place per task (find in
+   the header, layers on the left, details on the right, time and scenarios
+   at the bottom, camera bottom-right), readable type (never below 11px),
+   targets of at least 36-40px, and a visible focus ring everywhere. */
+
+body.ux{
+ --ux-font:Inter,ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+ --ux-surface:rgba(10,14,28,.82);--ux-surface-solid:#0c1122;--ux-raise:rgba(255,255,255,.055);--ux-hover:rgba(255,255,255,.1);
+ --ux-border:rgba(255,255,255,.12);--ux-border-strong:rgba(255,255,255,.22);
+ --ux-text:#eaf0f8;--ux-muted:#a1aec0;--ux-faint:#7d8aa0;--ux-accent:#9fd0ff;--ux-accent-bg:rgba(120,176,230,.24);--ux-danger:#ff9f8f;
+ --ux-blur:blur(18px) saturate(140%);--ux-shadow:0 18px 50px rgba(0,0,0,.5);
+ --ux-header:64px;--ux-dock-height:60px;--ux-gutter:max(20px,env(safe-area-inset-left));--ux-gutter-right:max(20px,env(safe-area-inset-right));--ux-bottom:max(18px,env(safe-area-inset-bottom));
+ font-family:var(--ux-font);
+}
+body.ux button,body.ux select,body.ux input,body.ux textarea{font-family:inherit}
+body.ux :focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
+body.ux kbd{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border:1px solid var(--ux-border-strong);border-bottom-width:2px;border-radius:6px;background:rgba(255,255,255,.06);color:var(--ux-text);font:600 11px/1 var(--ux-font)}
+.ux-icon{display:inline-flex;flex:0 0 auto;align-items:center;justify-content:center}
+.ux-icon svg{display:block}
+.ux-rotate svg{transform:rotate(45deg)}
+.ux-visually-hidden{position:absolute!important;width:1px!important;height:1px!important;overflow:hidden!important;clip:rect(0 0 0 0)!important;white-space:nowrap!important}
+.ux-icon-button{pointer-events:auto;display:inline-flex;align-items:center;justify-content:center;width:40px;height:40px;border-radius:11px;background:var(--ux-surface);border:1px solid var(--ux-border);color:var(--ux-text);backdrop-filter:var(--ux-blur);-webkit-backdrop-filter:var(--ux-blur);transition:background .15s,border-color .15s}
+.ux-icon-button:hover{background:var(--ux-hover);border-color:var(--ux-border-strong)}
+.ux-button{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:38px;padding:0 14px;border-radius:10px;border:1px solid var(--ux-border);background:var(--ux-raise);color:var(--ux-text);font-size:13px;transition:background .15s,border-color .15s}
+.ux-button:hover{background:var(--ux-hover)}
+.ux-button.accent{background:#cfe7ff;border-color:transparent;color:#07101f;font-weight:600}
+.ux-button.accent:hover{background:#e3f1ff}
+.ux-button.danger{background:#ff8f7c;border-color:transparent;color:#1d0804;font-weight:600}
+.ux-button.danger:hover{background:#ffa797}
+
+/* ---- Header ---------------------------------------------------------- */
+body.ux header.ux-header{z-index:20;height:var(--ux-header);padding:12px var(--ux-gutter-right) 12px var(--ux-gutter);gap:16px;justify-content:flex-start}
+body.ux #logo{flex:0 0 auto;font-size:24px;letter-spacing:-1.4px;padding:4px 8px;margin-left:-8px;border-radius:9px;transition:background .15s}
+body.ux #logo:hover{background:var(--ux-hover)}
+.ux-search{pointer-events:auto;position:relative;flex:0 1 500px;margin:0 auto;display:flex;align-items:center;height:42px;background:var(--ux-surface);border:1px solid var(--ux-border);border-radius:12px;backdrop-filter:var(--ux-blur);-webkit-backdrop-filter:var(--ux-blur);transition:border-color .15s,box-shadow .15s}
+.ux-search:focus-within{border-color:rgba(159,208,255,.7);box-shadow:0 0 0 3px rgba(159,208,255,.16)}
+.ux-search-icon{position:absolute;left:13px;color:var(--ux-muted);pointer-events:none}
+body.ux .ux-search .body-search{position:static;margin:0;flex:1;height:100%}
+body.ux #body-search{height:100%;width:100%;margin:0;padding:0 46px 0 42px;background:transparent;border:0;border-radius:12px;outline:none;color:var(--ux-text);font-size:14px}
+body.ux #body-search::placeholder{color:var(--ux-faint)}
+.ux-search-key{position:absolute;right:10px;pointer-events:none;color:var(--ux-muted);transition:opacity .15s}
+.ux-search:focus-within .ux-search-key{opacity:0}
+body.ux .ux-search #body-results{top:calc(100% + 8px);left:0;right:0;margin:0;padding:6px;max-height:min(60vh,440px);background:var(--ux-surface-solid);backdrop-filter:none;-webkit-backdrop-filter:none;border:1px solid var(--ux-border-strong);border-radius:14px;box-shadow:var(--ux-shadow);z-index:40}
+body.ux .ux-search .body-results li{padding:10px 12px;border-radius:9px;font-size:13.5px;color:var(--ux-text)}
+body.ux .ux-search .body-results li .body-kind{font-size:11.5px;color:var(--ux-muted)}
+body.ux .ux-search .body-results li:hover,body.ux .ux-search .body-results li.active{background:var(--ux-hover)}
+.ux-header-actions{pointer-events:auto;flex:0 0 auto;display:flex;align-items:center;gap:8px}
+body.ux #language{margin:0;height:40px;max-width:150px;padding:0 10px;border-radius:11px;font-size:13px;background:var(--ux-surface);border:1px solid var(--ux-border);color:var(--ux-text)}
+.ux-menu-anchor{position:relative;pointer-events:auto}
+
+/* ---- Menus ------------------------------------------------------------ */
+.ux-menu{position:absolute;z-index:45;min-width:250px;padding:6px;background:var(--ux-surface-solid);border:1px solid var(--ux-border-strong);border-radius:14px;box-shadow:var(--ux-shadow);white-space:normal;text-shadow:none;animation:ux-pop .14s ease-out}
+.ux-menu[hidden]{display:none}
+.ux-menu-right{right:0;top:calc(100% + 8px)}
+/* Entrance motion is transform-only: an opacity fade would leave a menu
+   invisible in a throttled tab until its first frame is painted. */
+@keyframes ux-pop{from{transform:translateY(4px)}to{transform:none}}
+body.ux .ux-menu-row{display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:40px;padding:0 12px;border-radius:9px;background:none;border:0;color:var(--ux-text);font-size:13.5px;text-align:left;text-decoration:none;pointer-events:auto;cursor:pointer}
+body.ux .ux-menu-row:hover{background:var(--ux-hover)}
+body.ux .ux-menu-row.danger{color:var(--ux-danger)}
+body.ux .ux-menu-row kbd{color:var(--ux-muted)}
+.ux-menu-separator{height:1px;margin:6px 4px;background:var(--ux-border)}
+.ux-menu-hint{margin:6px 10px 8px;font-size:11.5px;line-height:1.45;color:var(--ux-muted)}
+
+/* ---- Layers & view (left) --------------------------------------------- */
+body.ux #solar-control.ux-view{left:var(--ux-gutter);top:calc(var(--ux-header) + 8px);width:280px;max-height:calc(100dvh - var(--ux-header) - 112px);overflow:auto;padding:0;border-radius:15px;background:var(--ux-surface);border:1px solid var(--ux-border);backdrop-filter:var(--ux-blur);-webkit-backdrop-filter:var(--ux-blur);box-shadow:var(--ux-shadow);font-size:13px;color:var(--ux-text)}
+body.ux #solar-control.ux-view.collapsed{width:auto;overflow:visible}
+.ux-view-toggle{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:0 14px;color:var(--ux-text);font-size:13.5px;font-weight:600;border-radius:15px}
+.ux-view-toggle:hover{background:var(--ux-raise)}
+.ux-view-toggle .ux-chevron{margin-left:auto;color:var(--ux-muted);transition:transform .2s}
+body.ux #solar-control.collapsed .ux-view-toggle .ux-chevron{transform:rotate(-90deg)}
+.ux-view-body{padding:2px 14px 14px;border-top:1px solid var(--ux-border)}
+.ux-view-body[hidden]{display:none}
+.ux-section h3{margin:14px 0 4px;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ux-faint)}
+body.ux .ux-view .sky-toggle{margin:0;min-height:38px;padding:0 2px;border-radius:8px;color:var(--ux-text);font-size:13.5px}
+body.ux .ux-view .sky-toggle:hover{background:var(--ux-raise)}
+body.ux .ux-view .sky-toggle i{width:34px;height:19px;flex-basis:34px}
+body.ux .ux-view .sky-toggle i:after{width:13px;height:13px}
+body.ux .ux-view .sky-toggle input:checked+i:after{transform:translateX(15px)}
+body.ux .ux-mode{display:flex;align-items:center;gap:12px;width:100%;margin:6px 0 0;padding:9px 11px;text-align:left;border-radius:11px;background:var(--ux-raise);border:1px solid var(--ux-border);color:var(--ux-text);transition:background .15s,border-color .15s}
+body.ux .ux-mode:hover{background:var(--ux-hover);border-color:var(--ux-border-strong)}
+body.ux .ux-mode[aria-pressed="true"]{background:var(--ux-accent-bg);border-color:rgba(159,208,255,.45)}
+body.ux .ux-mode:disabled{opacity:.4}
+body.ux .ux-mode>.ux-icon{width:32px;height:32px;border-radius:9px;background:rgba(255,255,255,.06);color:var(--ux-accent)}
+.ux-item-text{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1}
+.ux-item-title{font-size:13.5px;color:var(--ux-text);line-height:1.25}
+.ux-item-desc{font-size:11.5px;line-height:1.35;color:var(--ux-muted)}
+.ux-star summary{display:flex;align-items:center;gap:10px;margin-top:12px;min-height:38px;padding:0 2px;list-style:none;cursor:pointer;border-radius:8px;color:var(--ux-text);font-size:13.5px}
+.ux-star summary::-webkit-details-marker{display:none}
+.ux-star summary:hover{background:var(--ux-raise)}
+.ux-star summary .ux-icon:first-child{color:#ffd9a0}
+.ux-star summary .ux-chevron{margin-left:auto;color:var(--ux-muted);transition:transform .2s}
+.ux-star[open] summary .ux-chevron{transform:rotate(180deg)}
+body.ux .ux-star label{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px;color:var(--ux-muted);font-size:12px}
+body.ux .ux-star output{color:var(--ux-text)}
+body.ux #solar-control.ux-view #central-star{display:block;width:100%;max-width:none;margin:6px 0 4px;padding:9px 10px;border-radius:9px;font-size:13px;background:rgba(255,255,255,.05);border:1px solid var(--ux-border);color:var(--ux-text)}
+body.ux .ux-star #solar-brightness{margin:8px 0 2px}
+/* The classic stylesheet hides these with child selectors that no longer
+   match once they sit inside the star section. */
+body.ux.in-star-system .ux-star{display:none}
+body.ux.on-a-surface .ux-star label[for="solar-brightness"]{display:none}
+
+/* ---- Dock (bottom) ------------------------------------------------------ */
+body.ux #time-dock.ux-dock{bottom:var(--ux-bottom);gap:4px;padding:6px 8px;border-radius:17px;background:var(--ux-surface);border:1px solid var(--ux-border);backdrop-filter:var(--ux-blur);-webkit-backdrop-filter:var(--ux-blur);box-shadow:var(--ux-shadow);text-shadow:none}
+body.ux #time-dock.ux-dock.in-flight{background:rgba(7,11,24,.5)}
+.ux-dock-group{display:flex;align-items:center;gap:2px}
+.ux-divider{flex:0 0 1px;width:1px;height:28px;margin:0 6px;background:var(--ux-border)}
+body.ux #time-dock button{min-height:44px;padding:0 12px;border-radius:11px;color:var(--ux-text);font-size:13.5px}
+body.ux #time-dock button:hover:not(:disabled){background:var(--ux-hover)}
+body.ux #time-dock #dock-pause{min-width:104px;background:var(--ux-raise);border:1px solid var(--ux-border)}
+body.ux #time-dock #dock-pause[aria-pressed="true"]{background:var(--ux-accent-bg);border-color:rgba(159,208,255,.45)}
+.ux-speed{display:flex;align-items:center;gap:4px;padding-left:8px}
+body.ux .ux-speed label{font-size:11.5px;color:var(--ux-muted)}
+body.ux #time-dock #dock-speed{width:auto;min-width:96px;min-height:44px;padding:0 6px;font-size:13.5px;color:var(--ux-text)}
+body.ux #time-dock #sim-clock{position:static;transform:none;left:auto;bottom:auto;padding:0 10px;font-size:12.5px;color:var(--ux-text);text-shadow:none}
+body.ux #time-dock .dock-scale{min-height:44px;padding:0 10px;font-size:12.5px;color:var(--ux-muted);border-radius:11px}
+body.ux #time-dock .dock-scale:hover{background:var(--ux-hover);color:var(--ux-text)}
+.ux-dock-button .ux-chevron{color:var(--ux-muted)}
+.ux-up svg{transform:rotate(180deg)}
+body.ux #time-dock .ux-dock-button[aria-expanded="true"]{background:var(--ux-hover)}
+body.ux #time-dock #ux-scenarios.active{color:var(--ux-accent)}
+body.ux #time-dock .ux-stop{background:rgba(255,143,124,.16);border:1px solid rgba(255,160,140,.35);color:#ffd8cf}
+body.ux #time-dock .ux-stop[hidden]{display:none}
+.ux-share-wrap{position:relative;display:flex;align-items:center}
+.ux-share-wrap>.ux-icon{position:absolute;left:12px;pointer-events:none;color:var(--ux-text)}
+body.ux #time-dock #share-simulation{padding-left:38px}
+body.ux .ux-dock .ux-menu{left:0;bottom:calc(100% + 16px)}
+body.ux .ux-dock .ux-scenarios{min-width:340px}
+body.ux #time-dock .ux-menu-item{display:flex;align-items:center;gap:12px;width:100%;min-height:54px;padding:7px 10px;border-radius:10px;text-align:left;white-space:normal}
+body.ux #time-dock .ux-menu-item:disabled{opacity:.4}
+body.ux #time-dock .ux-menu-item[aria-pressed="true"] .ux-item-title{color:var(--ux-accent)}
+body.ux #time-dock .ux-menu-item .dock-c{display:grid;place-items:center;flex:0 0 34px;width:34px;height:34px;margin:0;border-radius:10px;background:rgba(255,255,255,.07);font-size:16px;color:#dcecff;vertical-align:0}
+body.ux #time-dock .ux-menu-item kbd{color:var(--ux-muted)}
+
+/* ---- Camera controls (bottom-right) ------------------------------------ */
+.ux-map{position:fixed;z-index:6;right:var(--ux-gutter-right);bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 26px);display:flex;flex-direction:column;gap:6px;transition:right .2s ease}
+body.ux:has(#panel:not([hidden])) .ux-map{right:calc(var(--ux-gutter-right) + min(360px,100vw - 40px) + 12px)}
+body.ux.on-a-surface .ux-map,body.ux.in-light-flight .ux-map,body.ux.in-black-hole-fall .ux-map{display:none}
+
+/* The light-flight route rail starts below the header instead of under it. */
+body.ux #flight-rail{top:calc(var(--ux-header) + 18px)}
+
+/* Standing on a body: the horizon panel lines up under the layers panel. */
+body.ux #surface-view{left:var(--ux-gutter);width:280px;border-radius:15px;background:var(--ux-surface-solid);border-color:var(--ux-border);font-size:12px}
+
+/* ---- Detail panel (right) ------------------------------------------------ */
+body.ux #panel{z-index:15;top:calc(var(--ux-header) + 8px);right:var(--ux-gutter-right);width:min(360px,calc(100vw - 40px));max-height:calc(100dvh - var(--ux-header) - 112px);padding:16px;border-radius:17px;background:var(--ux-surface);border:1px solid var(--ux-border);backdrop-filter:var(--ux-blur);-webkit-backdrop-filter:var(--ux-blur);box-shadow:var(--ux-shadow);font-size:13px;color:var(--ux-text)}
+body.ux #panel .panel-head h2{font-size:18px;font-weight:600;letter-spacing:-.2px}
+body.ux #panel .close{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:9px;font-size:22px;color:var(--ux-muted)}
+body.ux #panel .close:hover{background:var(--ux-hover);color:var(--ux-text)}
+body.ux #panel .row{margin:3px 0;min-height:34px;font-size:13px}
+body.ux #panel .row>label,body.ux #panel .field-title{color:var(--ux-muted)}
+body.ux #panel .action{min-height:40px;padding:0 12px;border-radius:10px;font-size:13px;border:1px solid var(--ux-border);background:var(--ux-raise);color:var(--ux-text)}
+body.ux #panel .action:hover:not(:disabled){background:var(--ux-hover)}
+body.ux #panel .action.primary{background:var(--ux-accent-bg);border-color:rgba(159,208,255,.45);color:#f3f9ff;font-weight:600}
+body.ux #panel .action.danger{color:var(--ux-danger)}
+body.ux #panel select,body.ux #panel input[type="number"],body.ux #panel input[type="text"]{border-radius:8px}
+body.ux #panel .muted{color:var(--ux-muted)}
+.ux-params{margin-top:14px;padding-top:4px;border-top:1px solid var(--ux-border)}
+.ux-params summary{display:flex;align-items:center;gap:10px;min-height:40px;list-style:none;cursor:pointer;font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ux-faint)}
+.ux-params summary::-webkit-details-marker{display:none}
+.ux-params summary .ux-chevron{margin-left:auto;transition:transform .2s}
+.ux-params[open] summary .ux-chevron{transform:rotate(180deg)}
+body.ux .ux-params .row input[type="number"]{flex:0 0 158px;width:158px}
+body.ux .ux-params .vector input[type="number"]{min-width:0}
+body.ux .ux-params:not(.editing) input[type="number"]{-moz-appearance:textfield;background:transparent;border-color:transparent;opacity:1;cursor:text;color:var(--ux-text);text-align:right}
+body.ux .ux-params.editing input[type="number"]:not([readonly]){background:rgba(255,255,255,.07);border-color:var(--ux-border-strong);text-align:right}
+body.ux .ux-params.editing input[type="number"][readonly]{opacity:.55}
+.ux-edit-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}
+.ux-edit-note{flex:1 0 100%;margin:0;font-size:12px;color:var(--ux-muted)}
+.ux-params:not(.editing) .ux-edit-note,.ux-params:not(.editing) #ux-edit-cancel,.ux-params:not(.editing) #apply{display:none}
+.ux-params.editing #ux-edit{display:none}
+body.ux #panel .ux-edit-bar #apply{flex:1 1 auto;min-height:38px;border-radius:10px;background:#cfe7ff;color:#07101f;border-color:transparent;font-weight:600}
+body.ux #panel .ux-edit-bar #apply:hover{background:#e3f1ff}
+body.ux #panel #validation:empty{display:none}
+body.ux .ux-params:not(.editing) input::-webkit-inner-spin-button,body.ux .ux-params:not(.editing) input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+
+/* ---- Dialogs & welcome --------------------------------------------------- */
+.ux-dialog{width:min(460px,calc(100vw - 32px));max-height:calc(100dvh - 48px);overflow:auto;padding:22px;border:1px solid var(--ux-border-strong);border-radius:19px;background:var(--ux-surface-solid);color:var(--ux-text);box-shadow:0 30px 90px rgba(0,0,0,.65);font-family:var(--ux-font)}
+.ux-dialog::backdrop{background:rgba(2,4,10,.62);backdrop-filter:blur(3px)}
+.ux-dialog[open]{animation:ux-pop .16s ease-out}
+.ux-dialog h2{margin:0 0 8px;font-size:19px;font-weight:600;letter-spacing:-.2px}
+.ux-dialog p{margin:0;font-size:14px;line-height:1.55;color:var(--ux-muted)}
+.ux-dialog-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.ux-dialog-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:6px}
+.ux-help{width:min(780px,calc(100vw - 32px))}
+.ux-help-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px 28px}
+.ux-help h3{margin:14px 0 8px;font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--ux-faint)}
+.ux-shortcut{display:grid;grid-template-columns:150px 1fr;align-items:center;gap:12px;min-height:34px;font-size:13.5px;color:var(--ux-text);border-top:1px solid rgba(255,255,255,.05)}
+.ux-keys{display:flex;flex-wrap:wrap;gap:4px}
+.ux-welcome{position:fixed;z-index:25;left:50%;transform:translateX(-50%);bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 26px);width:min(440px,calc(100vw - 32px));padding:20px 20px 16px;border:1px solid var(--ux-border-strong);border-radius:18px;background:var(--ux-surface-solid);box-shadow:var(--ux-shadow);color:var(--ux-text);animation:ux-rise .3s ease-out}
+@keyframes ux-rise{from{transform:translate(-50%,10px)}to{transform:translate(-50%,0)}}
+.ux-welcome h2{margin:0 0 10px;font-size:18px;font-weight:600}
+.ux-welcome ul{margin:0;padding-left:18px;display:grid;gap:7px;font-size:13.5px;line-height:1.45;color:var(--ux-muted)}
+.ux-welcome .ux-dialog-actions{margin-top:16px}
+
+/* ---- Readouts the classic layout pinned to spots the redesign now uses --- */
+body.ux #performance-hud{top:calc(var(--ux-header) + 8px);right:auto;left:50%;transform:translateX(-50%);font-size:11px;border-radius:8px}
+body.ux #tooltip{font-family:var(--ux-font);font-size:12px;letter-spacing:.02em}
+
+/* ---- Tablets: the dock gets tighter before anything wraps --------------- */
+@media (max-width:1180px){
+ body.ux #time-dock .dock-scale{font-size:0;gap:0}
+ body.ux #time-dock .dock-scale #dock-scale{margin:0}
+ body.ux #time-dock .dock-scale::after{content:"1:1";font-size:12.5px;margin-left:6px}
+ body.ux #time-dock #cinematic-camera .ux-label{display:none}
+ body.ux #time-dock #cinematic-camera{padding:0 11px}
+}
+@media (max-width:900px){
+ body.ux #performance-hud{display:none}
+ .ux-dock-button .ux-label{display:none}
+ .ux-search{flex-basis:360px}
+}
+
+/* ---- Phones --------------------------------------------------------------- */
+@media (max-width:640px){
+ body.ux{--ux-header:58px;--ux-gutter:max(10px,env(safe-area-inset-left));--ux-gutter-right:max(10px,env(safe-area-inset-right));--ux-bottom:max(8px,env(safe-area-inset-bottom))}
+ body.ux header.ux-header{gap:8px;padding-top:9px;padding-bottom:9px}
+ body.ux #logo{font-size:20px;margin-left:-4px;padding:4px}
+ .ux-search{flex:1 1 auto;margin:0;height:40px}
+ body.ux .ux-search-key,#ux-help-button{display:none}
+ body.ux .ux-language-row{cursor:default}
+ body.ux .ux-language-row #language{height:34px;max-width:160px}
+ body.ux #time-dock .ux-time{gap:0}
+ body.ux #time-dock #dock-pause{flex:0 0 42px;width:42px;padding:0;justify-content:center}
+ body.ux #time-dock #dock-speed{width:86px;padding:0 2px;font-size:12.5px}
+ body.ux #time-dock #sim-clock .clock-dash{display:none}
+ body.ux #time-dock .dock-scale{padding:0 6px}
+ body.ux #solar-control.ux-view{top:calc(var(--ux-header) + 2px);width:calc(100vw - 20px);max-height:min(56dvh,calc(100dvh - var(--ux-header) - var(--ux-dock-height) - 24px))}
+ body.ux #solar-control.ux-view.collapsed{width:auto}
+ body.ux #time-dock.ux-dock{left:var(--ux-gutter);right:var(--ux-gutter-right);transform:none;width:auto;max-width:none;display:flex;flex-wrap:wrap;gap:2px;padding:5px}
+ .ux-divider{display:none}
+ .ux-time{flex:1 0 100%;justify-content:space-between;padding-bottom:3px;border-bottom:1px solid var(--ux-border)}
+ .ux-dock-group:not(.ux-time){flex:1 1 auto;justify-content:space-around}
+ body.ux #time-dock #ux-add .ux-label{display:none}
+ body.ux #time-dock #dock-pause{min-width:0}
+ body.ux #time-dock #dock-pause-label{display:none}
+ .ux-speed label{display:none}
+ body.ux #time-dock #dock-speed{min-width:0}
+ body.ux #time-dock #sim-clock{flex:1 1 auto;justify-content:center;min-width:0;overflow:hidden;font-size:11px;padding:0 4px;gap:5px}
+ body.ux #time-dock #sim-clock .clock-zone{display:none}
+ .ux-dock-button .ux-label{display:inline}
+ body.ux #time-dock button{padding:0 9px;font-size:12.5px}
+ body.ux .ux-dock .ux-menu{position:fixed;left:var(--ux-gutter);right:var(--ux-gutter-right);bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 8px);min-width:0;max-height:55dvh;overflow:auto}
+ body.ux .ux-dock .ux-scenarios{min-width:0}
+ body.ux #panel{left:var(--ux-gutter);right:var(--ux-gutter-right);width:auto;top:auto;bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 8px);max-height:52dvh;border-radius:16px}
+ .ux-map{display:none}
+ .ux-welcome{bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 10px)}
+ .ux-help-grid{grid-template-columns:1fr}
+ .ux-shortcut{grid-template-columns:104px 1fr}
+ body.ux #surface-view,body.ux #solar-death{bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 8px)}
+ body.ux #surface-controls-help{bottom:calc(var(--ux-bottom) + var(--ux-dock-height) + 12px)}
+}
+@media (prefers-reduced-motion:reduce){body.ux *{animation:none!important;transition:none!important}}
+/* The classic stylesheet sizes #reset as a header button; in the redesign it
+   is a row of the More menu like its neighbours. */
+body.ux #reset.ux-menu-row{font-size:13.5px;letter-spacing:normal;padding:0 12px;min-height:40px;color:var(--ux-danger)}
+body.ux #reset.ux-menu-row span,body.ux #reset.ux-menu-row:hover span{font-size:inherit;color:inherit;margin:0;display:inline;vertical-align:baseline;transform:none}
