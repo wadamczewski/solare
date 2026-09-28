@@ -5,8 +5,9 @@ import {AU,VOYAGER_MILESTONES,accelerations,initialSystem,stableStep,step,update
 const at=value=>new Date(value);
 test('the default Solar System includes the requested observed spacecraft and small bodies',()=>{
  const bodies=initialSystem(at('2026-09-28T00:00:00Z'));
- for(const type of ['voyager-1','tesla-roadster','iss','oumuamua','67p','hale-bopp'])
+ for(const type of ['voyager-1','new-horizons','viking-1','tesla-roadster','iss','oumuamua','67p','hale-bopp','ceres','pluto','haumea','makemake','eris'])
   assert.ok(bodies.some(body=>body.kinematicType===type),`missing ${type}`);
+ assert.deepEqual(bodies.filter(body=>body.dwarfPlanet).map(body=>body.kinematicType).sort(),['ceres','eris','haumea','makemake','pluto']);
  assert.ok(bodies.filter(body=>body.kinematic).every(body=>body.mass>0&&body.radius>0));
 });
 

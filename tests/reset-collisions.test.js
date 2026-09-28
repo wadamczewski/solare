@@ -19,5 +19,5 @@ test('compressed scale keeps a visible but ordered size hierarchy',()=>{
 test('reset system retains every original body through a full year in visual scale',()=>{
  const ids=bs.map(b=>b.id);let day=0;
  while(day<365){const previous=captureCollisionView(bs,displayed,radius);const c=fastStepSize(bs),dt=Math.min(c.dt,365-day);if(c.split)splitStep(bs,dt,c.states);else step(bs,dt);day+=dt;const current=captureCollisionView(bs,displayed,radius);const events=resolveCollisions(bs,{contactTest:(a,b)=>viewContact(a,b,current,previous)});assert.equal(events.length,0,`unexpected collision at day ${day}`);}
- assert.equal(bs.filter(b=>!b.kinematic).length,47);assert.equal(bs.filter(b=>b.kinematic).length,6);assert.equal(bs.length,ids.length);assert.deepEqual(bs.map(b=>b.id),ids);
+ assert.equal(bs.filter(b=>!b.kinematic).length,47);assert.equal(bs.filter(b=>b.kinematic).length,13);assert.equal(bs.length,ids.length);assert.deepEqual(bs.map(b=>b.id),ids);
 });

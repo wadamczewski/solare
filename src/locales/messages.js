@@ -242,6 +242,14 @@ rows.push(
  ['Faza półcieniowa','Penumbral phase','Halbschattenphase','Fase penumbral'],
  ['Orbity','Orbits','Umlaufbahnen','Órbitas'],
  ['Pokaż orbity wszystkich ciał niebieskich','Show the orbits of every body','Umlaufbahnen aller Himmelskörper anzeigen','Mostrar las órbitas de todos los cuerpos celestes'],
+ ['Planety karłowate','Dwarf planets','Zwergplaneten','Planetas enanas'],
+ ['Pokaż planety karłowate','Show dwarf planets','Zwergplaneten anzeigen','Mostrar planetas enanas'],
+ ['Viking 1','Viking 1','Viking 1','Viking 1'],
+ ['VIKING 1 · MISJA','VIKING 1 · MISSION','VIKING 1 · MISSION','VIKING 1 · MISIÓN'],
+ ['Uruchom przyspieszoną misję Viking 1','Launch the accelerated Viking 1 mission','Beschleunigte Viking-1-Mission starten','Iniciar la misión acelerada Viking 1'],
+ ['Zakończ Vikinga','Stop Viking','Viking beenden','Finalizar Viking'],
+ ['Wejście na orbitę Marsa','Mars orbit insertion','Eintritt in die Marsumlaufbahn','Inserción en órbita marciana'],
+ ['Lądowanie na Marsie','Mars landing','Landung auf dem Mars','Aterrizaje en Marte'],
  ['Atmosfera i chmury','Atmosphere and clouds','Atmosphäre und Wolken','Atmósfera y nubes']
 );
 // Labels found untranslated by rendering every panel in English and German

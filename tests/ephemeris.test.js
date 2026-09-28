@@ -100,7 +100,7 @@ test('bodies orbit prograde and near their nominal semi-major axis on load',()=>
 test('a system built for the current moment is finite and holds its moons',()=>{
  const bs = initialSystem();
  assert.equal(bs.filter(b=>!b.kinematic).length, 47);
- assert.equal(bs.filter(b=>b.kinematic).length, 6);
+ assert.equal(bs.filter(b=>b.kinematic).length, 13);
  assert.ok(bs.every(b => [...b.p, ...b.v].every(Number.isFinite)));
  for(const moon of bs.filter(b => b.parent&&!b.kinematic)){
   const host = bs.find(b => b.id === moon.parent);

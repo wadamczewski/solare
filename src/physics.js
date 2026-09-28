@@ -110,6 +110,20 @@ const voyagerMilestoneData=[
  {date:'2012-08-25T00:00:00Z',label:'Przestrzeń międzygwiezdna'}
 ];
 export const VOYAGER_MILESTONES=Object.freeze(voyagerMilestoneData.map(item=>({...item,time:Date.parse(item.date)})));
+const newHorizonsMilestoneData=[
+ {date:'2006-01-19T19:00:00Z',label:'Start z Ziemi'},
+ {date:'2007-02-28T05:43:00Z',label:'Przelot obok Jowisza'},
+ {date:'2015-07-14T11:49:00Z',label:'Przelot obok Plutona'},
+ {date:'2019-01-01T05:33:00Z',label:'Przelot obok Arrokotha'},
+ {date:'2025-01-01T00:00:00Z',label:'Pas Kuipera'}
+];
+export const NEW_HORIZONS_MILESTONES=Object.freeze(newHorizonsMilestoneData.map(item=>({...item,time:Date.parse(item.date)})));
+const vikingMilestoneData=[
+ {date:'1975-08-20T17:22:00Z',label:'Start z Ziemi'},
+ {date:'1976-06-19T00:00:00Z',label:'Wejście na orbitę Marsa'},
+ {date:'1976-07-20T11:53:00Z',label:'Lądowanie na Marsie'}
+];
+export const VIKING_MILESTONES=Object.freeze(vikingMilestoneData.map(item=>({...item,time:Date.parse(item.date)})));
 const voyagerPoint=date=>{
  const earth=stateAtPlanet('earth',new Date('1977-09-05T12:56:00Z')).p;
  const jupiter=stateAtPlanet('jupiter',new Date('1979-03-05T00:00:00Z')).p;
@@ -128,13 +142,39 @@ const voyagerPoint=date=>{
  const final=points.at(-1),years=(time-final.time)/DAY_MS/365.25;
  return add(final.p,scale(outbound,years*3.59)); // NASA: roughly 17 km/s outward
 };
+const newHorizonsPoint=date=>{
+ const earth=stateAtPlanet('earth',new Date('2006-01-19T19:00:00Z')).p;
+ const jupiter=stateAtPlanet('jupiter',new Date('2007-02-28T05:43:00Z')).p;
+ const pluto=orbitalPoint({a:39.482,e:.2488,period:90560,epoch:'2015-07-14T11:49:00Z',inclination:17.16*Math.PI/180,node:110.3*Math.PI/180},new Date('2015-07-14T11:49:00Z'));
+ const outbound=[-.73,.19,-.66];
+ const points=[
+  {time:NEW_HORIZONS_MILESTONES[0].time,p:add(earth,scale(outbound,.008))},
+  {time:NEW_HORIZONS_MILESTONES[1].time,p:add(jupiter,scale(outbound,.012))},
+  {time:NEW_HORIZONS_MILESTONES[2].time,p:add(pluto,scale(outbound,.015))},
+  {time:NEW_HORIZONS_MILESTONES[3].time,p:scale(outbound,43.4)},
+  {time:NEW_HORIZONS_MILESTONES[4].time,p:scale(outbound,60)}
+ ];
+ const time=date.getTime();if(time<=points[0].time)return points[0].p;
+ for(let i=1;i<points.length;i++)if(time<=points[i].time){const a=points[i-1],b=points[i];return lerp(a.p,b.p,(time-a.time)/(b.time-a.time));}
+ const final=points.at(-1),years=(time-final.time)/DAY_MS/365.25;return add(final.p,scale(outbound,years*3.28));
+};
+const dwarfPlanetDefinitions=[
+ {name:'Ceres',key:'dwarf-planet',presetId:'ceres',kinematicType:'ceres',dwarfPlanet:true,mass:9.3835e20/SOLAR_MASS,radius:469.7,spin:9.07,tilt:4,color:'#938c80',orbit:{a:2.7675,e:.0758,period:1681.6,epoch:'2000-01-01T12:00:00Z',phase:.8,inclination:10.59*Math.PI/180,node:80.3*Math.PI/180}},
+ {name:'Pluton',key:'dwarf-planet',presetId:'pluto',kinematicType:'pluto',dwarfPlanet:true,mass:1.303e22/SOLAR_MASS,radius:1188.3,spin:153.3,tilt:119.6,color:'#bda992',orbit:{a:39.482,e:.2488,period:90560,epoch:'2000-01-01T12:00:00Z',phase:4.3,inclination:17.16*Math.PI/180,node:110.3*Math.PI/180}},
+ {name:'Haumea',key:'dwarf-planet',presetId:'haumea',kinematicType:'haumea',dwarfPlanet:true,mass:4.006e21/SOLAR_MASS,radius:816,spin:3.92,tilt:126,color:'#d8dedf',orbit:{a:43.218,e:.1913,period:103774,epoch:'2000-01-01T12:00:00Z',phase:2.1,inclination:28.19*Math.PI/180,node:122.2*Math.PI/180}},
+ {name:'Makemake',key:'dwarf-planet',presetId:'makemake',kinematicType:'makemake',dwarfPlanet:true,mass:3.1e21/SOLAR_MASS,radius:715,spin:22.8,tilt:29,color:'#b36e4b',orbit:{a:45.79,e:.159,period:113183,epoch:'2000-01-01T12:00:00Z',phase:5.4,inclination:28.96*Math.PI/180,node:79.6*Math.PI/180}},
+ {name:'Eris',key:'dwarf-planet',presetId:'eris',kinematicType:'eris',dwarfPlanet:true,mass:1.6466e22/SOLAR_MASS,radius:1163,spin:25.9,tilt:78,color:'#d7d8dc',orbit:{a:67.78,e:.4418,period:203830,epoch:'2000-01-01T12:00:00Z',phase:3.2,inclination:44.04*Math.PI/180,node:35.9*Math.PI/180}}
+];
 const kinematicObjectDefinitions=[
  {name:'Voyager 1',key:'spacecraft',presetId:'voyager-1',kinematicType:'voyager-1',spacecraftType:'voyager-1',mass:721.9/SOLAR_MASS,radius:.00185,spin:24,tilt:35,color:'#d4c49e'},
  {name:'Tesla Roadster / Starman',key:'spacecraft',presetId:'tesla-roadster',kinematicType:'tesla-roadster',spacecraftType:'tesla-roadster',mass:1296/SOLAR_MASS,radius:.0022,spin:24,tilt:1.1,color:'#cc3429'},
  {name:'Międzynarodowa Stacja Kosmiczna (ISS)',key:'spacecraft',presetId:'iss',kinematicType:'iss',spacecraftType:'iss',mass:419725/SOLAR_MASS,radius:.0545,spin:1.55,tilt:51.6,color:'#e5e7e7'},
  {name:'ʻOumuamua',key:'interstellar',presetId:'oumuamua',kinematicType:'oumuamua',mass:5e8/SOLAR_MASS,radius:.1,spin:7.34,tilt:122,color:'#4a3728',irregular:true,cometProfile:'oumuamua'},
  {name:'67P/Churyumov–Gerasimenko',key:'comet',presetId:'67p',kinematicType:'67p',mass:9.982e12/SOLAR_MASS,radius:1.65,spin:12.4,tilt:7,color:'#51483f',cometProfile:'67p'},
- {name:'C/1995 O1 (Hale-Bopp)',key:'comet',presetId:'hale-bopp',kinematicType:'hale-bopp',mass:1e15/SOLAR_MASS,radius:30,spin:11,tilt:89,color:'#655044',cometProfile:'hale-bopp'}
+ {name:'C/1995 O1 (Hale-Bopp)',key:'comet',presetId:'hale-bopp',kinematicType:'hale-bopp',mass:1e15/SOLAR_MASS,radius:30,spin:11,tilt:89,color:'#655044',cometProfile:'hale-bopp'},
+ {name:'New Horizons',key:'spacecraft',presetId:'new-horizons',kinematicType:'new-horizons',spacecraftType:'new-horizons',mass:478/SOLAR_MASS,radius:.002,spin:24,tilt:2.5,color:'#d7c69a'},
+ {name:'Viking 1',key:'spacecraft',presetId:'viking-1',kinematicType:'viking-1',spacecraftType:'viking-1',mass:2325/SOLAR_MASS,radius:.004,spin:24,tilt:25,color:'#d4c8a4'},
+ ...dwarfPlanetDefinitions
 ];
 const KINEMATIC_BY_TYPE=new Map(kinematicObjectDefinitions.map(item=>[item.kinematicType,item]));
 const roadsterOrbit={a:1.324,e:.255,period:556.2,epoch:'2018-02-06T20:45:00Z',phase:.21,inclination:1.1*Math.PI/180,node:100*Math.PI/180};
@@ -154,6 +194,22 @@ function kinematicState(type,date,bodies){
   const p=add(sunP,voyagerPoint(date)),later=new Date(date.getTime()+DAY_MS);
   return {p,v:add(sunV,difference(voyagerPoint(later),voyagerPoint(date)))};
  }
+ if(type==='new-horizons'){
+  const p=add(sunP,newHorizonsPoint(date)),later=new Date(date.getTime()+DAY_MS);
+  return {p,v:add(sunV,difference(newHorizonsPoint(later),newHorizonsPoint(date)))};
+ }
+ if(type==='viking-1'){
+  const mars=bodies.find(item=>item.key==='mars');
+  const launch=stateAtPlanet('earth',new Date('1975-08-20T17:22:00Z')).p;
+  const marsOrbit=stateAtPlanet('mars',new Date('1976-06-19T00:00:00Z')).p;
+  const time=date.getTime();
+  const launchTime=VIKING_MILESTONES[0].time,orbitTime=VIKING_MILESTONES[1].time,landingTime=VIKING_MILESTONES[2].time;
+  if(time<=launchTime)return {p:add(sunP,launch),v:[...sunV]};
+  if(time<=orbitTime){const t=(time-launchTime)/(orbitTime-launchTime),p=lerp(launch,marsOrbit,t),later=new Date(date.getTime()+DAY_MS);const q=lerp(launch,marsOrbit,Math.min(1,(later.getTime()-launchTime)/(orbitTime-launchTime)));return {p:add(sunP,p),v:add(sunV,difference(q,p))};}
+  if(mars){const direction=[.56,.28,-.78],offset=(mars.radius+1200)/AU;return {p:add(mars.p,scale(direction,offset)),v:[...mars.v],parent:mars.id};}
+ }
+ const dwarf=KINEMATIC_BY_TYPE.get(type)?.orbit;
+ if(dwarf){const state=numericalState(dwarf,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}
  if(type==='tesla-roadster'){const state=numericalState(roadsterOrbit,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}
  if(type==='67p'){const state=numericalState(comet67pOrbit,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}
  if(type==='hale-bopp'){const state=numericalState(haleBoppOrbit,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}

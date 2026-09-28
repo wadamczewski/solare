@@ -48,9 +48,30 @@ function iss(){
  group.rotation.set(.35,-.25,.15);return group;
 }
 
+function newHorizons(){
+ const group=new THREE.Group();group.name='New Horizons spacecraft model';
+ addBox(group,[.32,.18,.28],black);
+ addBox(group,[.18,.04,.64],solar,[-.05,.01,.34]);
+ const dish=new THREE.Mesh(new THREE.SphereGeometry(.23,20,10,0,Math.PI*2,0,Math.PI/2),white);dish.rotation.x=Math.PI;dish.position.set(.12,.2,0);group.add(dish);
+ addCylinder(group,.018,.75,metal,[-.13,.02,-.32],[Math.PI/2,0,.2]);
+ addCylinder(group,.024,.44,gold,[.19,-.14,.03],[0,0,.4]);
+ group.rotation.set(.2,-.5,.18);return group;
+}
+
+function viking(){
+ const group=new THREE.Group();group.name='Viking 1 orbiter and lander model';
+ addBox(group,[.52,.14,.34],metal);
+ addBox(group,[1.3,.025,.38],solar,[0,.01,0]);
+ const dish=new THREE.Mesh(new THREE.SphereGeometry(.16,18,10,0,Math.PI*2,0,Math.PI/2),white);dish.rotation.x=Math.PI;dish.position.set(.05,.15,0);group.add(dish);
+ addCylinder(group,.035,.48,gold,[-.2,-.17,.02],[0,0,.5]);
+ group.rotation.set(.18,.3,-.14);return group;
+}
+
 export function createSpacecraftVisual(type){
  if(type==='voyager-1')return voyager();
  if(type==='tesla-roadster')return roadster();
  if(type==='iss')return iss();
+ if(type==='new-horizons')return newHorizons();
+ if(type==='viking-1')return viking();
  return new THREE.Group();
 }

@@ -9,6 +9,7 @@ export function bodyKind(body,bodies){
  if(body.key==='comet')return 'Kometa';
  if(body.key==='interstellar')return 'Obiekt międzygwiezdny';
  if(body.key==='spacecraft')return 'Sonda lub stacja';
+ if(body.key==='dwarf-planet')return 'Planeta karłowata';
  if(body.key==='blackhole')return 'Czarna dziura';
  if(body.key==='neutron-star')return 'Gwiazda neutronowa';
  if(body.key==='fragment')return 'Odłamek';

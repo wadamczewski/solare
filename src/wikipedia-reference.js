@@ -73,7 +73,8 @@ const BODY_ARTICLES={
  Pan:'Pan_(moon)',Daphnis:'Daphnis_(moon)',Atlas:'Atlas_(moon)',Prometeusz:'Prometheus_(moon)',Pandora:'Pandora_(moon)',Epimeteusz:'Epimetheus_(moon)',Janus:'Janus_(moon)',Aegaeon:'Aegaeon_(moon)',
  Methone:'Methone_(moon)',Anthe:'Anthe_(moon)',Pallene:'Pallene_(moon)',Telesto:'Telesto_(moon)',Kalipso:'Calypso_(moon)',Helena:'Helene_(moon)',Polideukes:'Polydeuces_(moon)',
  comet:'Comet',halley:"Halley's_Comet",blackhole:'Supermassive_black_hole','custom-blackhole':'Black_hole',dimorphos:'Dimorphos',apophis:'99942_Apophis',bennu:'101955_Bennu','shoemaker-levy-9':'Comet_Shoemaker–Levy_9',chicxulub:'Chicxulub_impactor',vesta:'4_Vesta',ceres:'Ceres_(dwarf_planet)',theia:'Theia_(planet)',
- 'voyager-1':'Voyager_1','tesla-roadster':"Elon_Musk's_Tesla_Roadster",iss:'International_Space_Station',oumuamua:'ʻOumuamua','67p':'67P/Churyumov–Gerasimenko','hale-bopp':'Comet_Hale–Bopp',
+ 'voyager-1':'Voyager_1','new-horizons':'New_Horizons','viking-1':'Viking_1','tesla-roadster':"Elon_Musk's_Tesla_Roadster",iss:'International_Space_Station',oumuamua:'ʻOumuamua','67p':'67P/Churyumov–Gerasimenko','hale-bopp':'Comet_Hale–Bopp',
+ pluto:'Pluto',haumea:'Haumea',makemake:'Makemake_(dwarf_planet)',eris:'Eris_(dwarf_planet)',
  'sagittarius-a':'Sagittarius_A*',m87:'M87*','cygnus-x1':'Cygnus_X-1','psr-j0740':'PSR_J0740+6620','crab-pulsar':'Crab_Pulsar','vela-pulsar':'Vela_Pulsar','sgr-1806-20':'SGR_1806−20','proxima-centauri-b':'Proxima_Centauri_b','trappist-1-e':'TRAPPIST-1e','51-pegasi-b':'51_Pegasi_b','55-cancri-e':'55_Cancri_e',
  'sirius-a':'Sirius',vega:'Vega',betelgeuse:'Betelgeuse',r136a1:'R136a1','woh-g64':'WOH_G64'
 };
