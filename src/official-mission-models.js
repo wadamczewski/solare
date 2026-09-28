@@ -33,6 +33,8 @@ export function mountOfficialMissionModel(host,key,{span=1,rotation=[0,0,0],onRe
  sourceScene(key).then(source=>{
   if(!host.parent)return;
   const scene=fit(source.clone(true),span);scene.rotation.set(...rotation);host.clear();host.add(scene);host.userData.modelReady=true;onReady?.(scene);
+  // Hosts that size or seat themselves by their contents re-measure now.
+  host.dispatchEvent({type:'model-ready'});
  }).catch(()=>{host.userData.modelReady=false;});
  return host;
 }

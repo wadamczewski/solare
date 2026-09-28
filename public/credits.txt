@@ -1110,3 +1110,16 @@ unfolds it and folds the layers panel. Automatic folds are not stored as the
 viewer's preference. The classic interface is unchanged. Test: "the layers
 panel and a mode panel share the left column as an accordion" in
 tests/ux-interface.test.js.
+
+2026-09-28 Hardware on the ground fits the frame:
+Apollo, Viking and rover models were drawn 100-250 km across and a known
+place put the observer inside them. Every model is now normalised to 0.12 %
+of its body's radius (about 2 km on the Moon, 4 km on Mars) with its base on
+the ground, on the observer's own radial line (on Mars the plain scaled point
+was 10-15 km off because of the flattening), and appears only from its
+landing date. All thirteen sites are listed among the known places; choosing
+one stands the observer back and above it so the model's bounding sphere
+fits the narrower field of view with a 12 % margin, looking 16 degrees down
+(missionFraming in src/surface-missions.js). The NASA models are re-seated
+when they finish loading and no longer receive self-shadowing acne.
+Tests: tests/surface-missions.test.js.

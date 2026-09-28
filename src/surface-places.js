@@ -35,9 +35,7 @@ export const KNOWN_PLACES = {
  mars: [
   {name: 'Olympus Mons', latitude: 19, longitude: -134},
   {name: 'Valles Marineris', latitude: -14, longitude: -59},
-  {name: 'Gale', latitude: -5, longitude: 138},
-  {name: 'Viking 1', latitude: 22, longitude: -48},
-  {name: 'Perseverance — Jezero', latitude: 18, longitude: 77}
+  {name: 'Gale', latitude: -5, longitude: 138}
  ],
  jupiter: [{name: 'Wielka Czerwona Plama', latitude: -20, longitude: -90}],
  saturn: [{name: 'Heksagon bieguna północnego', latitude: 78, longitude: 0}],
@@ -45,9 +43,6 @@ export const KNOWN_PLACES = {
  neptune: [{name: 'Wielka Ciemna Plama', latitude: -22, longitude: 0}],
  // Moons, keyed by name - see the note above.
  'Księżyc': [
-  {name: 'Baza Spokoju (Apollo 11)', latitude: 1, longitude: 23},
-  {name: 'Apollo 15 — Hadley', latitude: 26, longitude: 4},
-  {name: 'Apollo 17 — Taurus-Littrow', latitude: 20, longitude: 31},
   {name: 'Tycho', latitude: -43, longitude: -11},
   {name: 'Copernicus', latitude: 10, longitude: -20}
  ],
