@@ -7,6 +7,8 @@ export function bodyKind(body,bodies){
  if(body.key==='sun')return 'Gwiazda';
  if(body.key==='moon'){const host=bodies.find(b=>b.id===body.parent);return host?`Księżyc · ${host.name}`:'Księżyc'}
  if(body.key==='comet')return 'Kometa';
+ if(body.key==='interstellar')return 'Obiekt międzygwiezdny';
+ if(body.key==='spacecraft')return 'Sonda lub stacja';
  if(body.key==='blackhole')return 'Czarna dziura';
  if(body.key==='neutron-star')return 'Gwiazda neutronowa';
  if(body.key==='fragment')return 'Odłamek';

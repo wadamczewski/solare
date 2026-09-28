@@ -66,8 +66,9 @@ export function cometNucleusGeometry(seed = 1, detail = 12, profile = 'generic')
  // Giotto measured 1P/Halley as a very dark 15.3 × 7.2 × 7.2 km prolate
  // nucleus. It was a battered potato, but not the bilobate contact binary
  // familiar from 67P, which remains the deliberately generic comet profile.
- if (profile === 'halley') {
+ if (profile === 'halley' || profile === 'hale-bopp' || profile === 'oumuamua') {
   const v = new THREE.Vector3();
+  const haleBopp=profile==='hale-bopp',oumuamua=profile==='oumuamua';
   for (let i = 0; i < position.count; i++) {
    v.fromBufferAttribute(position, i).normalize();
    const ridge = 1 + .075 * valueNoise(v.x * 3.1, v.y * 3.1, v.z * 3.1, seed)
@@ -77,7 +78,9 @@ export function cometNucleusGeometry(seed = 1, detail = 12, profile = 'generic')
    const bowlA = Math.max(0, v.x * .36 + v.z * .78 - .69);
    const bowlB = Math.max(0, -v.x * .61 + v.y * .55 - .73);
    const crater = 1 - bowlA * .16 - bowlB * .12;
-   position.setXYZ(i, v.x * 1.37 * ridge * crater, v.y * .645 * ridge * crater, v.z * .645 * ridge * crater);
+   const axes=oumuamua?[2.65,.28,.28]:haleBopp?[1.08,.86,.78]:[1.37,.645,.645];
+   const rough=oumuamua?1+.025*valueNoise(v.x*7,v.y*7,v.z*7,seed):ridge*crater;
+   position.setXYZ(i, v.x * axes[0] * rough, v.y * axes[1] * rough, v.z * axes[2] * rough);
   }
   geometry.computeVertexNormals();
   return geometry;
@@ -121,16 +124,17 @@ export function cometNucleusGeometry(seed = 1, detail = 12, profile = 'generic')
 // geometry, so it works for the map and the shared WebGL inspector viewport.
 export function applyCometAppearance(material, profile = 'generic') {
  const halley = profile === 'halley';
+ const haleBopp=profile==='hale-bopp',sixtySevenP=profile==='67p',oumuamua=profile==='oumuamua';
  // The Giotto albedo is only 2–4%, but scene exposure must still retain the
  // illuminated relief. This is charcoal-brown regolith, not an unlit black cutout.
- material.color.set(halley ? '#6b4e38' : '#51483f');
- material.emissive.set(halley ? '#1c110a' : '#0d0a08');
- material.emissiveIntensity = halley ? .06 : .025;
+ material.color.set(halley ? '#6b4e38' : haleBopp?'#775e4d':oumuamua?'#473326':sixtySevenP?'#51483f':'#51483f');
+ material.emissive.set(halley ? '#1c110a' : haleBopp?'#170f0b':oumuamua?'#110b08':'#0d0a08');
+ material.emissiveIntensity = halley ? .06 : haleBopp?.045:.025;
  material.roughness = .96;
  material.metalness = 0;
  material.onBeforeCompile = shader => {
-  shader.uniforms.cometBase = {value: new THREE.Color(halley ? '#4a3527' : '#403c37')};
-  shader.uniforms.cometWarm = {value: new THREE.Color(halley ? '#8b674a' : '#655443')};
+  shader.uniforms.cometBase = {value: new THREE.Color(halley ? '#4a3527' : haleBopp?'#543e32':oumuamua?'#34231a':'#403c37')};
+  shader.uniforms.cometWarm = {value: new THREE.Color(halley ? '#8b674a' : haleBopp?'#9a7a61':oumuamua?'#684b35':'#655443')};
   shader.vertexShader = `varying vec3 cometLocal;\n${shader.vertexShader}`.replace('#include <begin_vertex>', '#include <begin_vertex>\ncometLocal=transformed;');
   shader.fragmentShader = `uniform vec3 cometBase;uniform vec3 cometWarm;varying vec3 cometLocal;\n${shader.fragmentShader}`.replace('#include <map_fragment>', `#include <map_fragment>
    float coarse=sin(cometLocal.x*7.1+sin(cometLocal.z*5.7))*sin(cometLocal.y*9.3-cometLocal.z*4.1);

@@ -16,12 +16,12 @@ export function keplerDrift(r,v,mu,dt){
 function satelliteStates(bs){const result=[];for(let i=0;i<bs.length;i++){const b=bs[i];
  // Ejecta are resolved N-body particles. A stale parent field must never turn
  // them into a two-body Kepler approximation: they perturb and collide freely.
- if(!b.parent||b.key==='fragment')continue;const j=bs.findIndex(p=>p.id===b.parent);if(j<0)continue;const r=sub(b.p,bs[j].p),v=sub(b.v,bs[j].v),mu=G*(b.mass+bs[j].mass);if(!keplerDrift(r,v,mu,0))return null;result.push({i,j,r,v,mu})}return result}
+ if(b.kinematic||!b.parent||b.key==='fragment')continue;const j=bs.findIndex(p=>p.id===b.parent);if(j<0||bs[j].kinematic)continue;const r=sub(b.p,bs[j].p),v=sub(b.v,bs[j].v),mu=G*(b.mass+bs[j].mass);if(!keplerDrift(r,v,mu,0))return null;result.push({i,j,r,v,mu})}return result}
 export function fastStepSize(bs){
  const satellites=satelliteStates(bs);if(!satellites)return {dt:stableStep(bs),split:false,reason:'unbound'};let dt=.25;
  // Tight close approaches use the direct solver; tidal forces bound the split step.
  for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){
-  const a=bs[i],b=bs[j],r=sub(b.p,a.p),v=sub(b.v,a.v),r2=dot(r,r),d=Math.sqrt(r2),mu=G*(a.mass+b.mass),contact=(a.radius+b.radius)/AU;
+  const a=bs[i],b=bs[j];if(a.kinematic||b.kinematic)continue;const r=sub(b.p,a.p),v=sub(b.v,a.v),r2=dot(r,r),d=Math.sqrt(r2),mu=G*(a.mass+b.mass),contact=(a.radius+b.radius)/AU;
   const parentPair=a.parent===b.id||b.parent===a.id;
   if(d<contact*(parentPair?1.15:4))return {dt:stableStep(bs),split:false,reason:'contact '+a.name+' '+b.name};
   if(parentPair)continue;
@@ -29,14 +29,14 @@ export function fastStepSize(bs){
   const vv=dot(v,v),closest=vv?Math.max(0,Math.min(dt,-dot(r,v)/vv)):0;
   if(Math.hypot(...r.map((x,k)=>x+v[k]*closest))<contact*4)return {dt:stableStep(bs),split:false,reason:'swept '+a.name+' '+b.name};
  }
- for(const s of satellites){let tide=0;for(let k=0;k<bs.length;k++){if(k===s.i||k===s.j)continue;const r=sub(bs[k].p,bs[s.j].p),q=sub(bs[k].p,bs[s.i].p),d=Math.hypot(...r),e=Math.hypot(...q);tide+=G*bs[k].mass*Math.hypot(...q.map((v,k)=>v/e**3-r[k]/d**3))}if(tide>0)dt=Math.min(dt,.04*Math.sqrt(Math.hypot(...s.r)/tide))}
+ for(const s of satellites){let tide=0;for(let k=0;k<bs.length;k++){if(k===s.i||k===s.j||bs[k].kinematic)continue;const r=sub(bs[k].p,bs[s.j].p),q=sub(bs[k].p,bs[s.i].p),d=Math.hypot(...r),e=Math.hypot(...q);tide+=G*bs[k].mass*Math.hypot(...q.map((v,k)=>v/e**3-r[k]/d**3))}if(tide>0)dt=Math.min(dt,.04*Math.sqrt(Math.hypot(...s.r)/tide))}
  return {dt:Math.max(1e-9,dt),split:true,states:satellites};
 }
 export function splitStep(bs,dt,preparedStates){
  const states=preparedStates||satelliteStates(bs);if(!states){step(bs,dt);return}const before=accelerations(bs),satIds=new Set(states.map(s=>s.i));
  for(const s of states){const length=Math.hypot(...s.r),central=s.mu/length**3;s.v=s.v.map((v,k)=>v+.5*dt*(before[s.i][k]-before[s.j][k]+central*s.r[k]));s.drift=keplerDrift(s.r,s.v,s.mu,dt);if(!s.drift){step(bs,dt);return}}
- for(let i=0;i<bs.length;i++)if(!satIds.has(i))for(let k=0;k<3;k++){bs[i].v[k]+=.5*dt*before[i][k];bs[i].p[k]+=dt*bs[i].v[k]}
+ for(let i=0;i<bs.length;i++)if(!satIds.has(i)&&!bs[i].kinematic)for(let k=0;k<3;k++){bs[i].v[k]+=.5*dt*before[i][k];bs[i].p[k]+=dt*bs[i].v[k]}
  for(const s of states)bs[s.i].p=s.drift.r.map((x,k)=>x+bs[s.j].p[k]);
- const after=accelerations(bs);for(let i=0;i<bs.length;i++)if(!satIds.has(i))for(let k=0;k<3;k++)bs[i].v[k]+=.5*dt*after[i][k];
+ const after=accelerations(bs);for(let i=0;i<bs.length;i++)if(!satIds.has(i)&&!bs[i].kinematic)for(let k=0;k<3;k++)bs[i].v[k]+=.5*dt*after[i][k];
  for(const s of states){const r=s.drift.r,central=s.mu/Math.hypot(...r)**3;bs[s.i].v=s.drift.v.map((v,k)=>v+.5*dt*(after[s.i][k]-after[s.j][k]+central*r[k])+bs[s.j].v[k])}
 }
