@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {mountOfficialMissionModel} from './official-mission-models.js';
 
 // Each visual keeps the published silhouette readable at the deliberately
 // enlarged map scale.  Dimensions are proportional; the parent mesh applies
@@ -20,7 +21,7 @@ function voyager(){
  for(const z of [-.18,.18]){addCylinder(group,.055,.38,black,[-.54,-.05,z],[0,0,Math.PI/2]);}
  addCylinder(group,.018,1.08,metal,[.1,-.45,.02],[Math.PI/2,0,.15]);
  addCylinder(group,.012,.58,metal,[.22,.24,0],[0,0,-.72]);
- group.rotation.set(.32,.3,-.2);return group;
+ group.rotation.set(.32,.3,-.2);mountOfficialMissionModel(group,'voyager',{span:1.2,rotation:[.28,.3,-.18]});return group;
 }
 
 function roadster(){
@@ -28,9 +29,11 @@ function roadster(){
  addBox(group,[.86,.2,.4],red,[0,-.04,0]);
  const hood=addBox(group,[.3,.1,.36],red,[.26,.11,0]);hood.rotation.z=-.16;
  const cabin=new THREE.Mesh(new THREE.BoxGeometry(.34,.17,.34),new THREE.MeshStandardMaterial({color:'#16222b',roughness:.08,metalness:.2,transparent:true,opacity:.72}));cabin.position.set(-.12,.13,0);group.add(cabin);
- for(const x of [-.28,.3])for(const z of [-.23,.23])addCylinder(group,.105,.05,black,[x,-.15,z],[Math.PI/2,0,0]);
+ for(const x of [-.28,.3])for(const z of [-.23,.23]){addCylinder(group,.105,.05,black,[x,-.15,z],[Math.PI/2,0,0]);addCylinder(group,.07,.056,metal,[x,-.15,z],[Math.PI/2,0,0]);}
  const body=new THREE.Mesh(new THREE.CapsuleGeometry(.055,.14,4,10),white);body.position.set(-.13,.19,.01);body.rotation.z=Math.PI/2;group.add(body);
  const helmet=new THREE.Mesh(new THREE.SphereGeometry(.072,14,10),white);helmet.position.set(-.23,.25,.01);group.add(helmet);
+ addBox(group,[.055,.022,.18],metal,[.42,-.02,0]);addBox(group,[.11,.014,.31],black,[-.12,.135,0]);
+ for(const z of [-.14,.14])addCylinder(group,.012,.26,metal,[.14,.08,z],[0,0,Math.PI/2]);
  group.rotation.set(.2,-.6,.12);return group;
 }
 
@@ -45,7 +48,7 @@ function iss(){
   addBox(group,[.34,.018,.52],solar,[x,.02,-.29]);
  }
  addCylinder(group,.06,.5,metal,[0,.2,0],[0,0,0]);
- group.rotation.set(.35,-.25,.15);return group;
+ group.rotation.set(.35,-.25,.15);mountOfficialMissionModel(group,'iss',{span:2.5,rotation:[.2,-.25,.1]});return group;
 }
 
 function newHorizons(){
@@ -55,6 +58,8 @@ function newHorizons(){
  const dish=new THREE.Mesh(new THREE.SphereGeometry(.23,20,10,0,Math.PI*2,0,Math.PI/2),white);dish.rotation.x=Math.PI;dish.position.set(.12,.2,0);group.add(dish);
  addCylinder(group,.018,.75,metal,[-.13,.02,-.32],[Math.PI/2,0,.2]);
  addCylinder(group,.024,.44,gold,[.19,-.14,.03],[0,0,.4]);
+ addBox(group,[.12,.07,.1],gold,[.11,-.09,.11]);addBox(group,[.065,.03,.11],black,[.08,.04,-.2]);
+ for(const [x,z] of [[-.17,-.1],[-.18,.1],[.06,-.17]])addCylinder(group,.009,.22,metal,[x,.06,z],[.5,0,.8]);
  group.rotation.set(.2,-.5,.18);return group;
 }
 
@@ -64,7 +69,7 @@ function viking(){
  addBox(group,[1.3,.025,.38],solar,[0,.01,0]);
  const dish=new THREE.Mesh(new THREE.SphereGeometry(.16,18,10,0,Math.PI*2,0,Math.PI/2),white);dish.rotation.x=Math.PI;dish.position.set(.05,.15,0);group.add(dish);
  addCylinder(group,.035,.48,gold,[-.2,-.17,.02],[0,0,.5]);
- group.rotation.set(.18,.3,-.14);return group;
+ group.rotation.set(.18,.3,-.14);mountOfficialMissionModel(group,'viking',{span:1.25,rotation:[.15,.28,-.12]});return group;
 }
 
 export function createSpacecraftVisual(type){

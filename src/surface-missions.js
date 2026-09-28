@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {localSurfacePoint} from './surface-texture-frame.js';
+import {mountOfficialMissionModel} from './official-mission-models.js';
 
 // Visible, lightweight representations of hardware left by people and robots.
 // They are mounted only in surface view, not into the all-system scene.
@@ -19,14 +20,16 @@ function apolloLander(){
  cylinder(group,.036,.065,gold,[0,.045,0]);box(group,[.075,.05,.075],aluminium,[0,.1,0]);
  for(const [x,z] of [[-.075,-.075],[-.075,.075],[.075,-.075],[.075,.075]]){cylinder(group,.006,.13,aluminium,[x,.03,z],[z*.6,0,-x*.6]);const foot=new THREE.Mesh(new THREE.CylinderGeometry(.018,.018,.005,10),lunar);foot.position.set(x,-.025,z);group.add(foot);}
  const antenna=new THREE.Mesh(new THREE.SphereGeometry(.028,12,8,0,Math.PI*2,0,Math.PI/2),aluminium);antenna.rotation.x=Math.PI;antenna.position.set(.025,.15,0);group.add(antenna);
- return group;
+ mountOfficialMissionModel(group,'apollo',{span:.24,rotation:[0,.35,0]});return group;
 }
 
-function rover(name='Mars rover'){
+function rover(name='Mars rover',variant='solar'){
  const group=new THREE.Group();group.name=name;box(group,[.15,.07,.11],mars,[0,.055,0]);
  for(const x of [-.065,0,.065])for(const z of [-.073,.073])cylinder(group,.024,.022,aluminium,[x,.025,z],[Math.PI/2,0,0]);
  const mast=cylinder(group,.009,.14,aluminium,[.02,.15,0]);const camera=new THREE.Mesh(new THREE.BoxGeometry(.05,.028,.035),black());camera.position.set(.02,.22,0);mast.add(camera);
- box(group,[.23,.008,.09],panel,[-.09,.115,0]);return group;
+ if(variant==='nuclear'){cylinder(group,.035,.21,black(),[-.12,.1,0],[0,0,Math.PI/2]);for(const z of [-.07,.07])cylinder(group,.009,.27,aluminium,[.04,.11,z],[0,0,Math.PI/2]);}
+ else{box(group,[.23,.008,.09],panel,[-.09,.115,0]);if(variant==='mer'){box(group,[.18,.007,.07],panel,[.11,.115,0]);}}
+ return group;
 }
 const black=()=>new THREE.MeshStandardMaterial({color:'#192029',roughness:.5,metalness:.55});
 
@@ -35,7 +38,7 @@ function vikingLander(){
  cylinder(group,.095,.07,aluminium,[0,.07,0]);box(group,[.15,.05,.15],gold,[0,.12,0]);
  for(const [x,z] of [[-.12,-.1],[-.12,.1],[.12,-.1],[.12,.1]])cylinder(group,.008,.18,aluminium,[x,.02,z],[z*.5,0,-x*.5]);
  const dish=new THREE.Mesh(new THREE.SphereGeometry(.08,16,9,0,Math.PI*2,0,Math.PI/2),aluminium);dish.rotation.x=Math.PI;dish.position.set(.02,.22,0);group.add(dish);
- cylinder(group,.01,.18,aluminium,[.11,.14,.02],[0,0,.9]);return group;
+ cylinder(group,.01,.18,aluminium,[.11,.14,.02],[0,0,.9]);mountOfficialMissionModel(group,'viking',{span:.28,rotation:[0,.2,0]});return group;
 }
 
 const SITE_DATA={
@@ -51,10 +54,10 @@ const SITE_DATA={
   {name:'Viking 1',latitude:22.48,longitude:-47.97,model:vikingLander},
   {name:'Viking 2',latitude:47.66,longitude:134.28,model:vikingLander},
   {name:'Sojourner',latitude:19.33,longitude:-33.22,model:()=>rover('Sojourner rover'),route:[[19.33,-33.22],[19.331,-33.219],[19.333,-33.218]]},
-  {name:'Spirit',latitude:-14.57,longitude:175.47,model:()=>rover('Spirit rover'),route:[[-14.57,175.47],[-14.569,175.49],[-14.566,175.52]]},
-  {name:'Opportunity',latitude:-1.95,longitude:-5.53,model:()=>rover('Opportunity rover'),route:[[-1.95,-5.53],[-1.948,-5.51],[-1.944,-5.48]]},
-  {name:'Curiosity',latitude:-4.59,longitude:137.44,model:()=>rover('Curiosity rover'),route:[[-4.59,137.44],[-4.588,137.46],[-4.584,137.49]]},
-  {name:'Perseverance',latitude:18.44,longitude:77.45,model:()=>rover('Perseverance rover'),route:[[18.44,77.45],[18.443,77.47],[18.448,77.50]]}
+  {name:'Spirit',latitude:-14.57,longitude:175.47,model:()=>rover('Spirit rover','mer'),route:[[-14.57,175.47],[-14.569,175.49],[-14.566,175.52]]},
+  {name:'Opportunity',latitude:-1.95,longitude:-5.53,model:()=>{const group=rover('Opportunity rover','mer');mountOfficialMissionModel(group,'opportunity',{span:.28,rotation:[0,.4,0]});return group;},route:[[-1.95,-5.53],[-1.948,-5.51],[-1.944,-5.48]]},
+  {name:'Curiosity',latitude:-4.59,longitude:137.44,model:()=>rover('Curiosity rover','nuclear'),route:[[-4.59,137.44],[-4.588,137.46],[-4.584,137.49]]},
+  {name:'Perseverance',latitude:18.44,longitude:77.45,model:()=>{const group=rover('Perseverance rover','nuclear');mountOfficialMissionModel(group,'perseverance',{span:.3,rotation:[0,.4,0]});return group;},route:[[18.44,77.45],[18.443,77.47],[18.448,77.50]]}
  ]
 };
 export const SURFACE_MISSION_SITES=SITE_DATA;
