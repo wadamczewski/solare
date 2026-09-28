@@ -1123,3 +1123,25 @@ fits the narrower field of view with a 12 % margin, looking 16 degrees down
 (missionFraming in src/surface-missions.js). The NASA models are re-seated
 when they finish loading and no longer receive self-shadowing acne.
 Tests: tests/surface-missions.test.js.
+
+2026-09-28 Spacecraft, comets and ʻOumuamua follow their observations:
+The kinematic objects used invented tracks (straight lines between guessed
+points, made-up orbital phases, ʻOumuamua on a straight line). They now
+follow JPL Horizons data (src/historic-trajectories.js): Hermite-interpolated
+state vectors for Voyager 1, New Horizons, the Tesla Roadster and ʻOumuamua,
+with flybys recorded and drawn relative to the planet; yearly osculating
+elements for 67P, Hale-Bopp and the five dwarf planets. Viking 1 has no
+Horizons trajectory; its cruise is a Lambert transfer between the real launch
+and arrival dates and its Mars orbit the documented 1513 x 32 800 km, 39.3
+degree one (node assumed). Each object is drawn only inside the period it was
+actually observed (OBSERVATION_WINDOWS in src/physics.js); today that hides
+ʻOumuamua, Hale-Bopp, 67P, the Roadster and the Viking orbiter. The Voyager
+and Viking buttons became one "Missions and observations" menu with a
+scenario per object (src/historic-scenarios.js), 39-70 s each: readable map
+in cruise, true scale at flybys, and a clock that stops on every documented
+event for 2.2 s with a marker giving the event and its UTC date at the
+precision it is known. Planets advance straight from the ephemeris during a
+scenario, moons on two-body orbits, so high rates cost nothing. Assumptions:
+Horizons TDB is treated as UTC (about a minute); the ISS keeps a composed
+phase; collision-course scenarios remain hypothetical experiments.
+Tests: tests/kinematic-objects.test.js, tests/historic-scenarios.test.js.

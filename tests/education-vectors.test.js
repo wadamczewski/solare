@@ -8,8 +8,9 @@ const named=name=>bs.find(body=>body.name===name);
 
 test('every moving body in view gets vectors, not just the selected one',()=>{
  const all=movingBodiesInView(bs,()=>true);
- // Everything but the Sun and Viking 1 after its landed, Mars-fixed phase.
- assert.equal(all.length,bs.length-2);
+ // Everything but the Sun (the Viking 1 orbiter keeps circling Mars; the
+ // scene hides it outside its observation window, not this helper).
+ assert.equal(all.length,bs.length-1);
  assert.ok(!all.some(item=>item.body.key==='sun'),'the dominant star\'s barycentric drift gets no arrow');
  const inView=new Set(['Saturn','Tytan','Mimas']);
  assert.deepEqual(movingBodiesInView(bs,body=>inView.has(body.name)).map(item=>item.body.name).sort(),[...inView].sort());

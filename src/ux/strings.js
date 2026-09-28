@@ -33,6 +33,7 @@ export const UX_STRINGS={
  'scenarios.collision':['Zderzenie komety, asteroidy lub planety z celem','A comet, asteroid or planet hitting a target','Ein Komet, Asteroid oder Planet trifft ein Ziel','Un cometa, asteroide o planeta impacta un objetivo'],
  'scenarios.eclipse':['Najbliższe zaćmienia Słońca i Księżyca','The next solar and lunar eclipses','Die nächsten Sonnen- und Mondfinsternisse','Los próximos eclipses de Sol y de Luna'],
  'scenarios.events.title':['Zdarzenia','Upcoming events','Ereignisse','Eventos'],
+ 'scenarios.historic':['Voyager, New Horizons, Viking, komety i ʻOumuamua – odtworzone z obserwacji','Voyager, New Horizons, Viking, comets and ʻOumuamua – replayed from observations','Voyager, New Horizons, Viking, Kometen und ʻOumuamua – aus Beobachtungen nachgespielt','Voyager, New Horizons, Viking, cometas y ʻOumuamua – reproducidos a partir de observaciones'],
  'scenarios.events':['Przewidywane koniunkcje i zbliżenia','Predicted conjunctions and close approaches','Vorhergesagte Konjunktionen und Annäherungen','Conjunciones y acercamientos previstos'],
  'scenarios.stop':['Zakończ scenariusz','End scenario','Szenario beenden','Terminar escenario'],
  'add':['Dodaj ciało','Add body','Körper hinzufügen','Añadir cuerpo'],

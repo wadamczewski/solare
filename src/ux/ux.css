@@ -293,7 +293,7 @@ body.ux .ux-left-stack>*{pointer-events:auto;position:relative!important;inset:a
 body.ux .ux-left-stack>[hidden]{display:none!important}
 body.ux .ux-left-stack>#solar-control.collapsed{flex:0 0 auto;width:auto!important;overflow:visible}
 body.ux .ux-left-stack>#education-hud{margin-top:auto!important;width:auto!important;flex:0 0 auto}
-body.ux .ux-left-stack>#surface-view,body.ux .ux-left-stack>#solar-death,body.ux .ux-left-stack>#black-hole-fall{flex:0 1 auto;padding:12px 14px 14px;border-radius:15px;background:var(--ux-surface-solid);border:1px solid var(--ux-border);box-shadow:var(--ux-shadow)}
+body.ux .ux-left-stack>#surface-view,body.ux .ux-left-stack>#solar-death,body.ux .ux-left-stack>#black-hole-fall,body.ux .ux-left-stack>#historic-scenario{flex:0 1 auto;padding:12px 14px 14px;border-radius:15px;background:var(--ux-surface-solid);border:1px solid var(--ux-border);box-shadow:var(--ux-shadow)}
 body.ux .ux-fold-head{cursor:pointer;align-items:center!important;margin:0 0 10px;border-radius:8px}
 body.ux .ux-fold-head:focus-visible{outline:2px solid var(--ux-accent,#9fd0ff);outline-offset:3px}
 body.ux .ux-fold-head>strong:after{content:'';display:inline-block;width:7px;height:7px;margin:0 0 2px 9px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;opacity:.6;transform:rotate(45deg);transition:transform .2s}

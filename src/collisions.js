@@ -24,6 +24,9 @@ export function resolveCollisions(bodies,{maxBodies=100,contactTest=null,contact
  const events=[],touched=new Set();
  for(let i=0;i<bodies.length;i++)for(let j=bodies.length-1;j>i;j--){
   const a=bodies[i],b=bodies[j];if(touched.has(a.id)||touched.has(b.id))continue;
+  // Recorded spacecraft and comets follow their measured paths; nothing the
+  // sandbox does can consume them.
+  if(a.kinematic||b.kinematic)continue;
   // A veto rules a pair out before geometry is considered at all, whichever
   // contact test is in force. A staged encounter uses it to keep its projectile
   // from being consumed by a bystander on the way to the body it was aimed at.

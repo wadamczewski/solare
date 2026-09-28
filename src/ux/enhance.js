@@ -214,7 +214,7 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
  const stack=el('div',{class:'ux-left-stack',id:'ux-left-stack'});
  doc.body.append(stack);
  if(control)stack.append(control);
- const MODE_HEADS={'surface-view':'.surface-head','solar-death':'.death-head','black-hole-fall':'.fall-head'};
+ const MODE_HEADS={'surface-view':'.surface-head','solar-death':'.death-head','black-hole-fall':'.fall-head','historic-scenario':'.historic-head'};
  const modePanels=Object.keys(MODE_HEADS).map(id=>doc.getElementById(id)).filter(Boolean);
  modePanels.forEach(item=>stack.append(item));
  const physicsCard=doc.getElementById('education-hud');if(physicsCard)stack.append(physicsCard);
@@ -273,7 +273,7 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
 
  // ---- Bottom: time · scenarios · create · share ---------------------------
  const dock=$('#time-dock');
- const scenarioIds=[['dock-flight','scenarios.flight'],['dock-death','scenarios.death'],['dock-black-hole','scenarios.hole'],['collision-course','scenarios.collision'],['eclipse-scenarios','scenarios.eclipse'],['event-timeline','scenarios.events']];
+ const scenarioIds=[['dock-flight','scenarios.flight'],['dock-death','scenarios.death'],['dock-black-hole','scenarios.hole'],['collision-course','scenarios.collision'],['eclipse-scenarios','scenarios.eclipse'],['event-timeline','scenarios.events'],['historic-scenarios','scenarios.historic']];
  let stopChip=null;
  if(dock){
   dock.classList.add('ux-dock');
@@ -303,7 +303,7 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
   const addButton=el('button',{type:'button',class:'ux-dock-button',id:'ux-add',aria:'add',title:'add'},icon(doc,'plus'),text('add','ux-label'));
   makeMenu(addButton,addMenu);
   stopChip=el('button',{type:'button',class:'ux-dock-button ux-stop',id:'ux-stop-scenario',hidden:true,aria:'scenarios.stop'},icon(doc,'stop'),text('scenarios.stop','ux-label'));
-  stopChip.addEventListener('click',()=>{const body=doc.body.classList;const target=body.contains('in-light-flight')?$('#dock-flight'):body.contains('in-black-hole-fall')?($('#fall-stop')||$('#dock-black-hole')):body.contains('in-solar-death')?$('#dock-death'):null;target?.click()});
+  stopChip.addEventListener('click',()=>{const body=doc.body.classList;const target=body.contains('in-light-flight')?$('#dock-flight'):body.contains('in-black-hole-fall')?($('#fall-stop')||$('#dock-black-hole')):body.contains('in-solar-death')?$('#dock-death'):body.contains('in-historic-scenario')?$('#historic-stop'):null;target?.click()});
   const explore=el('div',{class:'ux-dock-group'},stopChip,el('div',{class:'ux-menu-anchor'},scenarioButton,scenarioMenu),el('div',{class:'ux-menu-anchor'},addButton,addMenu));
   const camera=$('#cinematic-camera'),share=$('#share-simulation');
   // Both labels were never translated in the classic interface. The camera
@@ -333,7 +333,7 @@ export function enhanceInterface({doc=document,win=window,language=()=>'pl',acti
  // A running scenario used to be stoppable only from inside the menu it was
  // started from; its stop control now stays visible in the dock itself.
  const syncScenarioState=()=>{
-  const classes=doc.body.classList,active=classes.contains('in-light-flight')||classes.contains('in-solar-death')||classes.contains('in-black-hole-fall');
+  const classes=doc.body.classList,active=classes.contains('in-light-flight')||classes.contains('in-solar-death')||classes.contains('in-black-hole-fall')||classes.contains('in-historic-scenario');
   if(stopChip)stopChip.hidden=!active;
   $('#ux-scenarios')?.classList.toggle('active',active);
  };

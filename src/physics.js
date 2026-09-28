@@ -3,6 +3,8 @@ import {planetState,toSceneFrame} from './ephemeris.js';
 import {earthMoonSplit} from './lunar-theory.js';
 import {centralStars} from './central-stars.js';
 import {iauSpinPole,poleAzimuth,satelliteState,spinAxis} from './planet-poles.js';
+import {encounterState,recordedState} from './historic-trajectories.js';
+import {keplerDrift} from './fast-step.js';
 export const G=0.0002959122082855911, AU=149597870.7, SOLAR_MASS=1.98847e30;
 // name, key, semi-major axis AU, eccentricity, inclination deg, mass M☉, radius km, rotation h, axial tilt deg, colour
 export const planets=[
@@ -102,62 +104,6 @@ const numericalState=(descriptor,date)=>{
  const p=orbitalPoint(descriptor,date),near=new Date(date.getTime()+DAY_MS*.02);
  return {p,v:scale(difference(orbitalPoint(descriptor,near),p),50)};
 };
-const voyagerMilestoneData=[
- {date:'1977-09-05T12:56:00Z',label:'Start z Ziemi'},
- {date:'1979-03-05T00:00:00Z',label:'Przelot obok Jowisza'},
- {date:'1980-11-12T00:00:00Z',label:'Przelot obok Saturna'},
- {date:'2006-08-16T00:00:00Z',label:'100 AU od Słońca'},
- {date:'2012-08-25T00:00:00Z',label:'Przestrzeń międzygwiezdna'}
-];
-export const VOYAGER_MILESTONES=Object.freeze(voyagerMilestoneData.map(item=>({...item,time:Date.parse(item.date)})));
-const newHorizonsMilestoneData=[
- {date:'2006-01-19T19:00:00Z',label:'Start z Ziemi'},
- {date:'2007-02-28T05:43:00Z',label:'Przelot obok Jowisza'},
- {date:'2015-07-14T11:49:00Z',label:'Przelot obok Plutona'},
- {date:'2019-01-01T05:33:00Z',label:'Przelot obok Arrokotha'},
- {date:'2025-01-01T00:00:00Z',label:'Pas Kuipera'}
-];
-export const NEW_HORIZONS_MILESTONES=Object.freeze(newHorizonsMilestoneData.map(item=>({...item,time:Date.parse(item.date)})));
-const vikingMilestoneData=[
- {date:'1975-08-20T17:22:00Z',label:'Start z Ziemi'},
- {date:'1976-06-19T00:00:00Z',label:'Wejście na orbitę Marsa'},
- {date:'1976-07-20T11:53:00Z',label:'Lądowanie na Marsie'}
-];
-export const VIKING_MILESTONES=Object.freeze(vikingMilestoneData.map(item=>({...item,time:Date.parse(item.date)})));
-const voyagerPoint=date=>{
- const earth=stateAtPlanet('earth',new Date('1977-09-05T12:56:00Z')).p;
- const jupiter=stateAtPlanet('jupiter',new Date('1979-03-05T00:00:00Z')).p;
- const saturn=stateAtPlanet('saturn',new Date('1980-11-12T00:00:00Z')).p;
- const outbound=[-.676,.244,-.695];
- const points=[
-  {time:VOYAGER_MILESTONES[0].time,p:add(earth,scale(outbound,.008))},
-  {time:VOYAGER_MILESTONES[1].time,p:add(jupiter,scale(outbound,.012))},
-  {time:VOYAGER_MILESTONES[2].time,p:add(saturn,scale(outbound,.014))},
-  {time:VOYAGER_MILESTONES[3].time,p:scale(outbound,100)},
-  {time:VOYAGER_MILESTONES[4].time,p:scale(outbound,122)}
- ];
- const time=date.getTime();
- if(time<=points[0].time)return points[0].p;
- for(let i=1;i<points.length;i++)if(time<=points[i].time){const a=points[i-1],b=points[i];return lerp(a.p,b.p,(time-a.time)/(b.time-a.time));}
- const final=points.at(-1),years=(time-final.time)/DAY_MS/365.25;
- return add(final.p,scale(outbound,years*3.59)); // NASA: roughly 17 km/s outward
-};
-const newHorizonsPoint=date=>{
- const earth=stateAtPlanet('earth',new Date('2006-01-19T19:00:00Z')).p;
- const jupiter=stateAtPlanet('jupiter',new Date('2007-02-28T05:43:00Z')).p;
- const pluto=orbitalPoint({a:39.482,e:.2488,period:90560,epoch:'2015-07-14T11:49:00Z',inclination:17.16*Math.PI/180,node:110.3*Math.PI/180},new Date('2015-07-14T11:49:00Z'));
- const outbound=[-.73,.19,-.66];
- const points=[
-  {time:NEW_HORIZONS_MILESTONES[0].time,p:add(earth,scale(outbound,.008))},
-  {time:NEW_HORIZONS_MILESTONES[1].time,p:add(jupiter,scale(outbound,.012))},
-  {time:NEW_HORIZONS_MILESTONES[2].time,p:add(pluto,scale(outbound,.015))},
-  {time:NEW_HORIZONS_MILESTONES[3].time,p:scale(outbound,43.4)},
-  {time:NEW_HORIZONS_MILESTONES[4].time,p:scale(outbound,60)}
- ];
- const time=date.getTime();if(time<=points[0].time)return points[0].p;
- for(let i=1;i<points.length;i++)if(time<=points[i].time){const a=points[i-1],b=points[i];return lerp(a.p,b.p,(time-a.time)/(b.time-a.time));}
- const final=points.at(-1),years=(time-final.time)/DAY_MS/365.25;return add(final.p,scale(outbound,years*3.28));
-};
 const dwarfPlanetDefinitions=[
  {name:'Ceres',key:'dwarf-planet',presetId:'ceres',kinematicType:'ceres',dwarfPlanet:true,mass:9.3835e20/SOLAR_MASS,radius:469.7,spin:9.07,tilt:4,color:'#938c80',orbit:{a:2.7675,e:.0758,period:1681.6,epoch:'2000-01-01T12:00:00Z',phase:.8,inclination:10.59*Math.PI/180,node:80.3*Math.PI/180}},
  {name:'Pluton',key:'dwarf-planet',presetId:'pluto',kinematicType:'pluto',dwarfPlanet:true,mass:1.303e22/SOLAR_MASS,radius:1188.3,spin:153.3,tilt:119.6,color:'#bda992',orbit:{a:39.482,e:.2488,period:90560,epoch:'2000-01-01T12:00:00Z',phase:4.3,inclination:17.16*Math.PI/180,node:110.3*Math.PI/180}},
@@ -177,54 +123,157 @@ const kinematicObjectDefinitions=[
  ...dwarfPlanetDefinitions
 ];
 const KINEMATIC_BY_TYPE=new Map(kinematicObjectDefinitions.map(item=>[item.kinematicType,item]));
-const roadsterOrbit={a:1.324,e:.255,period:556.2,epoch:'2018-02-06T20:45:00Z',phase:.21,inclination:1.1*Math.PI/180,node:100*Math.PI/180};
-const comet67pOrbit={a:3.463,e:.641,period:6.44*365.25,epoch:'2015-08-13T00:00:00Z',phase:0,inclination:7.04*Math.PI/180,node:50.2*Math.PI/180};
-const haleBoppOrbit={a:186,e:.995,period:2534*365.25,epoch:'1997-04-01T00:00:00Z',phase:0,inclination:89.4*Math.PI/180,node:282.5*Math.PI/180};
-const oumuamuaDirection=[.334,.144,-.932];
+
+// ---- When each object was really observed ---------------------------------
+// An object is drawn only while it was actually being watched - tracked by
+// radio, measured by telescope - so the scene never shows ʻOumuamua or
+// Hale-Bopp today, where nobody can see them, or Voyager before it flew.
+// Dates are UTC; `end: null` means the object is still being observed.
+//  Voyager 1   launch 1977-09-05 12:56, still tracked by the Deep Space Network
+//  New Horizons launch 2006-01-19 19:00, still tracked
+//  Viking 1    launch 1975-08-20 21:22; the orbiter's mission ended 1980-08-17
+//              (the lander, contacted until 1982-11-11, is drawn in surface view)
+//  Roadster    heliocentric from 2018-02-07 03:00 (Horizons s11); the last of
+//              its 374 astrometric measurements was taken 2018-03-19
+//  ISS         first module (Zarya) launched 1998-11-20, occupied since
+//  ʻOumuamua   first image 2017-10-14 (precovery; discovered 10-19), last
+//              observation 2018-01-02 (Hubble)
+//  67P         first image 1969-09-11 (Churyumov and Svetlana Gerasimenko),
+//              last astrometry 2025-06-21 (JPL SBDB)
+//  Hale-Bopp   earliest image 1993-04-27 (precovery; discovered 1995-07-23),
+//              last observation 2022-07-09 (JPL SBDB, solution JPL#226)
+const window=(start,end=null,note='')=>Object.freeze({start:Date.parse(start),end:end?Date.parse(end):null,note});
+export const OBSERVATION_WINDOWS=Object.freeze({
+ 'voyager-1':window('1977-09-05T12:56:00Z'),
+ 'new-horizons':window('2006-01-19T19:00:00Z'),
+ 'viking-1':window('1975-08-20T21:22:00Z','1980-08-17T00:00:00Z'),
+ 'tesla-roadster':window('2018-02-07T03:00:00Z','2018-03-19T04:00:00Z'),
+ 'iss':window('1998-11-20T06:40:00Z'),
+ 'oumuamua':window('2017-10-14T00:00:00Z','2018-01-02T23:59:00Z'),
+ '67p':window('1969-09-11T00:00:00Z','2025-06-21T23:59:00Z'),
+ 'hale-bopp':window('1993-04-27T00:00:00Z','2022-07-09T23:59:00Z')
+});
+export function isObserved(type,date){
+ const span=OBSERVATION_WINDOWS[type];if(!span)return true;
+ const time=date instanceof Date?date.getTime():Number(date);
+ return time>=span.start&&(span.end==null||time<=span.end);
+}
+
+// ---- Viking 1 -------------------------------------------------------------
+// Horizons holds no Viking trajectory, so the cruise is the Keplerian transfer
+// that joins Earth at launch to Mars at orbit insertion in the time the
+// spacecraft took (a Lambert arc through the planets' own ephemeris), and the
+// orbit afterwards is the documented 1513 x 32 800 km, 39.3-degree orbit
+// round Mars. The plane's node is not published; it is a stated choice.
+export const VIKING_1_EVENTS=Object.freeze({
+ launch:Date.parse('1975-08-20T21:22:00Z'),
+ orbitInsertion:Date.parse('1976-06-19T23:40:00Z'),
+ separation:Date.parse('1976-07-20T08:51:00Z'),
+ landing:Date.parse('1976-07-20T11:53:06Z'),
+ orbiterEnd:Date.parse('1980-08-17T00:00:00Z')
+});
+const MARS_GM_AU=42828.37/(AU**3)*86400*86400;
+const stumpffC=z=>z>1e-8?(1-Math.cos(Math.sqrt(z)))/z:z< -1e-8?(Math.cosh(Math.sqrt(-z))-1)/-z:.5-z/24;
+const stumpffS=z=>{if(z>1e-8){const r=Math.sqrt(z);return (r-Math.sin(r))/(r*r*r)}if(z< -1e-8){const r=Math.sqrt(-z);return (Math.sinh(r)-r)/(r*r*r)}return 1/6-z/120};
+const cross=(a,b)=>[a[1]*b[2]-a[2]*b[1],a[2]*b[0]-a[0]*b[2],a[0]*b[1]-a[1]*b[0]];
+const dot=(a,b)=>a[0]*b[0]+a[1]*b[1]+a[2]*b[2];
+// Universal-variable Lambert solution (Curtis, Orbital Mechanics, alg. 5.2),
+// prograde about +z; returns the departure velocity.
+export function lambertDeparture(r1,r2,days,mu=G){
+ const n1=norm(r1),n2=norm(r2);
+ let angle=Math.acos(Math.max(-1,Math.min(1,dot(r1,r2)/(n1*n2))));
+ if(cross(r1,r2)[2]<0)angle=2*Math.PI-angle;
+ const A=Math.sin(angle)*Math.sqrt(n1*n2/(1-Math.cos(angle)));
+ const y=z=>n1+n2+A*(z*stumpffS(z)-1)/Math.sqrt(stumpffC(z));
+ const F=z=>{const yz=y(z);return Math.pow(yz/stumpffC(z),1.5)*stumpffS(z)+A*Math.sqrt(yz)-Math.sqrt(mu)*days};
+ let low=-4*Math.PI*Math.PI,high=4*Math.PI*Math.PI*.999;
+ while(y(low)<0)low=low/2;
+ for(let k=0;k<200;k++){const mid=(low+high)/2;if(F(mid)>0)high=mid;else low=mid}
+ const z=(low+high)/2,yz=y(z),f=1-yz/n1,g=A*Math.sqrt(yz/mu);
+ return r2.map((value,k)=>(value-f*r1[k])/g);
+}
+// Two-body propagation from a state, through its osculating conic.
+function stateElements(r,v,mu){
+ const h=cross(r,v),hn=norm(h),rn=norm(r),e=cross(v,h).map((value,k)=>value/mu-r[k]/rn),ecc=norm(e);
+ const a=-mu/(2*(dot(v,v)/2-mu/rn)),nodeVector=cross([0,0,1],h);
+ return {a,ecc,incl:Math.acos(h[2]/hn),node:Math.atan2(nodeVector[1],nodeVector[0]),
+  peri:Math.atan2(dot(cross(nodeVector,e),h)/hn,dot(nodeVector,e)),nu:Math.atan2(dot(cross(e,r),h)/hn,dot(e,r))};
+}
+function propagate(r,v,days,mu){
+ const el=stateElements(r,v,mu),n=Math.sqrt(mu/Math.abs(el.a**3)),e=el.ecc;
+ const E0=2*Math.atan(Math.sqrt((1-e)/(1+e))*Math.tan(el.nu/2)),M=E0-e*Math.sin(E0)+n*days;
+ let E=M;for(let k=0;k<40;k++)E-=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+ const x=el.a*(Math.cos(E)-e),y=el.a*Math.sqrt(1-e*e)*Math.sin(E),rate=n/(1-e*Math.cos(E));
+ const vx=-el.a*Math.sin(E)*rate,vy=el.a*Math.sqrt(1-e*e)*Math.cos(E)*rate;
+ const cO=Math.cos(el.node),sO=Math.sin(el.node),cI=Math.cos(el.incl),sI=Math.sin(el.incl),cw=Math.cos(el.peri),sw=Math.sin(el.peri);
+ const P=[cO*cw-sO*sw*cI,sO*cw+cO*sw*cI,sw*sI],Q=[-cO*sw-sO*cw*cI,-sO*sw+cO*cw*cI,cw*sI];
+ return {p:[0,1,2].map(k=>P[k]*x+Q[k]*y),v:[0,1,2].map(k=>P[k]*vx+Q[k]*vy)};
+}
+let vikingTransfer=null;
+function vikingCruise(date){
+ if(!vikingTransfer){
+  const r1=planetState('earth',new Date(VIKING_1_EVENTS.launch)).p,r2=planetState('mars',new Date(VIKING_1_EVENTS.orbitInsertion)).p;
+  const days=(VIKING_1_EVENTS.orbitInsertion-VIKING_1_EVENTS.launch)/DAY_MS;
+  vikingTransfer={r1,v1:lambertDeparture(r1,r2,days)};
+ }
+ const days=Math.max(0,(date.getTime()-VIKING_1_EVENTS.launch)/DAY_MS);
+ return propagate(vikingTransfer.r1,vikingTransfer.v1,days,G);
+}
+function vikingMarsOrbit(date){
+ const radius=3389.5,periapsis=(radius+1513)/AU,apoapsis=(radius+32800)/AU,a=(periapsis+apoapsis)/2,e=(apoapsis-periapsis)/(apoapsis+periapsis);
+ const n=Math.sqrt(MARS_GM_AU/(a*a*a)),M=n*(date.getTime()-VIKING_1_EVENTS.orbitInsertion)/DAY_MS;
+ let E=M;for(let k=0;k<30;k++)E-=(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+ const i=39.3*Math.PI/180,x=a*(Math.cos(E)-e),y=a*Math.sqrt(1-e*e)*Math.sin(E),rate=n/(1-e*Math.cos(E));
+ const vx=-a*Math.sin(E)*rate,vy=a*Math.sqrt(1-e*e)*Math.cos(E)*rate;
+ return {p:[x,y*Math.cos(i),y*Math.sin(i)],v:[vx,vy*Math.cos(i),vy*Math.sin(i)]};
+}
+// Heliocentric ecliptic state of Viking 1, or a Mars-relative one after
+// orbit insertion (flagged, so the caller can attach it to Mars).
+export function vikingState(date){
+ if(date.getTime()<VIKING_1_EVENTS.orbitInsertion)return {...vikingCruise(date),relativeTo:null};
+ return {...vikingMarsOrbit(date),relativeTo:'mars'};
+}
+
 function kinematicState(type,date,bodies){
  const sun=bodies.find(item=>item.key==='sun'),earth=bodies.find(item=>item.key==='earth');
  const sunP=sun?.p||[0,0,0],sunV=sun?.v||[0,0,0];
+ const heliocentric=state=>({p:add(sunP,toSceneFrame(state.p)),v:add(sunV,toSceneFrame(state.v))});
  if(type==='iss'&&earth){
+  // No historical ISS ephemeris is bundled (it is re-boosted every few
+  // weeks); this is its real altitude, inclination and period at a
+  // composed phase, attached to the Earth.
   const altitudeAU=(earth.radius+420)/AU,period=.0639,angle=dayOffset(date,'1998-11-20T00:00:00Z')*Math.PI*2/period;
   const inclination=51.6*Math.PI/180,offset=[Math.cos(angle)*altitudeAU,Math.sin(angle)*Math.sin(inclination)*altitudeAU,Math.sin(angle)*Math.cos(inclination)*altitudeAU];
   const velocity=[-Math.sin(angle)*altitudeAU*Math.PI*2/period,Math.cos(angle)*Math.sin(inclination)*altitudeAU*Math.PI*2/period,Math.cos(angle)*Math.cos(inclination)*altitudeAU*Math.PI*2/period];
   return {p:add(earth.p,offset),v:add(earth.v,velocity),parent:earth.id};
  }
- if(type==='voyager-1'){
-  const p=add(sunP,voyagerPoint(date)),later=new Date(date.getTime()+DAY_MS);
-  return {p,v:add(sunV,difference(voyagerPoint(later),voyagerPoint(date)))};
- }
- if(type==='new-horizons'){
-  const p=add(sunP,newHorizonsPoint(date)),later=new Date(date.getTime()+DAY_MS);
-  return {p,v:add(sunV,difference(newHorizonsPoint(later),newHorizonsPoint(date)))};
- }
  if(type==='viking-1'){
-  const mars=bodies.find(item=>item.key==='mars');
-  const launch=stateAtPlanet('earth',new Date('1975-08-20T17:22:00Z')).p;
-  const marsOrbit=stateAtPlanet('mars',new Date('1976-06-19T00:00:00Z')).p;
-  const time=date.getTime();
-  const launchTime=VIKING_MILESTONES[0].time,orbitTime=VIKING_MILESTONES[1].time,landingTime=VIKING_MILESTONES[2].time;
-  if(time<=launchTime)return {p:add(sunP,launch),v:[...sunV]};
-  if(time<=orbitTime){const t=(time-launchTime)/(orbitTime-launchTime),p=lerp(launch,marsOrbit,t),later=new Date(date.getTime()+DAY_MS);const q=lerp(launch,marsOrbit,Math.min(1,(later.getTime()-launchTime)/(orbitTime-launchTime)));return {p:add(sunP,p),v:add(sunV,difference(q,p))};}
-  if(mars){const direction=[.56,.28,-.78],offset=(mars.radius+1200)/AU;return {p:add(mars.p,scale(direction,offset)),v:[...mars.v],parent:mars.id};}
+  const state=vikingState(date),mars=bodies.find(item=>item.key==='mars');
+  if(state.relativeTo==='mars'&&mars)return {p:add(mars.p,toSceneFrame(state.p)),v:add(mars.v,toSceneFrame(state.v)),parent:mars.id};
+  return {...heliocentric(state),parent:null};
+ }
+ const recorded=recordedState(type,date);
+ if(recorded){
+  const state=heliocentric(recorded),encounter=encounterState(type,date);
+  const host=encounter&&bodies.find(item=>item.key===encounter.body||item.kinematicType===encounter.body);
+  if(host&&encounter.weight>0){
+   const near={p:add(host.p,toSceneFrame(encounter.p)),v:add(host.v,toSceneFrame(encounter.v))};
+   return {p:lerp(state.p,near.p,encounter.weight),v:lerp(state.v,near.v,encounter.weight)};
+  }
+  return state;
  }
  const dwarf=KINEMATIC_BY_TYPE.get(type)?.orbit;
  if(dwarf){const state=numericalState(dwarf,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}
- if(type==='tesla-roadster'){const state=numericalState(roadsterOrbit,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}
- if(type==='67p'){const state=numericalState(comet67pOrbit,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}
- if(type==='hale-bopp'){const state=numericalState(haleBoppOrbit,date);return {p:add(sunP,state.p),v:add(sunV,state.v)};}
- if(type==='oumuamua'){
-  const days=dayOffset(date,'2017-09-09T00:00:00Z'),distance=.255+Math.abs(days)*26.33*86400/AU;
-  const direction=days>=0?oumuamuaDirection:scale(oumuamuaDirection,-1),speed=26.33*86400/AU*Math.sign(days||1);
-  return {p:add(sunP,scale(direction,distance)),v:add(sunV,scale(direction,speed))};
- }
  return {p:[...sunP],v:[...sunV]};
 }
 export function updateKinematicBodies(bodies,date){
- for(const item of bodies)if(item.kinematic){
+ // Dwarf planets first: a flyby probe is placed relative to them.
+ const ordered=bodies.filter(item=>item.kinematic).sort((a,b)=>(b.dwarfPlanet?1:0)-(a.dwarfPlanet?1:0));
+ for(const item of ordered){
   const state=kinematicState(item.kinematicType,date,bodies);
   item.p=state.p;item.v=state.v;
-  if(state.parent)item.parent=state.parent;
+  if(state.parent)item.parent=state.parent;else if(state.parent===null)delete item.parent;
+  item.observed=isObserved(item.kinematicType,date);
  }
  return bodies;
 }
@@ -268,3 +317,34 @@ export function accelerations(bs){const acc=bs.map(()=>[0,0,0]);for(let i=0;i<bs
 
 export function step(bs,dt){const a=accelerations(bs);for(let i=0;i<bs.length;i++){if(bs[i].kinematic)continue;for(let k=0;k<3;k++){bs[i].v[k]+=.5*dt*a[i][k];bs[i].p[k]+=dt*bs[i].v[k]}}const a2=accelerations(bs);for(let i=0;i<bs.length;i++){if(bs[i].kinematic)continue;for(let k=0;k<3;k++)bs[i].v[k]+=.5*dt*a2[i][k];}}
 export function stableStep(bs){let dt=.02;for(let i=0;i<bs.length;i++)for(let j=i+1;j<bs.length;j++){if(bs[i].kinematic||bs[j].kinematic)continue;const r=Math.hypot(...bs[i].p.map((x,k)=>x-bs[j].p[k]));dt=Math.min(dt,.035*Math.sqrt(r*r*r/(G*(bs[i].mass+bs[j].mass))),.035*r/(Math.hypot(...bs[i].v.map((x,k)=>x-bs[j].v[k]))+1e-12))}return Math.max(1e-9,dt)}
+
+// Historic scenarios run decades in a minute - hundreds of simulated days per
+// real second, far past what the N-body integrator can step through. The
+// planets then come straight from the same JPL ephemeris the system is built
+// from (valid 1800-2050), the Moon from its lunar theory, and every other
+// moon advances on its exact two-body orbit about its planet. Nothing is
+// integrated, so the playback rate costs nothing and the planets stand where
+// the ephemeris puts them on each date.
+export function advanceByEphemeris(bodies,from,to){
+ const days=(to.getTime()-from.getTime())/DAY_MS;
+ const sun=bodies.find(item=>item.key==='sun');if(!sun||!(days>0))return updateKinematicBodies(bodies,to);
+ const moons=[];
+ for(const item of bodies){
+  if(item.kinematic||item.key!=='moon'||item.parent==null)continue;
+  const host=bodies.find(other=>other.id===item.parent);if(!host)continue;
+  moons.push({item,host,r:difference(item.p,host.p),v:difference(item.v,host.v),mu:G*(item.mass+host.mass)});
+ }
+ let lunar=null;
+ for(const [, key] of planets){
+  const planet=bodies.find(item=>item.key===key);if(!planet)continue;
+  let state=planetState(key,to);
+  if(key==='earth'){const split=earthMoonSplit(state.p,state.v,to);state=split.earth;lunar=split.moon;}
+  planet.p=add(sun.p,toSceneFrame(state.p));planet.v=add(sun.v,toSceneFrame(state.v));
+ }
+ for(const {item,host,r,v,mu} of moons){
+  if(host.key==='earth'&&lunar&&['Księżyc','Moon'].includes(item.name)){item.p=add(sun.p,toSceneFrame(lunar.p));item.v=add(sun.v,toSceneFrame(lunar.v));continue;}
+  const drift=keplerDrift(r,v,mu,days);
+  item.p=add(host.p,drift?drift.r:r);item.v=add(host.v,drift?drift.v:v);
+ }
+ return updateKinematicBodies(bodies,to);
+}
