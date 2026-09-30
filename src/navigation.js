@@ -1,10 +1,10 @@
 import {Vector3,Euler} from 'three';
-export function createNavigation({camera,controls,element,blocked,onMove,pace}){
+export function createNavigation({camera,controls,element,blocked,onMove,pace,onExit=()=>{}}){
  const keys=new Set(),movement=new Set(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE']);
  const editable=e=>e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target?.tagName);
  let looking=false,pointerId=null,pointerLocked=false;
  const direction=new Vector3(),right=new Vector3(),up=new Vector3(),offset=new Vector3(),angles=new Euler(0,0,0,'YXZ');
- function syncLookState(){pointerLocked=document.pointerLockElement===element;if(pointerLocked){if(pointerId!==null&&element.hasPointerCapture(pointerId))element.releasePointerCapture(pointerId);pointerId=null;looking=true;controls.enabled=false;element.classList.add('mouse-steering')}else if(pointerId===null){looking=false;controls.enabled=!blocked();element.classList.remove('mouse-steering')}}
+ function syncLookState(){const wasLocked=pointerLocked;pointerLocked=document.pointerLockElement===element;if(pointerLocked){if(pointerId!==null&&element.hasPointerCapture(pointerId))element.releasePointerCapture(pointerId);pointerId=null;looking=true;controls.enabled=false;element.classList.add('mouse-steering')}else if(pointerId===null){looking=false;controls.enabled=!blocked();element.classList.remove('mouse-steering');if(wasLocked){keys.clear();onExit()}}}
  function requestMouseSteering(){
   if(blocked()||pointerLocked||!element.requestPointerLock)return;
   // Pointer Lock is the native mouse-look primitive used by desktop games.
@@ -12,7 +12,14 @@ export function createNavigation({camera,controls,element,blocked,onMove,pace}){
   // cursor without changing the camera position.
   const lock=element.requestPointerLock();lock?.catch?.(()=>{});
  }
- function release({unlock=true}={}){keys.clear();if(unlock&&document.pointerLockElement===element)document.exitPointerLock?.();if(looking&&!pointerLocked){looking=false;controls.enabled=!blocked();if(pointerId!==null&&element.hasPointerCapture(pointerId))element.releasePointerCapture(pointerId);pointerId=null;element.classList.remove('mouse-steering')}}
+ function release({unlock=true}={}){
+  const wasLooking=looking||pointerLocked,captured=pointerId;
+  keys.clear();looking=false;pointerLocked=false;pointerId=null;
+  if(unlock&&document.pointerLockElement===element)document.exitPointerLock?.();
+  if(wasLooking)controls.enabled=!blocked();
+  if(captured!==null&&element.hasPointerCapture(captured))element.releasePointerCapture(captured);
+  element.classList.remove('mouse-steering');onExit();
+ }
  document.addEventListener('pointerlockchange',syncLookState);
  window.addEventListener('keydown',e=>{if(blocked()||editable(e)||e.ctrlKey||e.metaKey||e.altKey)return;if(movement.has(e.code)||e.code==='ShiftLeft'||e.code==='ShiftRight'){keys.add(e.code);if(movement.has(e.code)){e.preventDefault();onMove();requestMouseSteering();}}});
  window.addEventListener('keyup',e=>keys.delete(e.code));window.addEventListener('blur',release);
@@ -24,7 +31,13 @@ export function createNavigation({camera,controls,element,blocked,onMove,pace}){
   e.preventDefault();e.stopImmediatePropagation();onMove();element.focus();
   requestMouseSteering();if(document.pointerLockElement===element)return;
   controls.enableDamping=false;controls.update();controls.enableDamping=true;
-  looking=true;pointerId=e.pointerId;controls.enabled=false;element.setPointerCapture(e.pointerId);
+  looking=true;pointerId=e.pointerId;controls.enabled=false;
+  // Pointer Lock may win the race before the unlocked drag captures its
+  // pointer. Browsers reject capture in that state; adopt the actual lock.
+  try{element.setPointerCapture(e.pointerId)}catch(error){
+   if(!['InvalidStateError','NotFoundError'].includes(error.name))throw error;
+   pointerId=null;syncLookState();
+  }
  },true);
  function steer(e){
   if(!looking)return;e.preventDefault();e.stopImmediatePropagation();
