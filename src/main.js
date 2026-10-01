@@ -1856,10 +1856,20 @@ function setupBodySearch(){
 }
 function focusBody(id,{keepPanel=false}={}){if(blackHoleFall)stopBlackHoleFall();if(lightFlight)stopLightFlight();const b=bs.find(x=>x.id===id);if(!b)return;follow=id;setEducationSubject(id);const target=displayed(b),distance=followDistance(radius(b),compressed);controls.target.copy(target);if(b.key==='comet'){const sun=bs.find(candidate=>candidate.key==='sun'),sunward=sun?displayed(sun).sub(target).normalize():new THREE.Vector3(0,0,1),side=new THREE.Vector3(0,1,0).cross(sunward).normalize();camera.position.copy(target).addScaledVector(sunward,distance*4.3).addScaledVector(side,distance*1.4)}else camera.position.copy(target).add(new THREE.Vector3(0,2,4).multiplyScalar(distance));if(!keepPanel)panel.hidden=true}
 let enterpriseEasterEgg=null;
+const enterpriseCredit=document.createElement('div');enterpriseCredit.className='enterprise-credit';enterpriseCredit.hidden=true;freeFlightHelp.append(enterpriseCredit);
+function updateEnterpriseCredit(ship){
+ enterpriseCredit.hidden=!ship;enterpriseCredit.replaceChildren();
+ if(!ship)return;
+ const source=ship.userData.source;
+ for(const [label,url] of [[source.title,source.url],[source.author,source.authorUrl],[source.license,source.licenseUrl]]){
+  if(enterpriseCredit.childNodes.length)enterpriseCredit.append(' · ');
+  const link=document.createElement('a');link.textContent=label;link.href=url;link.target='_blank';link.rel='noopener noreferrer';enterpriseCredit.append(link);
+ }
+}
 const navigationBlocked=()=>!!(lightFlight||surfaceView||solarDeath||blackHoleFall||cinematic||historic||!panel.hidden);
 function freeFlightPace(){let distance=Infinity;for(const b of bs)distance=Math.min(distance,Math.max(0,camera.position.distanceTo(displayed(b))-radius(b)));return Math.max(compressed?.08:.000002,Math.min(40,distance*.6))}
 const navigation=createNavigation({camera,controls,element:renderer.domElement,blocked:navigationBlocked,onMove:()=>{follow=null;tip.hidden=true},pace:freeFlightPace,onExit:()=>enterpriseEasterEgg?.reset()});
-enterpriseEasterEgg=createEnterpriseEasterEgg({scene,camera,isActive:()=>!systemMode&&!navigationBlocked()&&navigation.active(),spawnDistance:()=>freeFlightPace()*.8});
+enterpriseEasterEgg=createEnterpriseEasterEgg({scene,camera,isActive:()=>!systemMode&&!navigationBlocked()&&navigation.active(),spawnDistance:()=>freeFlightPace()*.8,onChange:updateEnterpriseCredit});
 function resetView(){navigation.reset();camera.fov=43;camera.updateProjectionMatrix();if(lightFlight)stopLightFlight();follow=null;controls.enabled=true;controls.enableDamping=false;controls.maxDistance=maxViewDistance(compressed);camera.position.copy(home).multiplyScalar(scaleRatio(home.length(),true,compressed));controls.target.set(0,0,0);controls.update();controls.enableDamping=true;closePanel()}
 function clearTrails(){for(const v of views.values()){v.history=[];v.trail.geometry.setDrawRange(0,0)}}
 // Rebuild the system at a given instant. Restart uses now; a listed collision

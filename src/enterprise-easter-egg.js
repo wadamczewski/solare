@@ -24,16 +24,16 @@ export function createKonamiSequence(){
 // This object is deliberately outside the physical body catalogue and share
 // state. Only this free-flight session owns it; neither saves nor later flights
 // can restore an unlocked ship. The model code is fetched only on completion.
-export function createEnterpriseEasterEgg({scene,camera,isActive,spawnDistance,events=window,loadModel=()=>import('./enterprise-model.js')}){
+export function createEnterpriseEasterEgg({scene,camera,isActive,spawnDistance,events=window,loadModel=()=>import('./enterprise-model.js'),onChange=()=>{}}){
  const sequence=createKonamiSequence();
- let ship=null,pending=false,generation=0,disposed=false;
+ let ship=null,pending=false,generation=0,disposed=false,download=null;
  function reset(){
-  sequence.reset();if(ship||pending)generation++;pending=false;
-  if(ship){ship.removeFromParent();ship.userData.dispose?.();ship=null}
+  sequence.reset();if(ship||pending)generation++;pending=false;download?.abort();download=null;
+  if(ship){ship.removeFromParent();ship.userData.dispose?.();ship=null;onChange(null)}
  }
  async function reveal(){
   if(ship||pending)return;
-  const ticket=++generation;pending=true;
+  const ticket=++generation;pending=true;const request=new AbortController();download=request;
   // Capture the trigger view, not whichever direction a later download finds.
   const distance=Math.max(camera.near*100,Math.min(camera.far*.2,spawnDistance()));
   const position=camera.position.clone().addScaledVector(camera.getWorldDirection(new Vector3()),distance);
@@ -42,14 +42,20 @@ export function createEnterpriseEasterEgg({scene,camera,isActive,spawnDistance,e
    const {createEnterpriseModel}=await loadModel();
    if(disposed||ticket!==generation)return;
    if(!isActive()){reset();return}
-   ship=createEnterpriseModel();
+   const model=await createEnterpriseModel({signal:request.signal});
+   if(disposed||ticket!==generation||!isActive()){
+    model.userData.dispose?.();
+    if(ticket===generation)reset();
+    return;
+   }
+   ship=model;
    ship.position.copy(position);ship.quaternion.copy(rotation);
    // Model is normalised to unit extent; fit both wide and portrait viewports.
    const halfFov=Math.atan(Math.tan(camera.fov*Math.PI/360)*Math.min(1,camera.aspect));
    ship.scale.setScalar(distance*Math.tan(halfFov)*1.1);
-   scene.add(ship);
-  }catch(error){if(ticket===generation)console.warn('Enterprise model could not be loaded:',error)}
-  finally{if(ticket===generation)pending=false}
+   scene.add(ship);onChange(ship);
+  }catch(error){if(ticket===generation&&!request.signal.aborted)console.warn('Enterprise model could not be loaded:',error)}
+  finally{if(ticket===generation){pending=false;download=null}}
  }
  function keydown(event){
   if(event.code==='Escape'||event.key==='Escape'||!isActive()){reset();return}

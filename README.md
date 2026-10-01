@@ -50,6 +50,8 @@ Kept deliberately as it was: clicking empty space still creates a body there (no
 - Space pauses; N adds a body; T opens the simulation panel; R / Reset restores the initial system, settings, and camera; Escape closes a panel or releases the pointer.
 - “Swap orbit” moves a planet’s moons with its position and velocity.
 
+The free-flight Easter egg unlocks with **↑ ↑ ↓ ↓ ← → ← → B A** in the default Solar System. It uses [Cpt.Kirk's U.S.S. Enterprise NCC-1701](https://sketchfab.com/3d-models/uss-enterprise-ncc-1701-6ad2e79331f445f8bcfc109a47d5287c), licensed under [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): the original 147,146 triangles and 35 embedded images, with exported construction lines hidden. The 17.7 MB model loads only after the code, stays at its world position while the camera moves, and releases its GPU resources when free flight ends. A later flight requires the code again; saved views never unlock it.
+
 ## Surface view
 
 The button below the sky toggles places the camera on the surface of the selected body. The sky uses catalogue stars, ephemeris planets, the Moon’s dedicated theory, and a horizon derived from the body’s measured pole and prime meridian.

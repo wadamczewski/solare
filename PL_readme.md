@@ -26,6 +26,8 @@ Node 20.17+; `npm ci`, `npm run dev`. `npm run build` tworzy `dist`. `npm test` 
 - Spacja: pauza; N: dodawanie ciała; T: panel symulacji; R / Reset: pełne przywrócenie początkowego układu, ustawień i kamery; Escape: zamknięcie panelu lub wskaźnika.
 - „Zamień orbitę” przenosi także księżyce wraz z pozycją i prędkością ich planety.
 
+Easter egg w swobodnym locie po domyślnym Układzie Słonecznym odblokowuje kod **↑ ↑ ↓ ↓ ← → ← → B A**. Korzysta z [modelu U.S.S. Enterprise NCC-1701 autorstwa Cpt.Kirka](https://sketchfab.com/3d-models/uss-enterprise-ncc-1701-6ad2e79331f445f8bcfc109a47d5287c) na licencji [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/): zachowuje oryginalne 147 146 trójkątów i 35 osadzonych obrazów, ukrywając wyeksportowane linie konstrukcyjne. Model o rozmiarze 17,7 MB jest pobierany dopiero po wpisaniu kodu, pozostaje w swoim miejscu podczas ruchu kamery i zwalnia zasoby GPU po zakończeniu lotu. Kolejny lot wymaga ponownego wpisania kodu; zapisane widoki go nie odblokowują.
+
 ## Widok z powierzchni
 
 Przycisk pod przełącznikami nieba stawia kamerę na powierzchni wybranego ciała. Niebo jest prawdziwe: gwiazdy z katalogu, planety z efemerydy, Księżyc z własnej teorii, a horyzont z mierzonego bieguna i południka zerowego danego ciała.

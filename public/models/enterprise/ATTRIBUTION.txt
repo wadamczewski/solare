@@ -1,0 +1,14 @@
+U.S.S. Enterprise NCC-1701
+Author: Cpt.Kirk
+Author profile: https://sketchfab.com/CaptainJamesKirk
+Source: https://sketchfab.com/3d-models/uss-enterprise-ncc-1701-6ad2e79331f445f8bcfc109a47d5287c
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+
+Downloaded from Sketchfab on 2026-10-01 as the official GLB conversion.
+The GLB is unchanged, with all 147,146 triangles, line geometry and 35 embedded
+images retained. Solare centres, rotates and uniformly scales it at runtime
+for the free-flight easter egg. No geometry decimation or texture resizing.
+Exported construction lines are hidden at runtime to show the textured hull.
+The embedded source metadata uses an older profile URL for the same author:
+https://sketchfab.com/CommanderCodyfromCoruscant
