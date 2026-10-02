@@ -34,10 +34,15 @@ try{
  const spawned=await state();assert.equal(requests.length,1);
  await mkdir('outputs',{recursive:true});
  await page.screenshot({path:'outputs/enterprise-free-flight.png'});
- await page.keyboard.down('w');await page.waitForFunction(distance=>window.solare.getView().freeFlight.enterprise.distance<distance*.97,spawned.enterprise.distance);await page.keyboard.up('w');
- assert.deepEqual((await state()).enterprise.position,spawned.enterprise.position);
+ assert.equal(spawned.enterprise.flight.piloting,true);
+ await page.keyboard.down('w');await page.waitForFunction(()=>window.solare.getView().freeFlight.enterprise.flight.speed>.01);await page.keyboard.up('w');
+ assert.notDeepEqual((await state()).enterprise.position,spawned.enterprise.position,'W flies the ship');
+ await page.keyboard.press('v');await page.waitForFunction(()=>!window.solare.getView().freeFlight.enterprise.flight.piloting);
+ const inspecting=(await state()).enterprise;
+ await page.keyboard.down('w');await page.waitForFunction(distance=>window.solare.getView().freeFlight.enterprise.distance<distance*.97,inspecting.distance);await page.keyboard.up('w');
+ assert.deepEqual((await state()).enterprise.position,inspecting.position,'inspection moves only the camera');
  await page.screenshot({path:'outputs/enterprise-approach.png'});
- await typeCode();assert.deepEqual((await state()).enterprise.position,spawned.enterprise.position,'no duplicate or reposition on a second code');
+ await typeCode();assert.deepEqual((await state()).enterprise.position,inspecting.position,'no duplicate or reposition on a second code');
  await leave();await enter();assert.equal((await state()).enterprise,null);
  await typeCode();await page.waitForFunction(()=>window.solare.getView().freeFlight.enterprise);
  await page.evaluate(()=>window.solare.startLightFlight());
@@ -50,5 +55,5 @@ try{
  // Text input must not accumulate the unlock sequence.
  await page.locator('#body-search').focus();await typeCode();assert.equal((await state()).enterprise,null);
  assert.deepEqual(errors,[]);
- console.log(JSON.stringify({ok:true,checks:['hidden by default','lazy model loading','wrong sequence','Konami activation','fixed world position while flying','no duplicates','Escape cleanup','re-entry requires code','scenario cleanup','reset cleanup','input isolation'],screenshots:['outputs/enterprise-free-flight.png','outputs/enterprise-approach.png']},null,2));
+ console.log(JSON.stringify({ok:true,checks:['hidden by default','lazy model loading','wrong sequence','Konami activation','W flies the ship','V switches to stationary inspection','no duplicates','Escape cleanup','re-entry requires code','scenario cleanup','reset cleanup','input isolation'],screenshots:['outputs/enterprise-free-flight.png','outputs/enterprise-approach.png']},null,2));
 }catch(error){await mkdir('outputs',{recursive:true});await page.screenshot({path:'outputs/enterprise-test-failure.png'}).catch(()=>{});throw error}finally{await browser.close()}

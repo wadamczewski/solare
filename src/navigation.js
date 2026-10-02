@@ -1,5 +1,5 @@
 import {Vector3,Euler} from 'three';
-export function createNavigation({camera,controls,element,blocked,onMove,pace,onExit=()=>{}}){
+export function createNavigation({camera,controls,element,blocked,onMove,pace,onExit=()=>{},pilot=()=>null}){
  const keys=new Set(),movement=new Set(['KeyW','KeyA','KeyS','KeyD','KeyQ','KeyE']);
  const editable=e=>e.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(e.target?.tagName);
  let looking=false,pointerId=null,pointerLocked=false;
@@ -41,17 +41,22 @@ export function createNavigation({camera,controls,element,blocked,onMove,pace,on
  },true);
  function steer(e){
   if(!looking)return;e.preventDefault();e.stopImmediatePropagation();
+  const craft=pilot();if(craft){craft.look(e.movementX,e.movementY);return}
   angles.setFromQuaternion(camera.quaternion,'YXZ');angles.y-=e.movementX*.003;angles.x=Math.max(-Math.PI/2+.01,Math.min(Math.PI/2-.01,angles.x-e.movementY*.003));angles.z=0;
   const distance=Math.max(controls.minDistance,camera.position.distanceTo(controls.target));
   camera.quaternion.setFromEuler(angles);camera.getWorldDirection(direction);controls.target.copy(camera.position).addScaledVector(direction,distance);
  }
- element.addEventListener('pointermove',steer,true);
+ element.addEventListener('pointermove',e=>{if(!pointerLocked)steer(e)},true);
  // Pointer Lock emits MouseEvents in every supported desktop browser. Keep the
  // PointerEvent handler above for the unlocked right-button fallback.
  document.addEventListener('mousemove',e=>{if(pointerLocked)steer(e)},true);
  for(const event of ['pointerup','pointercancel','lostpointercapture'])element.addEventListener(event,e=>{if(!pointerLocked&&looking&&e.pointerId===pointerId){e.stopImmediatePropagation();release()}},true);
  return {reset:release,active:()=>looking||pointerLocked||[...keys].some(key=>movement.has(key)),update(dt){
-  if(blocked()){release();return}if(![...keys].some(k=>movement.has(k)))return;
+  if(blocked()){release();return}
+  const craft=pilot();if(craft){
+   onMove();craft.update(dt,{forward:Number(keys.has('KeyW'))-Number(keys.has('KeyS')),right:Number(keys.has('KeyD'))-Number(keys.has('KeyA')),up:Number(keys.has('KeyE'))-Number(keys.has('KeyQ')),boost:keys.has('ShiftLeft')||keys.has('ShiftRight')},pace());return;
+  }
+  if(![...keys].some(k=>movement.has(k)))return;
   onMove();camera.getWorldDirection(direction);right.setFromMatrixColumn(camera.matrixWorld,0);up.setFromMatrixColumn(camera.matrixWorld,1);
   offset.set(0,0,0).addScaledVector(direction,Number(keys.has('KeyW'))-Number(keys.has('KeyS'))).addScaledVector(right,Number(keys.has('KeyD'))-Number(keys.has('KeyA'))).addScaledVector(up,Number(keys.has('KeyE'))-Number(keys.has('KeyQ')));
   if(offset.lengthSq()===0)return;

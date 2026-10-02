@@ -36,3 +36,22 @@ test('a pointer-lock grant racing drag capture still enters free flight without 
   assert.equal(navigation.active(),true);assert.equal(controls.enabled,false);navigation.reset();
  }finally{globalThis.window=previous.window;globalThis.document=previous.document}
 });
+
+test('WASD, vertical movement, boost and mouse are routed to the ship pilot without also moving the camera',()=>{
+ const previous={window:globalThis.window,document:globalThis.document},win=new EventTarget(),doc=new EventTarget(),element=new EventTarget();
+ Object.assign(element,{classList:{add(){},remove(){}},hasPointerCapture:()=>false,requestPointerLock:()=>{}});
+ doc.pointerLockElement=element;doc.exitPointerLock=()=>{doc.pointerLockElement=null};globalThis.window=win;globalThis.document=doc;
+ try{
+  const moves=[],looks=[],camera=new PerspectiveCamera(),controls={enabled:true,target:new Vector3(),minDistance:.001},craft={update:(dt,input,pace)=>moves.push({dt,input,pace}),look:(dx,dy)=>looks.push([dx,dy])};
+  const navigation=createNavigation({camera,controls,element,blocked:()=>false,onMove:()=>{},pace:()=>7,pilot:()=>craft});doc.dispatchEvent(new Event('pointerlockchange'));
+  const key=(type,code)=>{const event=new Event(type,{cancelable:true});Object.assign(event,{code});win.dispatchEvent(event)};
+  for(const code of ['KeyW','KeyD','KeyE','ShiftLeft'])key('keydown',code);
+  const initial=camera.position.clone();navigation.update(.016);
+  assert.deepEqual(moves[0],{dt:.016,input:{forward:1,right:1,up:1,boost:true},pace:7});assert.deepEqual(camera.position,initial);
+  const mouse=new Event('mousemove',{cancelable:true});Object.assign(mouse,{movementX:30,movementY:-8});doc.dispatchEvent(mouse);assert.deepEqual(looks,[[30,-8]]);
+  const pointer=new Event('pointermove',{cancelable:true});Object.assign(pointer,{movementX:30,movementY:-8});element.dispatchEvent(pointer);assert.equal(looks.length,1,'pointer-lock mouse movement is not applied twice');
+  for(const code of ['KeyW','KeyD','KeyE','ShiftLeft'])key('keyup',code);
+  navigation.update(.016);assert.deepEqual(moves[1].input,{forward:0,right:0,up:0,boost:false},'no held keys must still update braking');
+  navigation.reset();
+ }finally{globalThis.window=previous.window;globalThis.document=previous.document}
+});

@@ -24,11 +24,13 @@ export function createKonamiSequence(){
 // This object is deliberately outside the physical body catalogue and share
 // state. Only this free-flight session owns it; neither saves nor later flights
 // can restore an unlocked ship. The model code is fetched only on completion.
-export function createEnterpriseEasterEgg({scene,camera,isActive,spawnDistance,events=window,loadModel=()=>import('./enterprise-model.js'),onChange=()=>{}}){
+const loadEnterprise=async()=>({...await import('./enterprise-model.js'),...await import('./enterprise-flight.js')});
+export function createEnterpriseEasterEgg({scene,camera,controls,isActive,spawnDistance,events=window,loadModel=loadEnterprise,onChange=()=>{}}){
  const sequence=createKonamiSequence();
- let ship=null,pending=false,generation=0,disposed=false,download=null;
+ let ship=null,pending=false,generation=0,disposed=false,download=null,flight=null;
  function reset(){
   sequence.reset();if(ship||pending)generation++;pending=false;download?.abort();download=null;
+  flight?.dispose();flight=null;
   if(ship){ship.removeFromParent();ship.userData.dispose?.();ship=null;onChange(null)}
  }
  async function reveal(){
@@ -39,7 +41,7 @@ export function createEnterpriseEasterEgg({scene,camera,isActive,spawnDistance,e
   const position=camera.position.clone().addScaledVector(camera.getWorldDirection(new Vector3()),distance);
   const rotation=camera.quaternion.clone().multiply(new Quaternion().setFromEuler(new Euler(.26,Math.PI+.6,-.08)));
   try{
-   const {createEnterpriseModel}=await loadModel();
+   const {createEnterpriseModel,createEnterpriseFlight}=await loadModel();
    if(disposed||ticket!==generation)return;
    if(!isActive()){reset();return}
    const model=await createEnterpriseModel({signal:request.signal});
@@ -53,12 +55,19 @@ export function createEnterpriseEasterEgg({scene,camera,isActive,spawnDistance,e
    // Model is normalised to unit extent; fit both wide and portrait viewports.
    const halfFov=Math.atan(Math.tan(camera.fov*Math.PI/360)*Math.min(1,camera.aspect));
    ship.scale.setScalar(distance*Math.tan(halfFov)*1.1);
-   scene.add(ship);onChange(ship);
+   scene.add(ship);
+   if(controls&&createEnterpriseFlight)flight=createEnterpriseFlight({scene,ship,camera,controls});
+   onChange(ship,flight?.piloting??false);
   }catch(error){if(ticket===generation&&!request.signal.aborted)console.warn('Enterprise model could not be loaded:',error)}
   finally{if(ticket===generation){pending=false;download=null}}
  }
  function keydown(event){
   if(event.code==='Escape'||event.key==='Escape'||!isActive()){reset();return}
+  if(ship&&flight&&event.code==='KeyV'&&!editable(event.target)&&!event.ctrlKey&&!event.metaKey&&!event.altKey&&!event.isComposing){
+   event.preventDefault();event.stopImmediatePropagation();
+   if(!event.repeat)onChange(ship,flight.toggle());
+   return;
+  }
   const {consumed,complete}=sequence.press(event);
   if(consumed){event.preventDefault();event.stopImmediatePropagation()}
   if(complete)void reveal();
@@ -67,7 +76,9 @@ export function createEnterpriseEasterEgg({scene,camera,isActive,spawnDistance,e
  events.addEventListener('blur',reset);
  return {
   reset,
-  update(){if(!isActive())reset()},
+  update(dt){if(!isActive())reset();else flight?.updateEffects(dt)},
+  get pilot(){return flight?.piloting?flight:null},
+  get flightState(){return flight?.state??null},
   get object(){return ship},
   dispose(){disposed=true;reset();events.removeEventListener('keydown',keydown,true);events.removeEventListener('blur',reset)}
  };

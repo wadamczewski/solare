@@ -24,7 +24,9 @@ export function prepareEnterpriseModel(scene){
  const extent=Math.max(size.x,size.y,size.z);
  if(!Number.isFinite(extent)||extent<=0)throw new Error('Enterprise has invalid model bounds');
  const placement=new Group();placement.scale.setScalar(1/extent);placement.position.copy(center).multiplyScalar(-1/extent);
- placement.add(scene);root.add(placement);
+ // The export's bow points along -X. Use the usual flight frame: -Z forward.
+ const orientation=new Group();orientation.rotation.y=-Math.PI/2;
+ placement.add(scene);orientation.add(placement);root.add(orientation);
  let disposed=false;
  root.userData.dispose=()=>{
   if(disposed)return;disposed=true;
