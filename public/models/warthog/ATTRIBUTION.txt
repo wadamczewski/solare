@@ -1,0 +1,10 @@
+Warthog - Standard edition by McCarthy3D
+https://sketchfab.com/3d-models/warthog-standard-edition-e2d23c845eb34df2a286915890bb621a
+https://sketchfab.com/joshuawatt811
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+https://creativecommons.org/licenses/by/4.0/
+Downloaded from Sketchfab's authorized GLB 4k download on 2 October 2026.
+Modifications: lossless pixel-preserving texture repacking, source presentation
+floor hidden, model normalisation and rigging of original wheels/suspension,
+braking/exhaust effects. Original geometry, UVs and image resolution retained.
+This fan-art Easter egg is not an official Halo or Microsoft product.

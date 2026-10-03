@@ -12,6 +12,8 @@ import {updateSurfaceImpact} from './surface-impact.js';
 import {naturalColorMaterial} from './natural-color.js';
 import {applyImpactDamage} from './impact-damage.js';
 import {createNavigation} from './navigation.js';
+import {createSurfaceVehicleEasterEgg} from './surface-vehicle-easter-egg.js';
+import {createSurfaceGroundSampler} from './surface-ground-sampler.js';
 import {createEnterpriseEasterEgg} from './enterprise-easter-egg.js';
 import {applyCentralStarPreset,blackbodyColor,centralStarDetails,centralStars,effectiveLuminosity,starPreset,visualLuminosity} from './central-stars.js';
 import {SOLAR_EVOLUTION_SECONDS,SOLAR_PHASES,SOLAR_RADIUS_KM,adiabaticExpansion,solarEvolutionBodyState,solarEvolutionState,solarPhaseNote} from './solar-evolution.js';
@@ -146,7 +148,7 @@ const flightTextureKeys=new Set();
 // turned. The camera is driven directly while this is set, so the orbit
 // controls are switched off and the scale is forced to real - a horizon is
 // meaningless against radii that have been enlarged to be seen from outside.
-let surfaceView=null,surfaceReturn=null,earthLocationWatch=null;
+let surfaceView=null,surfaceReturn=null,earthLocationWatch=null,surfaceVehicle=null,surfaceSession=0;
 let educationEnabled=false,educationSubjectId=null;
 let cinematic=null;
 const flightLabels=document.createElement("div");flightLabels.id="flight-labels";document.body.append(flightLabels);
@@ -1101,6 +1103,7 @@ function startSurfaceView(bodyId,preset=null){
  if(lightFlight)stopLightFlight();
  stopSolarDeath();
  if(!surfaceView)surfaceReturn={compressed,camera:camera.position.clone(),target:controls.target.clone(),fov:camera.fov,follow,speed};
+ surfaceVehicle?.reset();surfaceSession++;
  surfaceView={bodyId,key:body.key,name:body.name,latitude:0,longitude:0,azimuth:0,altitude:24,fov:SURFACE_FOV.start,deviceLocalTime:isEarthSurface(body),locationState:isEarthSurface(body)?'requesting':null,locationOverride:false,cloudsRecenter:true,earthAtmosphereEnabled:false};
  if(preset)Object.assign(surfaceView,preset,{locationState:null,locationOverride:true,cloudsRecenter:true});
  else{if(isEarthSurface(body))beginEarthSurfaceContext();aimAtSomethingWorthSeeing(body);}
@@ -1156,6 +1159,7 @@ function goToKnownPlace(bodyId,place){
 }
 function stopSurfaceView(){
  if(!surfaceView)return;
+ surfaceVehicle?.reset();surfaceSession++;
  surfaceNavigation.reset();
  detachEarthCloudCover();
  detachSurfaceMissionAssets(views.get(surfaceView.bodyId));
@@ -1243,7 +1247,7 @@ function updateSurfaceAtmosphere(body,frame){
  const sun=skyObjects(surfaceEntries(body),surfaceEye(body,frame),frame).find(item=>item.key==='sun');
  const key=body.key==='moon'?body.name.toLowerCase():body.key;
  const surfaceKey=body.key==='moon'&&['Księżyc','Moon'].includes(body.name)?'moon':body.key;
- const observerHeightKm=Math.max(0,topographyHeightKm(surfaceKey,body.radius,surfaceView.latitude,surfaceView.longitude));
+ const observerHeightKm=surfaceVehicle?.object?surfaceView.vehicleCameraHeightKm:Math.max(0,topographyHeightKm(surfaceKey,body.radius,surfaceView.latitude,surfaceView.longitude));
  const state=surfaceAtmosphere(key,sun?.altitude??-90,body.key!=='earth'||surfaceView?.earthAtmosphereEnabled!==false,observerHeightKm);
  surfaceView.light={...state,sunAltitude:sun?.altitude??-90};
  sky.setAtmosphereVisibility(state.stars);
@@ -1302,17 +1306,27 @@ function updateSurfaceView(tick=0){
  // open. Attach the shared procedural cloud-shadow uniforms to each receiver
  // as it appears; the effect is shader-based, so it cannot z-fight terrain.
  earthCloudCover?.applyGroundShadows(surfaceDetailView?.mesh);
- earthCloudCover?.update({wallSeconds:performance.now()/1000,simulatedDays:elapsed,cameraPosition:camera.position,cameraDirection:lookDirection,cameraFov:surfaceView.fov,cameraAspect:camera.aspect});
  camera.fov=surfaceView.fov;camera.updateProjectionMatrix();
  camera.lookAt(eye.clone().add(lookDirection));
  controls.target.copy(eye.clone().add(lookDirection));
  camera.updateMatrixWorld();
+ if(surfaceVehicle?.object){
+  surfaceVehicle.frame();
+  const speedReadout=document.querySelector('#surface-vehicle-speed');if(speedReadout&&tick%6===0)speedReadout.textContent=`${formatNumber(Math.abs(surfaceVehicle.state.speedKmS)*3600,0)} km/h`;
+  const localEye=surfaceDetailView.axis.worldToLocal(camera.position.clone()).multiplyScalar(body.radius/radius(body));
+  const eyeDirection=localEye.clone().normalize(),axes=bodyAxes(body);
+  const datumRadius=body.radius/Math.hypot(eyeDirection.x/axes[0],eyeDirection.y/axes[1],eyeDirection.z/axes[2]);
+  surfaceView.vehicleCameraHeightKm=Math.max(0,localEye.length()-datumRadius);
+  const actualLook=camera.getWorldDirection(new THREE.Vector3()),north=new THREE.Vector3(...horizon.north),east=new THREE.Vector3(...horizon.east);
+  surfaceView.azimuth=((Math.atan2(actualLook.dot(east),actualLook.dot(north))*180/Math.PI)%360+360)%360;
+ }
+ earthCloudCover?.update({wallSeconds:performance.now()/1000,simulatedDays:elapsed,cameraPosition:camera.position,cameraDirection:camera.getWorldDirection(new THREE.Vector3()),cameraFov:surfaceView.fov,cameraAspect:camera.aspect});
  // The circles and names are DOM overlays while the bodies themselves are
  // rendered every frame. Once time is running, even a modest simulation rate
  // can move a nearby body by several pixels per display frame; throttling
  // these labels made them visibly trail the WebGL object. Keep the idle,
  // paused view cheap, but repaint every running simulation frame.
- const surfaceRefreshStep=paused?6:1;
+ const surfaceRefreshStep=paused&&!surfaceVehicle?.object?6:1;
  if(tick%surfaceRefreshStep===0){updateSurfaceAtmosphere(body,horizon);paintSurfaceHud(body,horizon);paintSurfaceRadar(body,horizon);paintSkyLabels(body,horizon)}
 }
 // What is worth listing, and where it really is.
@@ -1356,7 +1370,7 @@ const surfaceEye=(body,horizon)=>body.p.map((value,axis)=>value+horizon.zenith[a
 // while WSAD changes latitude/longitude along its tangent plane.
 let surfaceDrag=null;
 function createSurfaceNavigation(element){
- const keys=new Set(),movement=new Set(['KeyW','KeyA','KeyS','KeyD']),surfaceKeys=new Set([...movement,'ShiftLeft','ShiftRight']);
+ const keys=new Set(),movement=new Set(['KeyW','KeyA','KeyS','KeyD']),surfaceKeys=new Set([...movement,'ShiftLeft','ShiftRight','Space']);
  const editable=event=>event.target?.isContentEditable||['INPUT','SELECT','TEXTAREA'].includes(event.target?.tagName);
  let pointerLocked=false,fallbackLooking=false,lastMouse=null;
  const active=()=>!!surfaceView&&([...keys].some(key=>movement.has(key))||pointerLocked||fallbackLooking);
@@ -1364,6 +1378,7 @@ function createSurfaceNavigation(element){
  function requestLook(){if(!surfaceView||pointerLocked||!element.requestPointerLock)return;element.focus?.({preventScroll:true});const lock=element.requestPointerLock();lock?.catch?.(()=>{})}
  function turn(dx,dy){
   if(!surfaceView)return;
+  if(surfaceVehicle?.object){surfaceVehicle.look(dx,dy);return;}
   const scale=surfaceView.fov/innerHeight;
   // Surface azimuth is measured clockwise from north. This is the same
   // convention as a first-person game: mouse right turns east, mouse down
@@ -1380,7 +1395,12 @@ function createSurfaceNavigation(element){
   if(pointerLocked){fallbackLooking=false;lastMouse=null;surfaceDrag=null;element.classList.add('mouse-steering')}else if(!fallbackLooking)element.classList.remove('mouse-steering');
  });
  function move(delta){
-  if(!surfaceView||![...keys].some(key=>movement.has(key)))return;
+  if(!surfaceView)return;
+  if(surfaceVehicle?.object){
+   const state=surfaceVehicle.update(delta,{throttle:Number(keys.has('KeyW'))-Number(keys.has('KeyS')),steer:Number(keys.has('KeyD'))-Number(keys.has('KeyA')),brake:keys.has('Space'),boost:keys.has('ShiftLeft')||keys.has('ShiftRight')});
+   if(state){surfaceView.latitude=state.latitude;surfaceView.longitude=state.longitude;surfaceView.locationOverride=true;paintEarthLocation();}return;
+  }
+  if(![...keys].some(key=>movement.has(key)))return;
   const body=surfaceBody();if(!body)return;
   const forward=Number(keys.has('KeyW'))-Number(keys.has('KeyS'));
   const right=Number(keys.has('KeyD'))-Number(keys.has('KeyA'));
@@ -1392,6 +1412,8 @@ function createSurfaceNavigation(element){
   paintEarthLocation();updateSurfaceView();
  }
  window.addEventListener('keydown',event=>{
+  surfaceVehicle?.handleKeydown(event);if(event.defaultPrevented)return;
+  if(event.code==='Space'&&!surfaceVehicle?.object)return;
   if(!surfaceView||editable(event)||event.ctrlKey||event.metaKey||event.altKey||!surfaceKeys.has(event.code))return;
   event.preventDefault();event.stopImmediatePropagation();keys.add(event.code);requestLook();
   // A short tap must still have a perceptible effect. Holding a key is
@@ -1479,6 +1501,26 @@ const surfaceAtmosphereLayer=document.createElement('div');surfaceAtmosphereLaye
 // body's full 3D direction (bearing *and* how far up or down to look) is
 // something to see at a glance instead of read off a number.
 const radarWidget=createSurfaceRadar();
+const surfaceWalkingHelp=surfaceControlsHelp.innerHTML;
+let vehicleGround=null,vehicleGroundToken=null;
+surfaceVehicle=createSurfaceVehicleEasterEgg({camera,getContext:()=>{
+ if(!surfaceView)return null;
+ const body=surfaceBody(),view=body&&views.get(body.id);if(!view)return null;
+ const token=`${surfaceSession}:${body.id}`;
+ if(token!==vehicleGroundToken){vehicleGroundToken=token;vehicleGround=createSurfaceGroundSampler({mesh:view.mesh,radiusKm:body.radius,axes:bodyAxes(body),getTopography:()=>view.surfaceDetail?.topography,getTiles:()=>view.surfaceDetail?.tiles});}
+ return {token,radiusKm:body.radius,latitude:surfaceView.latitude,longitude:surfaceView.longitude,azimuth:surfaceView.azimuth,sceneUnitsPerKm:radius(body)/body.radius,bodyFrame:view.axis,sampleRadiusKm:vehicleGround};
+},loadVehicle:async(context,options)=>{const {createWarthogModel}=await import('./warthog-model.js');return createWarthogModel(options);},onChange:({status,source})=>{
+ surfaceControlsHelp.innerHTML=surfaceWalkingHelp;
+ if(status==='off'){vehicleGround=null;vehicleGroundToken=null;return;}
+ const text=surfaceControlsHelp.querySelector('div:last-child');
+ if(status==='loading'){text.innerHTML='<strong>Warthog</strong><span>Ładowanie pojazdu…</span>';return;}
+ if(status==='unavailable'){text.innerHTML='<strong>Warthog</strong><span>Nie udało się załadować pojazdu. Wpisz kod ponownie.</span>';return;}
+ if(surfaceView){surfaceView.locationOverride=true;surfaceView.eyeHeightKm=null;surfaceView.trackBrightest=false;}
+ text.innerHTML='<strong>Warthog</strong><span>W / S · gaz, hamowanie, cofanie <output id="surface-vehicle-speed"></output></span><span>A / D · skręt &nbsp; Shift · szybciej &nbsp; Spacja · hamulec</span><span>Mysz · kamera &nbsp; Pinch / kółko · przybliżenie &nbsp; Esc · wyjdź z pojazdu</span>';
+ const credit=document.createElement('small');credit.className='enterprise-credit';
+ for(const [title,url] of [[source.title,source.url],[source.author,source.authorUrl],[source.license,source.licenseUrl]]){if(credit.childNodes.length)credit.append(' · ');const a=document.createElement('a');a.textContent=title;a.href=url;a.target='_blank';a.rel='noopener noreferrer';credit.append(a);}credit.append(` · ${translate('animowane części')}`);text.append(credit);
+}});
+window.addEventListener('blur',()=>surfaceVehicle?.reset());
 const surfaceRadar=document.createElement('aside');surfaceRadar.id='surface-radar';surfaceRadar.hidden=true;surfaceRadar.setAttribute('aria-label','Radar kierunku');
 surfaceRadar.innerHTML='<strong id="surface-heading" aria-live="off"></strong>';
 surfaceRadar.append(radarWidget.element);
@@ -1506,7 +1548,7 @@ function buildSurfaceHud(){
  const places=placesFor(body);
  surfaceHud.innerHTML=`<div class="surface-head"><strong id="surface-title"></strong><button id="surface-leave" aria-label="Wróć na orbitę">×</button></div><label class="surface-row"><span>Ciało</span><select id="surface-body">${options}</select></label><label class="surface-row"><span>Szerokość</span><input id="surface-latitude" type="range" min="-90" max="90" step="${coordinateStep}" value="${surfaceView.latitude}" aria-label="Szerokość planetograficzna"><output id="surface-latitude-value"></output></label><label class="surface-row"><span>Długość</span><input id="surface-longitude" type="range" min="-180" max="180" step="${coordinateStep}" value="${surfaceView.longitude}" aria-label="Długość planetograficzna"><output id="surface-longitude-value"></output></label><p class="muted surface-note">${tabulated?'Biegun i południk zerowy z tablic IAU. Długość liczona na wschód, planetocentrycznie.':'Satelita zwrócony stale ku planecie: biegun z normalnej orbity, południk zerowy pod planetą.'}</p>${earthLocation}${earthAtmosphere}${knownPlacesMarkup(places)}<p id="surface-light" class="surface-light"></p><div id="surface-objects" class="surface-objects"></div>`;
  document.querySelector('#surface-leave').onclick=stopSurfaceView;
- document.querySelector('#surface-body').onchange=event=>{const id=+event.target.value;detachEarthCloudCover();detachSurfaceMissionAssets(views.get(surfaceView.bodyId));leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
+ document.querySelector('#surface-body').onchange=event=>{surfaceVehicle?.reset();surfaceSession++;const id=+event.target.value;detachEarthCloudCover();detachSurfaceMissionAssets(views.get(surfaceView.bodyId));leaveSurfaceDetail(views.get(surfaceView.bodyId));surfaceView.bodyId=id;
   clearEarthObserverLocation();const body=bs.find(b=>b.id===id);surfaceView.key=body?.key;surfaceView.name=body?.name;surfaceView.deviceLocalTime=isEarthSurface(body);surfaceView.locationState=isEarthSurface(body)?'requesting':null;surfaceView.locationOverride=false;surfaceView.cloudsRecenter=true;surfaceView.trackBrightest=false;
   if(isEarthSurface(body))beginEarthSurfaceContext();else clockShown='';
   releaseSurfaceOrientation();requestDetailTexture(body);enterSurfaceDetail(views.get(body.id),body,renderer.capabilities.getMaxAnisotropy());surfaceView.eyeHeightKm=null;attachSurfaceMissionAssets(views.get(body.id),body,simulatedDate(),bodyAxes(body));attachEarthCloudCover(body);aimAtSomethingWorthSeeing(body);buildSurfaceHud();updateSurfaceView();if(isEarthSurface(body))requestEarthObserverLocation();};
@@ -1514,8 +1556,8 @@ function buildSurfaceHud(){
  surfaceHud.querySelectorAll('.known-place').forEach(button=>button.onclick=()=>goToKnownPlace(surfaceView.bodyId,places[+button.dataset.index]));
  // Dragging a coordinate by hand is exactly as much a manual override as
  // clicking a known place - it must stick the same way.
- document.querySelector('#surface-latitude').oninput=event=>{surfaceView.latitude=+event.target.value;surfaceView.locationOverride=true;surfaceView.cloudsRecenter=true;paintEarthLocation();updateSurfaceView()};
- document.querySelector('#surface-longitude').oninput=event=>{surfaceView.longitude=+event.target.value;surfaceView.locationOverride=true;surfaceView.cloudsRecenter=true;paintEarthLocation();updateSurfaceView()};
+ document.querySelector('#surface-latitude').oninput=event=>{surfaceVehicle?.reset();surfaceSession++;surfaceView.latitude=+event.target.value;surfaceView.locationOverride=true;surfaceView.cloudsRecenter=true;paintEarthLocation();updateSurfaceView()};
+ document.querySelector('#surface-longitude').oninput=event=>{surfaceVehicle?.reset();surfaceSession++;surfaceView.longitude=+event.target.value;surfaceView.locationOverride=true;surfaceView.cloudsRecenter=true;paintEarthLocation();updateSurfaceView()};
  requestAnimationFrame(layoutSurfaceHud);
 }
 function paintEarthLocation(){
@@ -2281,7 +2323,7 @@ window.solare={
  getView:()=>{camera.updateMatrixWorld();return {mode:systemMode?.id??null,compressed,fov:camera.fov,near:camera.near,
   freeFlight:{active:navigation.active(),enterprise:enterpriseEasterEgg.object?{position:enterpriseEasterEgg.object.position.toArray(),scale:enterpriseEasterEgg.object.scale.x,distance:camera.position.distanceTo(enterpriseEasterEgg.object.position),flight:enterpriseEasterEgg.flightState}:null},
   surface:surfaceView?{body:surfaceView.name,latitude:surfaceView.latitude,longitude:surfaceView.longitude,
-   azimuth:surfaceView.azimuth,altitude:surfaceView.altitude}:null,
+   azimuth:surfaceView.azimuth,altitude:surfaceView.altitude,vehicle:surfaceVehicle?.state?{speedKmS:surfaceVehicle.state.speedKmS,lengthKm:surfaceVehicle.state.lengthKm,wheelSpin:surfaceVehicle.state.wheelSpin,wheelTravel:surfaceVehicle.state.wheelTravel,braking:surfaceVehicle.state.braking,exhaust:surfaceVehicle.state.exhaust}:null}:null,
   aim:(value)=>{if(!surfaceView)return null;surfaceView.altitude=Math.max(-89,Math.min(89,value.altitude??surfaceView.altitude));
    surfaceView.azimuth=value.azimuth??surfaceView.azimuth;updateSurfaceView();return true},
   distance:camera.position.distanceTo(controls.target),

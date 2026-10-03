@@ -398,3 +398,14 @@ rows.push(
  ['Przestrzeń międzygwiezdna','Interstellar space','Interstellarer Raum','Espacio interestelar'],
  ['Voyager','Voyager','Voyager','Voyager']
 );
+rows.push(
+ ['Ładowanie pojazdu…','Loading vehicle…','Fahrzeug wird geladen…','Cargando vehículo…'],
+ ['Nie udało się załadować pojazdu. Wpisz kod ponownie.','Vehicle could not be loaded. Enter the code again.','Das Fahrzeug konnte nicht geladen werden. Code erneut eingeben.','No se pudo cargar el vehículo. Introduce el código otra vez.'],
+ ['W / S · gaz, hamowanie, cofanie','W / S · accelerate, brake, reverse','W / S · Gas, bremsen, rückwärts','W / S · acelerar, frenar, marcha atrás'],
+ ['A / D · skręt','A / D · steer','A / D · lenken','A / D · girar'],
+ ['Spacja · hamulec','Space · brake','Leertaste · Bremse','Espacio · freno'],
+ ['Mysz · kamera','Mouse · camera','Maus · Kamera','Ratón · cámara'],
+ ['Esc · wyjdź z pojazdu','Esc · leave vehicle','Esc · Fahrzeug verlassen','Esc · salir del vehículo']
+);
+
+rows.push(['animowane części','animated parts','animierte Teile','partes animadas']);

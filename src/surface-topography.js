@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {gridSurfaceRadius} from './surface-ground-sampler.js';
 import {surfaceAssetKey} from './surface-tiles.js';
 
 // Measured landmark profiles bridge the gap between the inexpensive global
@@ -189,7 +190,7 @@ export function createSurfaceTopography(body,baseMaterial) {
  const key=surfaceAssetKey(body),radiusKm=Number(body?.radius);
  if(!key||!Number.isFinite(radiusKm)||!SURFACE_FEATURES[key]?.length||!baseMaterial)return null;
  const group=new THREE.Group();group.name='surface-topography';
- let signature='',meshes=[],dem=null;
+ let signature='',meshes=[],dem=null,activeFeature=null;
  const demConfig=LOCAL_DEMS[key];
  if(demConfig)fetch(demConfig.path).then(response=>response.ok?response.arrayBuffer():Promise.reject(new Error('terrain unavailable'))).then(buffer=>{
   if(buffer.byteLength!==demConfig.width*demConfig.height*4)return;
@@ -214,10 +215,17 @@ export function createSurfaceTopography(body,baseMaterial) {
    }
    const id=`${key}:${feature.id}`;
    if(id===signature)return true;
-   signature=id;clear();
+   signature=id;clear();activeFeature=feature;
    const mesh=new THREE.Mesh(patchGeometry(key,radiusKm,feature.latitude,feature.longitude,focal.span,dem,focal.segments,focal.feather),patchMaterial(baseMaterial));
    mesh.name=`surface-topography:${key}:${feature.id}`;mesh.frustumCulled=true;meshes.push(mesh);group.add(mesh);
    return true;
+  },
+  sampleRadius(latitude,longitude,direction){
+   if(!meshes.length||!activeFeature)return null;
+   const focal=FOCAL_MESH[key],lonSpan=focal.span/Math.max(.13,Math.cos(radians(activeFeature.latitude)));
+   const x=(wrapLongitude(longitude-activeFeature.longitude)/lonSpan+.5)*focal.segments;
+   const y=((latitude-activeFeature.latitude)/focal.span+.5)*focal.segments;
+   return gridSurfaceRadius(meshes[0].geometry,direction,x,y,focal.segments,focal.segments);
   },
   get loaded(){return meshes.length},
   dispose(){clear()}

@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {gridSurfaceRadius} from './surface-ground-sampler.js';
 
 // Surface tiles are deliberately a separate layer over the global body map.
 // The system map keeps its inexpensive global texture; entering a surface view
@@ -137,7 +138,7 @@ export function createSurfaceTileStream(body, anisotropy = 1) {
   loadTile(path, anisotropy).then(texture => {
    if (disposed || !wanted.has(address.id) || meshes.has(address.id)) return;
    const mesh = new THREE.Mesh(patchGeometry(tileset, address.column, address.row), materialFor(texture));
-   mesh.name = `surface-tile:${address.id}`;
+   mesh.name = `surface-tile:${address.id}`;mesh.userData.address=address;
    mesh.frustumCulled = true;
    meshes.set(address.id, mesh);
    group.add(mesh);
@@ -156,6 +157,15 @@ export function createSurfaceTileStream(body, anisotropy = 1) {
     group.remove(mesh); mesh.geometry.dispose(); mesh.material.dispose(); meshes.delete(id);
    }
    addresses.forEach(address => { if (!meshes.has(address.id)) add(address); });
+  },
+  sampleRadius(latitude,longitude,direction){
+   if(!group.visible)return null;
+   const u=(((longitude+180)/360)%1+1)%1,v=(90-latitude)/180;
+   const column=Math.min(tileset.columns-1,Math.floor(u*tileset.columns)),row=Math.min(tileset.rows-1,Math.floor(v*tileset.rows));
+   const mesh=[...meshes.values()].find(mesh=>mesh.userData.address.column===column&&mesh.userData.address.row===row);
+   if(!mesh)return null;
+   const radial=gridSurfaceRadius(mesh.geometry,direction,(u*tileset.columns-column)*20,(v*tileset.rows-row)*20,20,20);
+   return radial===null?null:radial*SURFACE_TILE_SHELL_SCALE;
   },
   get loaded() { return meshes.size; },
   get targetCount() { return wanted.size; },
