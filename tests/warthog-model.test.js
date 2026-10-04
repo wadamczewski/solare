@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync,existsSync,statSync} from 'node:fs';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
-import {Box3,Vector3} from 'three';
+import {ShaderLib} from 'three';
 import {prepareWarthogModel,WARTHOG_SOURCE} from '../src/warthog-model.js';
 import {createSurfaceVehicleRig} from '../src/surface-vehicle-rig.js';
 import {createSurfaceVehicleDrive} from '../src/surface-vehicle-drive.js';
@@ -26,5 +26,29 @@ test('real source wheels, suspension and original geometry survive animated rig 
   assert.ok(drive.state.wheelSpin.every(angle=>angle<0));assert.ok(drive.state.exhaust>0);assert.ok(asset.wheels[0].node.parent.name!==undefined);
   rig.dispose();assert.ok(asset.wheels.every(w=>w.node.parent.name==='Wheels'));
   let disposals=0;for(const geo of geometries)geo.addEventListener('dispose',()=>disposals++);asset.dispose();asset.dispose();assert.equal(disposals,geometries.size);
+ }finally{if(previous===undefined)delete globalThis.ProgressEvent;else globalThis.ProgressEvent=previous;}
+});
+test('actual source keeps transparent glass with finite close-up refraction and opaque tyres/interior with depth writes',async()=>{
+ const {j,binary}=source();j.buffers[0].uri='data:application/octet-stream;base64,'+binary.toString('base64');
+ // Exercise the real exported scalar material settings, without requiring
+ // browser image decoding in Node. Texture references are checked above.
+ for(const m of j.materials){
+  delete m.normalTexture;delete m.occlusionTexture;delete m.emissiveTexture;
+  delete m.pbrMetallicRoughness.baseColorTexture;delete m.pbrMetallicRoughness.metallicRoughnessTexture;
+ }
+ delete j.images;delete j.textures;j.extensionsUsed=j.extensionsUsed.filter(x=>x!=='EXT_texture_webp');delete j.extensionsRequired;
+ const previous=globalThis.ProgressEvent;globalThis.ProgressEvent=class{constructor(type,options){Object.assign(this,options);}};
+ try{
+  const gltf=await new GLTFLoader().parseAsync(JSON.stringify(j),''),asset=prepareWarthogModel(gltf.scene),materials=new Map();
+  asset.model.traverse(n=>{if(n.material)materials.set(n.material.name,n.material);});
+  for(const name of ['Warthog_Mat','Warthog_Int_Mat','Warthog_Tyre_Mat','Warthog_Turret_Mat']){const m=materials.get(name);assert.equal(m.transparent,false,name);assert.equal(m.depthWrite,true,name);assert.equal(m.opacity,1,name);}
+  const glass=materials.get('Warthog_Glass_Mat');assert.equal(glass.transparent,true);assert.equal(glass.opacity,.25);assert.equal(glass.transmission,.85);
+  const shader={uniforms:{},fragmentShader:ShaderLib.physical.fragmentShader};glass.onBeforeCompile(shader);
+  assert.match(shader.fragmentShader,/vec3 pos = -vViewPosition;/);assert.match(shader.fragmentShader,/vec3 v = normalize\( -pos \)/);
+  assert.match(shader.fragmentShader,/pos, modelMatrix, mat4\( 1\.0 \), projectionMatrix/);assert.ok(!shader.fragmentShader.includes('cameraPosition - pos'));
+  // Original world-space subtraction degenerates at the real scene scale.
+  const camera=5,surface=5+2e-9;assert.equal(Math.fround(camera)-Math.fround(surface),0);
+  const view=[Math.fround(2e-9),Math.fround(1e-9),Math.fround(4e-9)],length=Math.hypot(...view);assert.ok(view.map(x=>x/length).every(Number.isFinite));
+  asset.dispose();
  }finally{if(previous===undefined)delete globalThis.ProgressEvent;else globalThis.ProgressEvent=previous;}
 });

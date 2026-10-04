@@ -1,4 +1,4 @@
-import {Box3,Group,Vector3} from 'three';
+import {Box3,Group,ShaderChunk,Vector3} from 'three';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 
 export const WARTHOG_SOURCE=Object.freeze({title:'Warthog - Standard edition',author:'McCarthy3D',url:'https://sketchfab.com/3d-models/warthog-standard-edition-e2d23c845eb34df2a286915890bb621a',authorUrl:'https://sketchfab.com/joshuawatt811',license:'CC BY 4.0',licenseUrl:'https://creativecommons.org/licenses/by/4.0/'});
@@ -8,6 +8,31 @@ export function prepareWarthogModel(scene){
  // The source includes a presentation floor. Retain ownership for disposal,
  // but never render or include it in the vehicle's bounds or tyre contacts.
  const floor=scene.getObjectByName('Globals');if(floor)floor.visible=false;
+ const materials=new Set();scene.traverse(node=>{for(const material of Array.isArray(node.material)?node.material:node.material?[node.material]:[])materials.add(material);});
+ for(const material of materials){
+  if(material.name==='Warthog_Glass_Mat'){
+   // At AU scale, float world positions round the camera and windscreen to
+   // the same point. normalize(cameraPosition-vWorldPosition) becomes NaN,
+   // then the bloom pyramid spreads those invalid pixels across the screen.
+   // Refraction is equivalent in view space for this uniformly scaled,
+   // thin glass; retain the source transparency/transmission and textures.
+   const previous=material.onBeforeCompile;
+   material.onBeforeCompile=shader=>{
+    previous?.(shader);
+    const refraction=ShaderChunk.transmission_fragment
+     .replace('vec3 pos = vWorldPosition;','vec3 pos = -vViewPosition;')
+     .replace('normalize( cameraPosition - pos )','normalize( -pos )')
+     .replace('transformNormalByInverseViewMatrix( normal, viewMatrix )','normal')
+     .replace('pos, modelMatrix, viewMatrix, projectionMatrix','pos, modelMatrix, mat4( 1.0 ), projectionMatrix');
+    shader.fragmentShader=shader.fragmentShader.replace('#include <transmission_fragment>',refraction);
+   };
+   material.customProgramCacheKey=()=> 'warthog-view-space-glass-v1';
+  }else if(material.name==='Warthog_Tyre_Mat'||material.name==='Warthog_Int_Mat'){
+   // These authored colour maps are RGB, entirely opaque despite the FBX
+   // BLEND flag. Use ordinary depth writes, including between tyre faces.
+   material.transparent=false;material.opacity=1;material.depthWrite=true;
+  }
+ }
  const hull=scene.getObjectByName('Warthog_LP');if(!hull)throw new Error('Missing Warthog hull');
  scene.updateMatrixWorld(true);
  const box=new Box3().setFromObject(hull),turret=scene.getObjectByName('Warthog_Turret_LP');if(turret)box.union(new Box3().setFromObject(turret));

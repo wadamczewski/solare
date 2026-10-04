@@ -14,6 +14,7 @@ import {applyImpactDamage} from './impact-damage.js';
 import {createNavigation} from './navigation.js';
 import {createSurfaceVehicleEasterEgg} from './surface-vehicle-easter-egg.js';
 import {createSurfaceGroundSampler} from './surface-ground-sampler.js';
+import {installSceneDepth} from './scene-depth.js';
 import {createEnterpriseEasterEgg} from './enterprise-easter-egg.js';
 import {applyCentralStarPreset,blackbodyColor,centralStarDetails,centralStars,effectiveLuminosity,starPreset,visualLuminosity} from './central-stars.js';
 import {SOLAR_EVOLUTION_SECONDS,SOLAR_PHASES,SOLAR_RADIUS_KM,adiabaticExpansion,solarEvolutionBodyState,solarEvolutionState,solarPhaseNote} from './solar-evolution.js';
@@ -83,6 +84,7 @@ import {createAdaptiveQuality} from './adaptive-quality.js';
 import {createSpacecraftVisual} from './spacecraft-visuals.js';
 import {attachSurfaceMissionAssets,detachSurfaceMissionAssets,missionFraming,missionModelSize,missionPlacesFor,missionSitesFor} from './surface-missions.js';
 const mount=document.querySelector('#universe'),panel=document.querySelector('#panel'),tip=document.querySelector('#tooltip');
+installSceneDepth();
 const renderer=new THREE.WebGLRenderer({antialias:true,powerPreference:'high-performance',alpha:false,logarithmicDepthBuffer:true});renderer.setClearColor('#000000');renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.setSize(innerWidth,innerHeight);renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.NeutralToneMapping;renderer.toneMappingExposure=1;renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;mount.append(renderer.domElement);renderer.domElement.tabIndex=0;renderer.domElement.setAttribute('aria-label','Mapa 3D. Przeciągnij, aby obrócić. Kółko: zoom. WASD: lot i sterowanie myszą. Q/E: dół/góra. Shift: szybciej. Escape: zwolnij mysz i zamknij panel. Shift i lewy przycisk: przesuwanie. Kliknij ciało lub przestrzeń. Spacja: pauza.');
 // Rates the clock can run at, in days per second of wall time. The slowest is
 // real time, where the simulated clock keeps step with the one on the wall.
